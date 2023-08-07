@@ -1,4 +1,4 @@
-import { Readable } from "stream"
+import { Duplex, Readable } from "stream"
 import { ICustomDisposable, ICustomWritable } from "../common/types"
 
 export interface ProtocolSendResultInternal {
@@ -63,10 +63,7 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
 }
 
 export interface IQuasiHttpTransport {
-    writeBytes(connection: any, data: Buffer, offset: number, length: number):
-        Promise<void>
-    readBytes(connection: any, data: Buffer, offset: number, length: number):
-        Promise<number>
+    getStream(connection: any): Promise<Duplex>
     releaseConnection(connection: any): Promise<void>
 }
 
