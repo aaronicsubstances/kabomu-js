@@ -1,9 +1,9 @@
-import { Duplex, Readable } from "stream"
+import { Readable, Writable } from "stream"
 import { ICustomDisposable, ICustomWritable } from "../common/types"
 
 export interface ProtocolSendResultInternal {
-    response: IQuasiHttpResponse | null
-    responseBufferingApplied: boolean | null
+    response?: IQuasiHttpResponse
+    responseBufferingApplied?: boolean
 }
 
 export interface ISendProtocolInternal {
@@ -11,41 +11,51 @@ export interface ISendProtocolInternal {
     send(): Promise<ProtocolSendResultInternal>
 }
 
+export interface IReceiveProtocolInternal {
+    cancel(): Promise<void>
+    receive(): Promise<IQuasiHttpResponse>
+}
+
 export interface IQuasiHttpRequest extends ICustomDisposable {
-    target: string
-    headers: Map<string, string[]>
-    body: IQuasiHttpBody
-    method: string
-    httpVersion: string
-    environment: Map<string, any>
+    target?: string
+    headers?: Map<string, string[]>
+    body?: IQuasiHttpBody
+    method?: string
+    httpVersion?: string
+    environment?: Map<string, any>
 }
 
 export interface IQuasiHttpResponse extends ICustomDisposable {
     statusCode: number
-    headers: Map<string, string[]>
-    body: IQuasiHttpBody
-    httpStatusMessage: string
-    httpVersion: string
-    environment: Map<string, any>
+    headers?: Map<string, string[]>
+    body?: IQuasiHttpBody
+    httpStatusMessage?: string
+    httpVersion?: string
+    environment?: Map<string, any>
 }
 
 export interface IQuasiHttpBody extends ICustomDisposable, ICustomWritable {
-    contentLength: number
-    reader(): Readable | null
+    contentLength: bigint
+    reader?: Readable
 }
 
 export interface IConnectionAllocationResponse {
     connection: any
-    environment: Map<string, any>
+    environment?: Map<string, any>
 }
 
 export interface IQuasiHttpSendOptions {
-    extraConnectivityParams: Map<string, any>
+    extraConnectivityParams?: Map<string, any>
     timeoutMillis: number
     maxChunkSize: number
-    responseBufferingEnabled: boolean | null
+    responseBufferingEnabled?: boolean
     responseBodyBufferingSizeLimit: number
-    ensureNonNullResponse: boolean | null 
+    ensureNonNullResponse?: boolean 
+}
+
+export interface IQuasiHttpProcessingOptions {
+    timeoutMillis: number
+    maxChunkSize: number
 }
 
 export interface IQuasiHttpAltTransport {
@@ -63,19 +73,10 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
 }
 
 export interface IQuasiHttpTransport {
-    getStream(connection: any): Promise<Duplex>
+    getReader(connection: any): Promise<Readable>
+    getWriter(connection: any): Promise<Writable>
     releaseConnection(connection: any): Promise<void>
 }
 
 export interface IQuasiHttpServerTransport  extends IQuasiHttpTransport {
-}
-
-export interface IReceiveProtocolInternal {
-    cancel(): Promise<void>
-    receive(): Promise<IQuasiHttpResponse>
-}
-
-export interface IQuasiHttpProcessingOptions {
-    timeoutMillis: number
-    maxChunkSize: number
 }

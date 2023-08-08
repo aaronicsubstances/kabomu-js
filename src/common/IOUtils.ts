@@ -1,45 +1,41 @@
-import { Readable, Writable } from "stream"
-import { CustomIOError } from "./errors"
-import { ICustomWritable } from "./types"
+import { Readable, Writable } from "stream";
+import { CustomIOError } from "./errors";
+import { ICustomWritable } from "./types";
 
 /**
  * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
  */
-export const DefaultDataBufferLimit = 65_536 * 2 * 1024
+export const DefaultDataBufferLimit = 134_217_728;
 
 /**
  * The default read buffer size. Equal to 8,192 bytes.
  */
-export const DefaultReadBufferSize = 8192
-
-export async function closeStream(stream: Readable | Writable) {
-    throw new Error("Function not implemented.")
-}
+export const DefaultReadBufferSize = 8192;
 
 export async function readBytes(reader: Readable, data: Buffer,
         offset: number, length: number): Promise<number> {
-    throw new Error("Function not implemented.")
+    throw new Error("Function not implemented.");
 }
 
-export async function writeBytesFully(writer: Writable, data: Buffer,
+export async function writeBytes(writer: Writable, data: Buffer,
         offset: number, length: number): Promise<void> {
-    throw new Error("Function not implemented.")
+    throw new Error("Function not implemented.");
 }
 
 export async function readBytesFully(reader: Readable, data: Buffer,
         offset: number, length: number): Promise<void> {
     while (true) {
-        const bytesRead = await readBytes(reader, data, offset, length)
+        const bytesRead = await readBytes(reader, data, offset, length);
 
         if (bytesRead < length) {
             if (bytesRead <= 0) {
-                throw new Error("unexpected end of read")
+                throw new Error("unexpected end of read");
             }
-            offset += bytesRead
-            length -= bytesRead
+            offset += bytesRead;
+            length -= bytesRead;
         }
         else {
-            break
+            break;
         }
     }
 }
@@ -47,53 +43,50 @@ export async function readBytesFully(reader: Readable, data: Buffer,
 export async function readAllBytes(reader: Readable, bufferingLimit = 0,
         readBufferSize = 0): Promise<Buffer> {
     if (!bufferingLimit) {
-        bufferingLimit = DefaultDataBufferLimit
+        bufferingLimit = DefaultDataBufferLimit;
     }
     if (!readBufferSize || readBufferSize < 0) {
-        readBufferSize = DefaultReadBufferSize
+        readBufferSize = DefaultReadBufferSize;
     }
-    const chunks = new Array<Buffer>()
+    const chunks = new Array<Buffer>();
 
-    let totalBytesRead = 0
+    let totalBytesRead = 0;
 
     while (true) {
-        let bytesToRead = readBufferSize
+        let bytesToRead = readBufferSize;
         if (bufferingLimit >= 0) {
-            bytesToRead = Math.min(bytesToRead, bufferingLimit - totalBytesRead)
+            bytesToRead = Math.min(bytesToRead, bufferingLimit - totalBytesRead);
         }
         // force a read of 1 byte if there are no more bytes to read into memory stream buffer
         // but still remember that no bytes was expected.
-        let expectedEndOfRead = false
+        let expectedEndOfRead = false;
         if (!bytesToRead) {
-            bytesToRead = 1
-            expectedEndOfRead = true
+            bytesToRead = 1;
+            expectedEndOfRead = true;
         }
-        const readBuffer = Buffer.allocUnsafe(readBufferSize)
-        const bytesRead = await readBytes(reader, readBuffer, 0, bytesToRead)
-        if (bytesRead > 0)
-        {
+        const readBuffer = Buffer.allocUnsafe(readBufferSize);
+        const bytesRead = await readBytes(reader, readBuffer, 0, bytesToRead);
+        if (bytesRead > 0) {
             if (expectedEndOfRead) {
                 throw CustomIOError.createDataBufferLimitExceededError(
-                    bufferingLimit)
+                    bufferingLimit);
             }
-            chunks.push(Buffer.from(readBuffer.buffer, 0, bytesRead))
+            chunks.push(Buffer.from(readBuffer.buffer, 0, bytesRead));
             if (bufferingLimit >= 0) {
-                totalBytesRead += bytesRead
+                totalBytesRead += bytesRead;
             }
         }
-        else
-        {
-            break
+        else {
+            break;
         }
     }
-    await closeStream(reader)
-    return Buffer.concat(chunks)
+    return Buffer.concat(chunks);
 }
 
 export async function copyBytes(reader: Readable, writer: Writable) {
     //reader.pipe(writer)
     //wait for piping to end?
-    throw new Error("Function not implemented.")
+    throw new Error("Function not implemented.");
 }
 
 /*export async function coalesceAsReader(reader?: Readable, fallback?: ICustomWritable) {

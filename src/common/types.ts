@@ -1,9 +1,9 @@
 import { Writable } from "stream";
 
 export interface ICustomDisposable {
-    close(): Promise<void>
+    release(): Promise<void>
 }
 
-export interface ICustomWritable extends ICustomDisposable {
+export interface ICustomWritable {
     writeBytesTo(writer: Writable): Promise<void>
 }
