@@ -88,20 +88,3 @@ export async function copyBytes(reader: Readable, writer: Writable) {
     //wait for piping to end?
     throw new Error("Function not implemented.");
 }
-
-/*export async function coalesceAsReader(reader?: Readable, fallback?: ICustomWritable) {
-    if (reader || !fallback) {
-        return reader
-    }
-    const memoryPipe = new MemoryPipeCustomReaderWriter()
-    // don't wait
-    memoryPipe.deferClose(async () => {
-        try {
-            await fallback.writeBytesTo(memoryPipe)
-        }
-        finally {
-            await fallback.close()
-        }
-    })
-    return memoryPipe
-}*/
