@@ -12,8 +12,11 @@ export class KabomuError extends Error {
  * as well as errors encountered by IOUtils module.
  */
 export class CustomIOError extends KabomuError {
-    static createContentLengthNotSatisfiedError(contentLength: number) {
-        return new CustomIOError(`insufficient bytes available to satisfy content length of ${contentLength} bytes`)
+    static createContentLengthNotSatisfiedError(contentLength: bigint,
+            remainingBytesToRead: bigint) {
+        return new CustomIOError(`insufficient bytes available to satisfy ` +
+            `content length of ${contentLength} bytes (could not read remaining ` +
+            `${remainingBytesToRead} bytes before end of read)`)
     }
     
     static createDataBufferLimitExceededError(bufferSizeLimit: number) {

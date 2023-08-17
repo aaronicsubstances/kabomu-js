@@ -2,8 +2,8 @@ import { QuasiHttpRequestProcessingError } from "./errors";
 import { IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
 import * as EntityBodyUtils from "./entitybody/EntityBodyUtils";
-import { ChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
-import { ContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
+import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
+import { createContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
 import { ChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
 import { Readable, Writable } from "stream";
 import { ByteBufferBody } from "./entitybody/ByteBufferBody";
@@ -105,7 +105,7 @@ export async function createEquivalentOfUnknownBodyInMemory(
     // still pass it on
     const contentLength = body.contentLength;
     if (contentLength >= 0) {
-        reader = new ContentLengthEnforcingCustomReader(reader,
+        reader = createContentLengthEnforcingCustomReader(reader,
             contentLength);
     }
 
@@ -147,11 +147,11 @@ export async function createBodyFromTransport(
     }
 
     if (contentLength < BigInt(0)) {
-        reader = new ChunkDecodingCustomReader(reader,
+        reader = createChunkDecodingCustomReader(reader,
             maxChunkSize);
     }
     else {
-        reader = new ContentLengthEnforcingCustomReader(reader,
+        reader = createContentLengthEnforcingCustomReader(reader,
             contentLength);
     }
     if (bufferingEnabled) {

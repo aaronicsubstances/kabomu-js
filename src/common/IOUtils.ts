@@ -74,7 +74,7 @@ export async function readBytesFully(reader: Readable, data: Buffer,
 
         if (bytesRead < length) {
             if (bytesRead <= 0) {
-                throw new Error("unexpected end of read");
+                throw new CustomIOError("unexpected end of read");
             }
             offset += bytesRead;
             length -= bytesRead;

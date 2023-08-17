@@ -34,7 +34,7 @@ const LengthOfEncodedChunkLength = 3;
  */
 export const HardMaxChunkSizeLimit = 8_388_607;
 
-export async function _encodeSubsequentChunkHeader(
+export async function encodeSubsequentChunkV1Header(
         chunkDataLength: number, writer: Writable, bufferToUse: Buffer):
         Promise<void> {
     ByteUtils.serializeUpToInt32BigEndian(
@@ -45,7 +45,7 @@ export async function _encodeSubsequentChunkHeader(
     await IOUtils.writeBytes(writer, bufferToUse, 0, LengthOfEncodedChunkLength + 2)
 }
 
-export async function _decodeSubsequentChunkHeader(
+export async function decodeSubsequentChunkV1Header(
         reader: Readable, bufferToUse: Buffer, maxChunkSize: number):
         Promise<number> {
     try {
