@@ -1,6 +1,5 @@
 import { Readable, Writable } from "stream";
 import { CustomIOError } from "./errors";
-import { ICustomWritable } from "./types";
 
 /**
  * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
@@ -14,12 +13,58 @@ export const DefaultReadBufferSize = 8192;
 
 export async function readBytes(reader: Readable, data: Buffer,
         offset: number, length: number): Promise<number> {
-    throw new Error("Function not implemented.");
+    const p = new Promise<number>((resolve, reject) => {
+        const onError = function(err: any) {
+            reader.removeListener('readable', onReadable);
+            reader.removeListener('end', onEnd);
+            reject(err);
+        };
+        const onEnd = function() {
+            reader.removeListener('readable', onReadable);
+            reader.removeListener('error', onError);
+            resolve(0);
+        };
+        const onReadable = function() {
+            const chunk = reader.read();
+            if (chunk !== null) {
+                // Remove the 'readable' listener before unshifting.
+                reader.removeListener('readable', onReadable);
+                reader.removeListener('end', onEnd);
+                const bytesRead = Math.min(length, chunk.length);
+                if (bytesRead < chunk.length) {
+                    reader.unshift(Buffer.from(chunk.buffer,
+                        bytesRead, chunk.length - bytesRead));
+                }
+                chunk.copy(data, offset, 0, bytesRead);
+                reader.removeListener('error', onError);
+                resolve(bytesRead);
+            }
+        };
+        reader.on("readable", onReadable);
+        reader.once("end", onEnd);
+        reader.once("error", onError);
+    })
+    return await p;
 }
 
 export async function writeBytes(writer: Writable, data: Buffer,
-        offset: number, length: number): Promise<void> {
-    throw new Error("Function not implemented.");
+        offset: number, length: number) {
+    await new Promise<void>((resolve, reject)=> {
+        const writeCb = (err: any) => {
+            if (err) {
+                reject(err);
+            }
+            else {
+                resolve();
+            }
+        };
+        const repeater = function() {
+            if (!writer.write(Buffer.from(data.buffer, offset, length), writeCb)) {
+                writer.once("drain", repeater);
+            }
+        }
+        repeater();
+    });
 }
 
 export async function readBytesFully(reader: Readable, data: Buffer,
@@ -50,6 +95,7 @@ export async function readAllBytes(reader: Readable, bufferingLimit = 0,
     }
     const chunks = new Array<Buffer>();
 
+    const readBuffer = Buffer.allocUnsafeSlow(readBufferSize);
     let totalBytesRead = 0;
 
     while (true) {
@@ -64,7 +110,6 @@ export async function readAllBytes(reader: Readable, bufferingLimit = 0,
             bytesToRead = 1;
             expectedEndOfRead = true;
         }
-        const readBuffer = Buffer.allocUnsafe(readBufferSize);
         const bytesRead = await readBytes(reader, readBuffer, 0, bytesToRead);
         if (bytesRead > 0) {
             if (expectedEndOfRead) {
@@ -84,7 +129,17 @@ export async function readAllBytes(reader: Readable, bufferingLimit = 0,
 }
 
 export async function copyBytes(reader: Readable, writer: Writable) {
-    //reader.pipe(writer)
-    //wait for piping to end?
-    throw new Error("Function not implemented.");
+    await new Promise<void>((resolve, reject) => {
+        const onError = function(err: any) {
+            reader.removeListener('end', onEnd);
+            reject(err);
+        };
+        const onEnd = function() {
+            reader.removeListener('error', onError);
+            resolve();
+        };
+        reader.pipe(writer, { end: false });
+        reader.once("end", onEnd);
+        reader.once("error", onError);
+    });
 }

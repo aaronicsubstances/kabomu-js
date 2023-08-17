@@ -1,7 +1,9 @@
+import { Readable } from "stream";
+import { MemoryPipeCustomReaderWriter } from "../../common/MemoryPipeCustomReaderWriter";
 import { ICustomWritable } from "../../common/types";
 import { IQuasiHttpBody } from "../types";
 
-export function asReader(body: IQuasiHttpBody) {
+export function asReader(body: IQuasiHttpBody): Readable {
     if (!body) {
         throw new Error("received null body argument");
     }

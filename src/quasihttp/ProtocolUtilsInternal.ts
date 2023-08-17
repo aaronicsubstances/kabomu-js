@@ -2,6 +2,10 @@ import { QuasiHttpRequestProcessingError } from "./errors";
 import { IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
 import * as EntityBodyUtils from "./entitybody/EntityBodyUtils";
+import { ChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
+import { ContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
+import { ChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
+import { Readable, Writable } from "stream";
 
 function parseIntExactly(input: any) {
     const n = Number(input);
@@ -113,7 +117,7 @@ export async function createEquivalentOfUnknownBodyInMemory(
 }
 
 export async function transferBodyToTransport(
-    writer: any, maxChunkSize: number, body: IQuasiHttpBody) {
+        writer: Writable, maxChunkSize: number, body: IQuasiHttpBody) {
     const contentLength = body?.contentLength ?? 0;
     if (!body || !contentLength) {
         return;
@@ -130,8 +134,8 @@ export async function transferBodyToTransport(
 }
 
 export async function createBodyFromTransport(
-        reader: any,
-        contentLength: BigInt,
+        reader: Readable,
+        contentLength: bigint,
         releaseFunc: () => Promise<void> | null,
         maxChunkSize: number,
         bufferingEnabled: boolean,
