@@ -5,4 +5,8 @@ export class MemoryPipeCustomReaderWriter extends Duplex {
         super();
     }
     // explore stream.PassThrough type?
+
+    async endWrites(e?: any) {
+
+    }
 }

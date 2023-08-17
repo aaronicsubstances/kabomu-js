@@ -79,7 +79,7 @@ export async function readLeadChunk(reader: Readable, maxChunkSize = 0):
     }
     let chunkBytes: Buffer | undefined;
     try {
-        const encodedLength = Buffer.allocUnsafe(LengthOfEncodedChunkLength);
+        const encodedLength = Buffer.allocUnsafeSlow(LengthOfEncodedChunkLength);
         if (await IOUtils.readBytes(reader, encodedLength, 0, 1) <= 0) {
             return null;
         }
@@ -88,7 +88,7 @@ export async function readLeadChunk(reader: Readable, maxChunkSize = 0):
         const chunkLen = ByteUtils.deserializeUpToInt32BigEndian(encodedLength, 0,
             encodedLength.length, true);
         validateChunkLength(chunkLen, maxChunkSize);
-        chunkBytes = Buffer.allocUnsafe(chunkLen);
+        chunkBytes = Buffer.allocUnsafeSlow(chunkLen);
     }
     catch (e) {
         throw new ChunkDecodingError("Failed to decode quasi http headers while " +
@@ -143,7 +143,7 @@ export async function writeLeadChunk(writer: Writable, chunk: LeadChunk,
     if (byteCount > HardMaxChunkSizeLimit) {
         throw new Error(`headers larger than max chunk size limit of ${HardMaxChunkSizeLimit}`);
     }
-    const encodedLength = Buffer.allocUnsafe(LengthOfEncodedChunkLength);
+    const encodedLength = Buffer.allocUnsafeSlow(LengthOfEncodedChunkLength);
     ByteUtils.serializeUpToInt32BigEndian(byteCount, encodedLength, 0,
         encodedLength.length);
     await IOUtils.writeBytes(writer, encodedLength, 0, encodedLength.length);

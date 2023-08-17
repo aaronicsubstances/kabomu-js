@@ -226,7 +226,7 @@ function calculateSizeInBytesOfEscapedValue(raw: string) {
     // escape empty strings with two double quotes to resolve ambiguity
     // between an empty row and a row containing an empty string - otherwise both
     // serialize to the same CSV output.
-    let desiredSize = new Blob([raw]).size;
+    let desiredSize = Buffer.byteLength(raw);
     if (raw === "" || valueContainsSpecialCharacters) {
         desiredSize += doubleQuoteCount + 2; // for quoting and surrounding double quotes.
     }

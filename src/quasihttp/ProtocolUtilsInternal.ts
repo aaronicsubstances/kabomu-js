@@ -6,6 +6,8 @@ import { ChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustom
 import { ContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
 import { ChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
 import { Readable, Writable } from "stream";
+import { ByteBufferBody } from "./entitybody/ByteBufferBody";
+import { LambdaBasedQuasiHttpBody } from "./entitybody/LambdaBasedQuasiHttpBody";
 
 function parseIntExactly(input: any) {
     const n = Number(input);
@@ -156,7 +158,7 @@ export async function createBodyFromTransport(
         const inMemBuffer = await IOUtils.readAllBytes(
             reader, bodyBufferingSizeLimit);
         const bufferedBody = new ByteBufferBody(inMemBuffer);
-        bufferedBody.ContentLength = contentLength;
+        bufferedBody.contentLength = contentLength;
         return bufferedBody;
     }
     else {

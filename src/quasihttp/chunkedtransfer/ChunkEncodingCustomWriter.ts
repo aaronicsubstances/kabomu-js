@@ -5,4 +5,8 @@ export class ChunkEncodingCustomWriter extends Writable {
         super()
     }
     // create internal transform and use as writable
+
+    async endWrites() {
+        
+    }
 }

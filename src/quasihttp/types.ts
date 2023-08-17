@@ -36,7 +36,7 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
 
 export interface IQuasiHttpBody extends ICustomDisposable, ICustomWritable {
     contentLength: bigint
-    reader?: Readable
+    getReader(): Readable | null
 }
 
 export interface IConnectionAllocationResponse {

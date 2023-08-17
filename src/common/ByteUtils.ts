@@ -29,7 +29,10 @@ export function isValidByteBufferSlice(data: Buffer, offset: number, length: num
  * @returns buffer representing UTF-8 encoding of string
  */
 export function stringToBytes(s: string) {
-    return Buffer.from(s, "utf8");
+    if (typeof s !== "string") {
+        throw new Error("argument must be a string");
+    }
+    return Buffer.from(s);
 }
 
 /**

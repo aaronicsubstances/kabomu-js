@@ -7,7 +7,7 @@ export function asReader(body: IQuasiHttpBody): Readable {
     if (!body) {
         throw new Error("received null body argument");
     }
-    const reader = body.reader;
+    const reader = body.getReader();
     if (reader) {
         return reader
     }
