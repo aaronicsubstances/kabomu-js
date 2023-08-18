@@ -21,7 +21,7 @@ const generate = async function*(wrappedReader: Readable, maxChunkSize: number) 
             buffered.length = 0;
 
             chunkDataLenRem = await chunkTransferUtils.decodeSubsequentChunkV1Header(
-                maxChunkSize, data, null);
+                data, null, maxChunkSize);
             const extraDataLen = data.length - ChunkedTransferUtils.LengthOfEncodedChunkLength - 2;
             if (chunkDataLenRem === 0) {                
                 if (extraDataLen > 0) {
@@ -56,7 +56,7 @@ const generate = async function*(wrappedReader: Readable, maxChunkSize: number) 
     if (chunkDataLenRem == 0 && buffered.length > 0) {
         data = Buffer.concat(buffered);
         chunkDataLenRem = await chunkTransferUtils.decodeSubsequentChunkV1Header(
-            maxChunkSize, data, null);
+            data, null, maxChunkSize);
         const extraDataLen = data.length - ChunkedTransferUtils.LengthOfEncodedChunkLength - 2;
         if (chunkDataLenRem === 0) {
             if (extraDataLen > 0) {

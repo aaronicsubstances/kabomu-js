@@ -54,16 +54,20 @@ export class ChunkedTransferUtils {
             ChunkedTransferUtils.LengthOfEncodedChunkLength + 2)
     }
 
-    async decodeSubsequentChunkV1Header(maxChunkSize: number,
-            bufferToUse: Buffer | null, reader: Readable | null) {
+    async decodeSubsequentChunkV1Header(
+            bufferToUse: Buffer | null, reader: Readable | null,
+            maxChunkSize = 0) {
+        if (maxChunkSize <= 0) {
+            maxChunkSize = ChunkedTransferUtils.DefaultMaxChunkSize;
+        }
+        if (!bufferToUse && !reader) {
+            throw new Error("reader argument is null if " +
+                "bufferToUse argument is null");
+        }
         try {
             if (!bufferToUse) {
                 bufferToUse = this._headerBuffer;
-                if (!reader) {
-                    throw new Error("reader argument is null if " +
-                        "bufferToUse argument is null");
-                }
-                await IOUtils.readBytesFully(reader, bufferToUse, 0,
+                await IOUtils.readBytesFully(reader!, bufferToUse, 0,
                     ChunkedTransferUtils.LengthOfEncodedChunkLength + 2);
             }
             const chunkLen = ByteUtils.deserializeUpToInt32BigEndian(bufferToUse,
