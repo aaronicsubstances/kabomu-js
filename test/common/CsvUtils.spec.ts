@@ -173,7 +173,7 @@ describe("CsvUtils", function() {
             })
         })
     })
-    describe("#", function() {
+    describe("#deserialize", function() {
         const testData = [
             {
                 csv: "",

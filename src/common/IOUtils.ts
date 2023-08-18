@@ -2,6 +2,7 @@ import { Readable, Writable, finished as finishedWithCb } from "stream";
 import { finished } from "node:stream/promises";
 
 import { CustomIOError } from "./errors";
+import * as ByteUtils from "../common/ByteUtils";
 
 /**
  * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
@@ -104,6 +105,9 @@ export async function readBytes(reader: Readable, data: Buffer,
  */
 export async function readBytesFully(reader: Readable, data: Buffer,
         offset: number, length: number): Promise<void> {
+    if (!ByteUtils.isValidByteBufferSlice(data, offset, length)) {
+        throw new Error("invalid buffer slice");
+    }
     while (true) {
         const bytesRead = await readBytes(reader, data, offset, length);
 
@@ -131,50 +135,35 @@ export async function readBytesFully(reader: Readable, data: Buffer,
  * resulting in-memory buffer. Can pass zero to use a default value.
  * Can also pass a negative value which will ignore imposing a maximum
  * size.
- * @param readBufferSize The size in bytes of the temporary read
- * buffer to use. Can pass zero to use default value.
  * @returns A promise whose result is an in-memory buffer which has
  * all of the remaining data in the stream argument.
  */
-export async function readAllBytes(reader: Readable, bufferingLimit = 0,
-        readBufferSize = 0): Promise<Buffer> {
+export async function readAllBytes(reader: Readable,
+        bufferingLimit = 0): Promise<Buffer> {
     if (!bufferingLimit) {
         bufferingLimit = DefaultDataBufferLimit;
     }
-    if (!readBufferSize || readBufferSize < 0) {
-        readBufferSize = DefaultReadBufferSize;
-    }
     const chunks = new Array<Buffer>();
-
-    const readBuffer = Buffer.allocUnsafeSlow(readBufferSize);
+    if (bufferingLimit < 0) {
+        await copyBytes(reader, new Writable({
+            write(chunk, encoding, cb) {
+                chunks.push(chunk);
+                cb();
+            }
+        }));
+        return Buffer.concat(chunks);
+    }
+    
     let totalBytesRead = 0;
-
-    while (true) {
-        let bytesToRead = readBufferSize;
+    for await (const chunk of reader) {
         if (bufferingLimit >= 0) {
-            bytesToRead = Math.min(bytesToRead, bufferingLimit - totalBytesRead);
-        }
-        // force a read of 1 byte if there are no more bytes to read into memory stream buffer
-        // but still remember that no bytes was expected.
-        let expectedEndOfRead = false;
-        if (!bytesToRead) {
-            bytesToRead = 1;
-            expectedEndOfRead = true;
-        }
-        const bytesRead = await readBytes(reader, readBuffer, 0, bytesToRead);
-        if (bytesRead > 0) {
-            if (expectedEndOfRead) {
+            totalBytesRead += chunk.length;
+            if (totalBytesRead > bufferingLimit) {
                 throw CustomIOError.createDataBufferLimitExceededError(
                     bufferingLimit);
             }
-            chunks.push(readBuffer.subarray(0, bytesRead));
-            if (bufferingLimit >= 0) {
-                totalBytesRead += bytesRead;
-            }
         }
-        else {
-            break;
-        }
+        chunks.push(chunk);
     }
     return Buffer.concat(chunks);
 }
