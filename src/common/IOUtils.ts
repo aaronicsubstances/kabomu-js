@@ -25,15 +25,15 @@ export async function readBytes(reader: Readable, data: Buffer,
             resolve(0);
         };
         const onReadable = function() {
-            const chunk = reader.read();
+            const chunk = reader.read() as Buffer | null;
             if (chunk !== null) {
                 // Remove the 'readable' listener before unshifting.
                 reader.removeListener('readable', onReadable);
                 reader.removeListener('end', onEnd);
                 const bytesRead = Math.min(length, chunk.length);
                 if (bytesRead < chunk.length) {
-                    reader.unshift(Buffer.from(chunk.buffer,
-                        bytesRead, chunk.length - bytesRead));
+                    reader.unshift(chunk.subarray(
+                        bytesRead, chunk.length));
                 }
                 chunk.copy(data, offset, 0, bytesRead);
                 reader.removeListener('error', onError);
@@ -59,7 +59,7 @@ export async function writeBytes(writer: Writable, data: Buffer,
             }
         };
         const repeater = function() {
-            if (!writer.write(Buffer.from(data.buffer, offset, length), writeCb)) {
+            if (!writer.write(data.subarray(offset, offset + length), writeCb)) {
                 writer.once("drain", repeater);
             }
         }
@@ -116,7 +116,7 @@ export async function readAllBytes(reader: Readable, bufferingLimit = 0,
                 throw CustomIOError.createDataBufferLimitExceededError(
                     bufferingLimit);
             }
-            chunks.push(Buffer.from(readBuffer.buffer, 0, bytesRead));
+            chunks.push(readBuffer.subarray(0, bytesRead));
             if (bufferingLimit >= 0) {
                 totalBytesRead += bytesRead;
             }
@@ -145,7 +145,14 @@ export async function copyBytes(reader: Readable, writer: Writable) {
 }
 
 export async function endWrites(writer: Writable) {
-    new Promise<void>((resolve) => {
-        writer.end(() => resolve());
+    new Promise<void>((resolve, reject) => {
+        writer.end((err: any) => {
+            if (err) {
+                reject(err)
+            }
+            else {
+                resolve()
+            }
+        });
     });
 }

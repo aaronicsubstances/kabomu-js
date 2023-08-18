@@ -102,7 +102,7 @@ export class LeadChunk {
             throw new Error("missing serialized representation");
         }
         await IOUtils.writeBytes(writer, csvDataPrefix, 0, csvDataPrefix.length);
-        await CsvUtils._serializeTo(csvData, writer);
+        await CsvUtils.serializeTo(csvData, writer);
     }
 
     static deserialize(data: Buffer, offset: number, length: number): LeadChunk {

@@ -9,8 +9,8 @@ const TOKEN_CRLF = 3;
 const TOKEN_LF = 4;
 const TOKEN_CR = 5;
 
-const newlineConstant = ByteUtils.stringToBytes('\n');
-const commaConstant = ByteUtils.stringToBytes(',');
+const newlineConstant = Buffer.from([10]);
+const commaConstant = Buffer.from([44]);
 
 /**
  * Acts as a lexing function during CSV parsing.
@@ -214,7 +214,13 @@ function createCsvParseError(row: number, column: number, errorMessage: string) 
         (errorMessage ?? ""));
 }
 
-export async function _serializeTo(rows: Array<string[]>, writer: Writable) {
+/**
+ * Serializes CSV data to a writable stream.
+ * @param rows CSV data
+ * @param writer stream which serves as destination of
+ * CSV data to be written
+ */
+export async function serializeTo(rows: Array<string[]>, writer: Writable) {
     for (const row of rows) {
         let addCommaSeparator = false;
         for (const value of row) {
@@ -222,7 +228,7 @@ export async function _serializeTo(rows: Array<string[]>, writer: Writable) {
                 await IOUtils.writeBytes(writer, commaConstant, 0,
                     commaConstant.length);
             }
-            await _escapeValueTo(value, writer);
+            await escapeValueTo(value, writer);
             addCommaSeparator = true;
         }
         await IOUtils.writeBytes(writer, newlineConstant, 0,
@@ -253,13 +259,18 @@ export function serialize(rows: Array<string[]>)
     return csvBuilder.join("");
 }
 
-export async function _escapeValueTo(raw: string, writer: Writable) {
+/**
+ * Escapes a string to a writable stream for use as a CSV colum value.
+ * @param raw value to escape. Note that empty strings are always escaped as two double quotes.
+ * @param writer the stream which serves as destination of esaped value
+ */
+export async function escapeValueTo(raw: string, writer: Writable) {
     // escape empty strings with two double quotes to resolve ambiguity
     // between an empty row and a row containing an empty string - otherwise both
     // serialize to the same CSV output.
     if (raw === "" || doesValueContainSpecialCharacters(raw))
     {
-        raw = '"' + raw.replace("\"", "\"\"") + '"';
+        raw = '"' + raw.replaceAll("\"", "\"\"") + '"';
     }
     const rawBytes = ByteUtils.stringToBytes(raw);
     await IOUtils.writeBytes(writer, rawBytes, 0, rawBytes.length);
@@ -277,15 +288,14 @@ export function escapeValue(raw: string) {
         // serialize to the same CSV output.
         return raw === "" ? "\"\"" : raw;
     }
-    return '"' + raw.replace("\"", "\"\"") + '"';
+    return '"' + raw.replaceAll("\"", "\"\"") + '"';
 }
 
 /**
- * Reverses the escaping of a CSV value.
+ * Reverses the escaping of a CSV value. An error occurs if
+ * the escaped argument is an invalid escaped value.
  * @param escaped CSV escaped value.
- * @returns CSV value which equals escaped argument when escaped.
- * @throws
- * Thrown if the escaped argument is an invalid escaped value.
+ * @returns CSV value which equals escaped argument when escaped. 
  */
 export function unescapeValue(escaped: string) {
     if (!doesValueContainSpecialCharacters(escaped)) {
