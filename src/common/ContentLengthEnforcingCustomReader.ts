@@ -1,4 +1,5 @@
 import { Readable } from "stream";
+
 import { CustomIOError } from "./errors";
 
 const generate = async function*(wrappedReader: Readable, expectedLength: bigint) {
@@ -19,9 +20,9 @@ const generate = async function*(wrappedReader: Readable, expectedLength: bigint
         }
         else {
             const numRead = Number(bytesLeftToRead);
-            yield Buffer.from(chunk.buffer, 0, numRead);
-            wrappedReader.unshift(Buffer.from(chunk.buffer, numRead,
-                chunk.length - numRead));
+            yield chunk.subarray(0, numRead);
+            wrappedReader.unshift(chunk.subarray(numRead,
+                chunk.length));
             bytesLeftToRead = BigInt(0);
             break;
         }

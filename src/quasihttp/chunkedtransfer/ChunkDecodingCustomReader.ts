@@ -1,4 +1,5 @@
 import { Readable } from "stream";
+
 import { ChunkedTransferUtils } from "./ChunkedTransferUtils";
 import { ChunkDecodingError } from "../errors";
 
@@ -25,16 +26,16 @@ const generate = async function*(wrappedReader: Readable, maxChunkSize: number) 
             const extraDataLen = data.length - ChunkedTransferUtils.LengthOfEncodedChunkLength - 2;
             if (chunkDataLenRem === 0) {                
                 if (extraDataLen > 0) {
-                    wrappedReader.unshift(Buffer.from(data.buffer,
+                    wrappedReader.unshift(data.subarray(
                         ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                        extraDataLen));
+                        data.length));
                 }
                 break;
             }
             if (extraDataLen > 0) {
-                yield Buffer.from(data.buffer,
+                yield data.subarray(
                     ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                    extraDataLen);
+                    data.length);
                 chunkDataLenRem -= extraDataLen;
             }
         }
@@ -44,9 +45,9 @@ const generate = async function*(wrappedReader: Readable, maxChunkSize: number) 
                 chunkDataLenRem -= chunk.length;
             }
             else {
-                yield Buffer.from(chunk.buffer, 0, chunkDataLenRem);
-                wrappedReader.unshift(Buffer.from(chunk.buffer, chunkDataLenRem,
-                    chunk.length - chunkDataLenRem));
+                yield chunk.subarray(0, chunkDataLenRem);
+                wrappedReader.unshift(chunk.subarray(chunkDataLenRem,
+                    chunk.length));
                 chunkDataLenRem = 0;
             }
         }
@@ -60,16 +61,16 @@ const generate = async function*(wrappedReader: Readable, maxChunkSize: number) 
         const extraDataLen = data.length - ChunkedTransferUtils.LengthOfEncodedChunkLength - 2;
         if (chunkDataLenRem === 0) {
             if (extraDataLen > 0) {
-                wrappedReader.unshift(Buffer.from(data.buffer,
+                wrappedReader.unshift(data.subarray(
                     ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                    extraDataLen));
+                    data.length));
             }
         }
         else {
             if (extraDataLen > 0) {
-                yield Buffer.from(data.buffer,
+                yield data.subarray(
                     ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                    extraDataLen);
+                    data.length);
                 chunkDataLenRem -= extraDataLen;
             }
         }
