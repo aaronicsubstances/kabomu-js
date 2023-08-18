@@ -30,7 +30,7 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
         const reader = this.getReader();
         if (!reader) {
             throw new MissingDependencyError(
-                "received null from Reader property");
+                "received null from getReader()");
         }
         await IOUtils.copyBytes(reader, writer);
     }

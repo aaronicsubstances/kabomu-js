@@ -4,7 +4,7 @@ import * as IOUtils from "../common/IOUtils";
 import * as EntityBodyUtils from "./entitybody/EntityBodyUtils";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
 import { createContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
-import { ChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
+import { createChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
 import { Readable, Writable } from "stream";
 import { ByteBufferBody } from "./entitybody/ByteBufferBody";
 import { LambdaBasedQuasiHttpBody } from "./entitybody/LambdaBasedQuasiHttpBody";
@@ -125,10 +125,10 @@ export async function transferBodyToTransport(
         return;
     }
     if (contentLength < 0) {
-        var chunkWriter = new ChunkEncodingCustomWriter(writer, maxChunkSize);
+        var chunkWriter = createChunkEncodingCustomWriter(writer, maxChunkSize);
         await body.writeBytesTo(chunkWriter);
         // important for chunked transfer to write out final empty chunk
-        await chunkWriter.endWrites();
+        await IOUtils.endWrites(chunkWriter);
     }
     else {
         await body.writeBytesTo(writer);

@@ -1,6 +1,6 @@
 import { Readable } from "stream";
-import { MemoryPipeCustomReaderWriter } from "../../common/MemoryPipeCustomReaderWriter";
-import { ICustomWritable } from "../../common/types";
+import { createMemoryPipeCustomReaderWriter } from "../../common/MemoryPipeCustomReaderWriter";
+import { ICustomWritable, MemoryPipeCustomReaderWriter } from "../../common/types";
 import { IQuasiHttpBody } from "../types";
 
 export function asReader(body: IQuasiHttpBody): Readable {
@@ -11,18 +11,18 @@ export function asReader(body: IQuasiHttpBody): Readable {
     if (reader) {
         return reader
     }
-    const memoryPipe = new MemoryPipeCustomReaderWriter();
+    const memoryPipe = createMemoryPipeCustomReaderWriter();
     // use setImmediate so as to prevent deadlock if writable is
     // doing synchronous writes.
     setImmediate(() => exhaustWritable(body, memoryPipe));
     return memoryPipe;
 }
 
-async function exhaustWritable(writable: ICustomWritable ,
+async function exhaustWritable(writable: ICustomWritable,
         memoryPipe: MemoryPipeCustomReaderWriter) {
     try {
         await writable.writeBytesTo(memoryPipe);
-        await memoryPipe.endWrites();
+        await memoryPipe.endWrites(null);
     }
     catch (e) {
         await memoryPipe.endWrites(e);

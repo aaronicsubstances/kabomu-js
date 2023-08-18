@@ -143,3 +143,9 @@ export async function copyBytes(reader: Readable, writer: Writable) {
         reader.once("error", onError);
     });
 }
+
+export async function endWrites(writer: Writable) {
+    new Promise<void>((resolve) => {
+        writer.end(() => resolve());
+    });
+}
