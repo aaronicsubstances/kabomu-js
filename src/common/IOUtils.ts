@@ -30,6 +30,20 @@ export async function writeBytes(writer: Writable, data: Buffer,
     // allow zero-byte writes to proceed to the
     // stream, rather than just return.
     await new Promise<void>((resolve, reject)=> {
+        const controller = new AbortController();
+        const finishedOptions = {
+            signal: controller.signal
+        };
+        finishedWithCb(writer, finishedOptions, err => {
+            if (!finishedOptions.signal.aborted) {
+                if (err) {
+                    reject(err);
+                }
+                else {
+                    reject(new CustomIOError("end of write"));
+                }
+            }
+        });
         const dataToUse =
             offset <= 0 && length >= data.length ?
                 data :
@@ -41,6 +55,8 @@ export async function writeBytes(writer: Writable, data: Buffer,
             else {
                 resolve();
             }
+            // important to only abort after resolve() or reject()
+            controller.abort();
         });
     });
 }
@@ -122,9 +138,8 @@ export async function readBytesFully(reader: Readable, data: Buffer,
     if (!ByteUtils.isValidByteBufferSlice(data, offset, length)) {
         throw new Error("invalid buffer slice");
     }
-    if (!length) {
-        return;
-    }
+    // allow zero-byte reads to proceed to touch the
+    // stream, rather than just return.
     await new Promise<void>((resolve, reject) => {
         const controller = new AbortController();
         const finishedOptions = {
@@ -138,7 +153,12 @@ export async function readBytesFully(reader: Readable, data: Buffer,
                     reject(err);
                 }
                 else {
-                    reject(new CustomIOError("unexpected end of read"));
+                    if (length > 0) {
+                        reject(new CustomIOError("unexpected end of read"));
+                    }
+                    else {
+                        resolve()
+                    }
                 }
             }
         });

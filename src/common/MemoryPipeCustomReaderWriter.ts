@@ -1,27 +1,30 @@
-import { Transform } from "stream";
-import { finished } from "node:stream/promises";
+import { Duplex, PassThrough, Writable } from "stream";
+import * as IOUtils from "../common/IOUtils";
+import { CustomIOError } from "./errors";
 
-import { MemoryPipeCustomReaderWriter } from "./types";
-
-export function createMemoryPipeCustomReaderWriter(): MemoryPipeCustomReaderWriter {
-    let writeEnded = false;
-    let endOfReadAndWriteError: any;
-    const t = new Transform({
-        transform(chunk: any, encoding: any, callback: any) {
-            callback(endOfReadAndWriteError, chunk);
-        }
+export function createMemoryPipeCustomReaderWriter(
+        highWaterMark?: number): Duplex {
+    return new PassThrough({
+        highWaterMark
     });
-    const tExtension = {
-        async endWrites(e: any) {
-            if (writeEnded) {
-                return;
-            }
-            writeEnded = true;
-            endOfReadAndWriteError = e;
-            const p = finished(t);
-            t.destroy(e);
-            await p;
-        }
-    };
-    return Object.assign(t, tExtension);
+}
+
+export async function endWritesOnMemoryPipe(
+        instance: Writable, error?: any) {
+    if (instance.errored || instance.writableEnded) {
+        return;
+    }
+    if (!error) {
+        await IOUtils.endWrites(instance);
+        return;
+    }
+    instance.destroy(error);
+    try {
+        await IOUtils.endWrites(instance);
+    }
+    catch {
+        // ignore since error is really meant
+        // for future write and read attempts,
+        // rather than for this call.
+    }
 }

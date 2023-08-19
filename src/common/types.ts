@@ -7,7 +7,3 @@ export interface ICustomDisposable {
 export interface ICustomWritable {
     writeBytesTo(writer: Writable): Promise<void>
 }
-
-export interface MemoryPipeCustomReaderWriter extends Duplex {
-    endWrites(e: any): Promise<void>
-}

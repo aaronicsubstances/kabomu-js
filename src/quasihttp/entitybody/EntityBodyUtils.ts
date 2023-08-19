@@ -1,6 +1,9 @@
-import { Readable } from "stream";
-import { createMemoryPipeCustomReaderWriter } from "../../common/MemoryPipeCustomReaderWriter";
-import { ICustomWritable, MemoryPipeCustomReaderWriter } from "../../common/types";
+import { Readable, Writable } from "stream";
+import {
+    createMemoryPipeCustomReaderWriter,
+    endWritesOnMemoryPipe
+} from "../../common/MemoryPipeCustomReaderWriter";
+import { ICustomWritable } from "../../common/types";
 import { IQuasiHttpBody } from "../types";
 
 export function asReader(body: IQuasiHttpBody): Readable {
@@ -19,12 +22,12 @@ export function asReader(body: IQuasiHttpBody): Readable {
 }
 
 async function exhaustWritable(writable: ICustomWritable,
-        memoryPipe: MemoryPipeCustomReaderWriter) {
+        memoryPipe: Writable) {
     try {
         await writable.writeBytesTo(memoryPipe);
-        await memoryPipe.endWrites(null);
+        await endWritesOnMemoryPipe(memoryPipe);
     }
     catch (e) {
-        await memoryPipe.endWrites(e);
+        await endWritesOnMemoryPipe(memoryPipe, e);
     }
 }
