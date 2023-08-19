@@ -274,6 +274,31 @@ describe("IOUtils", function() {
                 assert.equal(actual2, 0)
             })
         })
+        testData.forEach(({bufferingLimit, expected}, i) => {
+            it(`should pass with remaining data input ${i}`, async function() {
+                // arrange by doubling the expectation and reading half way,
+                // to test that remaining bytes are correctly copied
+                const reader = createRandomizedReadSizeBufferReader(
+                    Buffer.concat([expected, expected]))
+                const temp = Buffer.alloc(expected.length)
+                await IOUtils.readBytesFully(reader, temp, 0,
+                    temp.length)
+                assert.equalBytes(temp, expected)
+                
+                // now continue to test readAllBytes() on
+                // remaining data
+                const actual = await IOUtils.readAllBytes(reader,
+                    bufferingLimit)
+
+                // assert
+                assert.equalBytes(actual, expected)
+
+                // assert that reader has been exhausted.
+                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1),
+                    0, 1)
+                assert.equal(actual2, 0)
+            })
+        })
 
         const testErrorData = [
             {
@@ -338,10 +363,21 @@ describe("IOUtils", function() {
             })
         })
         testData.forEach((x, i) => {
-            it(`it should pass with generator-based reader ${i}`, async function() {
+            it(`it should pass with remaining bytes in generator-based reader ${i}`, async function() {
                 // arrange
                 const expected = ByteUtils.stringToBytes(x)
-                const reader = createRandomizedReadSizeBufferReader(expected)
+
+                // double the expectation and read half way,
+                // to test that remaining bytes are correctly copied
+                const reader = createRandomizedReadSizeBufferReader(
+                    Buffer.concat([expected, expected]))
+                const temp = Buffer.alloc(expected.length)
+                await IOUtils.readBytesFully(reader, temp, 0,
+                    temp.length)
+                assert.equalBytes(temp, expected)
+
+                // now continue to test copyBytes() on
+                // remaining data
                 const chunks = new Array<Buffer>()
                 const writer = new Writable({
                     write(chunk, encoding, cb) {

@@ -27,6 +27,8 @@ export async function writeBytes(writer: Writable, data: Buffer,
     if (!writer) {
         throw new Error("writer argument is null");
     }
+    // allow zero-byte writes to proceed to the
+    // stream, rather than just return.
     await new Promise<void>((resolve, reject)=> {
         const dataToUse =
             offset <= 0 && length >= data.length ?
@@ -57,6 +59,8 @@ export async function readBytes(reader: Readable, data: Buffer,
     if (!reader) {
         throw new Error("reader argument is null");
     }
+    // allow zero-byte reads to proceed to touch the
+    // stream, rather than just return 0.
     return await new Promise<number>((resolve, reject) => {
         const controller = new AbortController();
         const finishedOptions = {
@@ -75,14 +79,21 @@ export async function readBytes(reader: Readable, data: Buffer,
         readableCb = function() {
             const chunk = reader.read() as Buffer | null;
             if (chunk !== null) {
-                // Remove the 'readable' listener before unshifting.
+                // Remove the 'readable' listener before any unshifting.
                 reader.removeListener('readable', readableCb);
                 const bytesRead = Math.min(length, chunk.length);
                 if (bytesRead < chunk.length) {
-                    reader.unshift(chunk.subarray(
-                        bytesRead, chunk.length));
+                    if (bytesRead) {
+                        reader.unshift(chunk.subarray(
+                            bytesRead, chunk.length));
+                    }
+                    else {
+                        reader.unshift(chunk);
+                    }
                 }
-                chunk.copy(data, offset, 0, bytesRead);
+                if (bytesRead) {
+                    chunk.copy(data, offset, 0, bytesRead);
+                }
                 resolve(bytesRead);
 
                 // important to only abort after resolve()
@@ -95,7 +106,7 @@ export async function readBytes(reader: Readable, data: Buffer,
 
 /**
  * Reads in data from a readable stream in order to completely fill
- * a buffer. An error occurs if insufficient bytes exist in
+ * a buffer. An error occurs if an insufficient amount of bytes exist in
  * stream to fill the buffer.
  * @param reader source of bytes to read
  * @param data destination buffer
@@ -105,23 +116,62 @@ export async function readBytes(reader: Readable, data: Buffer,
  */
 export async function readBytesFully(reader: Readable, data: Buffer,
         offset: number, length: number): Promise<void> {
+    if (!reader) {
+        throw new Error("reader argument is null");
+    }
     if (!ByteUtils.isValidByteBufferSlice(data, offset, length)) {
         throw new Error("invalid buffer slice");
     }
-    while (true) {
-        const bytesRead = await readBytes(reader, data, offset, length);
-
-        if (bytesRead < length) {
-            if (bytesRead <= 0) {
-                throw new CustomIOError("unexpected end of read");
-            }
-            offset += bytesRead;
-            length -= bytesRead;
-        }
-        else {
-            break;
-        }
+    if (!length) {
+        return;
     }
+    await new Promise<void>((resolve, reject) => {
+        const controller = new AbortController();
+        const finishedOptions = {
+            signal: controller.signal
+        };
+        let readableCb: any;
+        finishedWithCb(reader, finishedOptions, err => {
+            reader.removeListener("readable", readableCb);
+            if (!finishedOptions.signal.aborted) {
+                if (err) {
+                    reject(err);
+                }
+                else {
+                    reject(new CustomIOError("unexpected end of read"));
+                }
+            }
+        });
+        const endOffset = offset + length;
+        let runningOffset = offset;
+        readableCb = function() {
+            let chunk: Buffer | null;
+            while ((chunk = reader.read()) !== null) {
+                if (runningOffset + chunk.length < endOffset) {
+                    chunk.copy(data, runningOffset);
+                    runningOffset += chunk.length;
+                    continue;
+                }
+                // Remove the 'readable' listener before any unshifting.
+                reader.removeListener('readable', readableCb);
+                const bytesLeft = endOffset - runningOffset;
+                if (bytesLeft === chunk.length) {
+                    chunk.copy(data, runningOffset);
+                }
+                else {
+                    reader.unshift(chunk.subarray(
+                        bytesLeft, chunk.length));
+                    chunk.copy(data, runningOffset, 0, bytesLeft);
+                }
+                resolve();
+
+                // important to only abort after resolve()
+                controller.abort();
+                break;
+            }
+        };
+        reader.on("readable", readableCb);
+    });
 }
 
 /**
@@ -185,6 +235,12 @@ export async function copyBytes(reader: Readable, writer: Writable) {
     await p;
 }
 
+/**
+ * Calls end() on a writable stream and waits for it
+ * to take effect or throws an error if the stream is
+ * in an error state (e.g. has been destroyed with error).
+ * @param writer writable stream
+ */
 export async function endWrites(writer: Writable) {
     const p = finished(writer);
     writer.end();
