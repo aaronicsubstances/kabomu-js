@@ -1,6 +1,75 @@
 import { Readable, Writable } from "stream"
 import { ICustomDisposable, ICustomWritable } from "../common/types"
 
+/**
+ * Structure used to encode quasi http headers for serialization and transmission on
+ * quasi http transports. All properties in this structure are optional except for Version.
+ *
+ * This structure is equivalent to the information contained in
+ * HTTP request line, HTTP status line, and HTTP request and response headers.
+ */
+export interface LeadChunk {
+
+    /**
+     * Serialization format version.
+     */
+    version: number;
+
+    /**
+     * Reserved for future use.
+     */
+    flags?: number
+
+    /**
+     * The equivalent of request target component of HTTP request line.
+     */
+    requestTarget?: string;
+
+    /**
+     * The equivalent of HTTP response status code.
+     */
+    statusCode?: number
+
+    /**
+     * Provides the length in bytes of a quasi http body which will
+     * follow the lead chunk when serialized. Equivalent to Content-Length and 
+     * Transfer-Encoding=chunked HTTP headers.
+     *
+     * There are three possible values:
+     *    1. zero: this means that there will be no quasi http body.</item>
+     *    2. positive: this means that there will be a quasi http body with the exact number of bytes
+     *       present as the value of this property.</item>
+     *    3. negative: this means that there will be a quasi http body, but with an unknown number of
+     *       bytes. This implies chunk encoding where one or more subsequent chunks will follow the
+     *       lead chunk when serialized.
+     */
+    contentLength?: bigint
+
+    /**
+     * The equivalent of method component of HTTP request line.
+     */
+    method?: string;
+
+    /**
+     * Gets or sets an HTTP request or response version value.
+     */
+    httpVersion?: string;
+
+    /**
+     * Gets or sets HTTP status text, ie the reason phrase component of HTTP response lines.
+     */
+    httpStatusMessage?: string;
+
+    /**
+     * The equivalent of HTTP request or response headers. Null keys and values are not allowed.
+     *
+     * Unlike in HTTP, here the headers are distinct from properties of this structure equivalent to 
+     * HTTP headers, i.e. Content-Length. So setting a Content-Length header
+     * here will have no bearing on how to transmit or receive quasi http bodies.
+     */
+    headers?: Map<string, string[]>
+}
+
 export interface ProtocolSendResultInternal {
     response?: IQuasiHttpResponse
     responseBufferingApplied?: boolean
