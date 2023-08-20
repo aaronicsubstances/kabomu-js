@@ -44,11 +44,7 @@ export async function writeBytes(writer: Writable, data: Buffer,
                 }
             }
         });
-        const dataToUse =
-            offset <= 0 && length >= data.length ?
-                data :
-                data.subarray(offset, offset + length);
-        writer.write(dataToUse, err => {
+        writer.write(data.subarray(offset, offset + length), err => {
             if (err) {
                 reject(err);
             }

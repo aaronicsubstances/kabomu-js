@@ -1,5 +1,5 @@
 import { Readable, Writable } from "stream"
-import { ICustomDisposable, ICustomWritable } from "../common/types"
+import { ICustomDisposable, ISelfWritable } from "../common/types"
 
 /**
  * Structure used to encode quasi http headers for serialization and transmission on
@@ -74,19 +74,22 @@ export interface LeadChunk {
     headers?: Map<string, string[]>
 }
 
-export interface ProtocolSendResultInternal {
-    response?: IQuasiHttpResponse
-    responseBufferingApplied?: boolean
-}
+/**
+ * Represents the body of a quasi HTTP request or response.
+ */
+export interface IQuasiHttpBody extends ICustomDisposable, ISelfWritable {
+    
+    /**
+     * The number of bytes that the instance will supply,
+        /// or -1 (actually any negative value) to indicate an unknown number of bytes.
+     */
+    contentLength: number
 
-export interface ISendProtocolInternal {
-    cancel(): Promise<void>
-    send(): Promise<ProtocolSendResultInternal>
-}
-
-export interface IReceiveProtocolInternal {
-    cancel(): Promise<void>
-    receive(): Promise<IQuasiHttpResponse>
+    /**
+     * Returns a readable stream for reading byte representation of the instance.
+     * Can also return null indicate that direct reading is not supported.
+     */
+    getReader(): Readable | null
 }
 
 export interface IQuasiHttpRequest extends ICustomDisposable {
@@ -105,11 +108,6 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
     httpStatusMessage?: string
     httpVersion?: string
     environment?: Map<string, any>
-}
-
-export interface IQuasiHttpBody extends ICustomDisposable, ICustomWritable {
-    contentLength: number
-    getReader(): Readable | null
 }
 
 export interface IConnectionAllocationResponse {
@@ -152,4 +150,19 @@ export interface IQuasiHttpTransport {
 }
 
 export interface IQuasiHttpServerTransport  extends IQuasiHttpTransport {
+}
+
+export interface ProtocolSendResultInternal {
+    response?: IQuasiHttpResponse
+    responseBufferingApplied?: boolean
+}
+
+export interface ISendProtocolInternal {
+    cancel(): Promise<void>
+    send(): Promise<ProtocolSendResultInternal>
+}
+
+export interface IReceiveProtocolInternal {
+    cancel(): Promise<void>
+    receive(): Promise<IQuasiHttpResponse>
 }

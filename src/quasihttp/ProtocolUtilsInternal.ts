@@ -81,7 +81,7 @@ export async function createEquivalentOfUnknownBodyInMemory(
         body: IQuasiHttpBody, bodyBufferingLimit: number) {
     // Assume that body is completely unknown,and as such has nothing
     // to do with chunk transfer protocol
-    let reader = EntityBodyUtils.asReader(body);
+    let reader = EntityBodyUtils.getBodyReader(body);
 
     // but still enforce the content length. even if zero,
     // still pass it on
