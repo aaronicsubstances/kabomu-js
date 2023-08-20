@@ -1,86 +1,51 @@
 import { Readable } from "stream";
 
-import { ChunkedTransferUtils } from "./ChunkedTransferUtils";
+import { ChunkedTransferCodec } from "./ChunkedTransferCodec";
 import { ChunkDecodingError } from "../errors";
+import * as IOUtils from "../../common/IOUtils";
 
-const generate = async function*(wrappedReader: Readable, maxChunkSize: number) {
-    if (maxChunkSize < ChunkedTransferUtils.DefaultMaxChunkSizeLimit) {
-        maxChunkSize = ChunkedTransferUtils.DefaultMaxChunkSizeLimit;
-    }
-    let chunkDataLenRem = 0;
-    const buffered = new Array<Buffer>();
-    let data = Buffer.from([]);
-    const chunkTransferUtils = new ChunkedTransferUtils();
-    for await (const chunk of wrappedReader) {
-        if (chunkDataLenRem === 0) {
-            buffered.push(chunk);
-            const totalLen = buffered.reduce((acc, cur) => acc + cur.length, 0);
-            if (totalLen < ChunkedTransferUtils.LengthOfEncodedChunkLength + 2) {
-                continue;
-            }
-            data = Buffer.concat(buffered);
-            buffered.length = 0;
-
-            chunkDataLenRem = await chunkTransferUtils.decodeSubsequentChunkV1Header(
-                data, null, maxChunkSize);
-            const extraDataLen = data.length - ChunkedTransferUtils.LengthOfEncodedChunkLength - 2;
-            if (chunkDataLenRem === 0) {                
-                if (extraDataLen > 0) {
-                    wrappedReader.unshift(data.subarray(
-                        ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                        data.length));
-                }
-                break;
-            }
-            if (extraDataLen > 0) {
-                yield data.subarray(
-                    ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                    data.length);
-                chunkDataLenRem -= extraDataLen;
-            }
-        }
-        else {
-            if (chunk.length <= chunkDataLenRem) {
-                yield chunk;
-                chunkDataLenRem -= chunk.length;
-            }
-            else {
-                yield chunk.subarray(0, chunkDataLenRem);
-                wrappedReader.unshift(chunk.subarray(chunkDataLenRem,
-                    chunk.length));
-                chunkDataLenRem = 0;
-            }
-        }
-    }
-
-    // conclusion
-    if (chunkDataLenRem == 0 && buffered.length > 0) {
-        data = Buffer.concat(buffered);
-        chunkDataLenRem = await chunkTransferUtils.decodeSubsequentChunkV1Header(
-            data, null, maxChunkSize);
-        const extraDataLen = data.length - ChunkedTransferUtils.LengthOfEncodedChunkLength - 2;
-        if (chunkDataLenRem === 0) {
-            if (extraDataLen > 0) {
-                wrappedReader.unshift(data.subarray(
-                    ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                    data.length));
-            }
-        }
-        else {
-            if (extraDataLen > 0) {
-                yield data.subarray(
-                    ChunkedTransferUtils.LengthOfEncodedChunkLength + 2,
-                    data.length);
-                chunkDataLenRem -= extraDataLen;
-            }
-        }
-    }
-    if (chunkDataLenRem > 0) {
-        throw new ChunkDecodingError("unexpected end of read");
-    }
-}
-
+/**
+ * Constructs an instance of the standard chunk decoder of byte streams
+ * in the Kabomu library.
+ * Receives a reader and assumes it consists of
+ * an unknown number of one or more chunks, in which the last chunk has
+ * zero data length and all the previous ones have non-empty data.
+ * @param wrappedReader the source stream of bytes to decode
+ * @param maxChunkSize the maximum allowable size of a chunk seen in the body instance being decoded.
+ * NB: values less than 64KB are always accepted, and so this parameter imposes a maximum only on chunks
+ * with lengths greater than 64KB.
+ * @returns a readable stream wrapper for decoding subsequent chunks (ie not lead chunks)
+ * from the provided underlying stream
+ */
 export function createChunkDecodingCustomReader(
         wrappedReader: Readable, maxChunkSize = 0) {
+    if (!wrappedReader) {
+        throw new Error("wrappedReader argument is null");
+    }
     return Readable.from(generate(wrappedReader, maxChunkSize));
+}
+
+async function* generate(wrappedReader: Readable, maxChunkSize: number) {
+    if (!maxChunkSize || maxChunkSize < ChunkedTransferCodec.DefaultMaxChunkSizeLimit) {
+        maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSizeLimit;
+    }
+
+    const decoder = new ChunkedTransferCodec();
+    while (true) {
+        const chunkDataLen = await decoder.decodeSubsequentChunkV1Header(
+            null, wrappedReader, maxChunkSize);
+        if (chunkDataLen === 0) {
+            break;
+        }
+        const chunk = Buffer.alloc(chunkDataLen);
+        try {
+            await IOUtils.readBytesFully(wrappedReader,
+                chunk, 0, chunk.length);
+            yield chunk;
+        }
+        catch (e) {
+            throw new ChunkDecodingError("Error encountered while " +
+                "decoding a subsequent chunk body", { cause: e });
+        }
+    }
 }

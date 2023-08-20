@@ -1,37 +1,37 @@
 import { Writable } from "stream";
 
 import * as IOUtils from "../../common/IOUtils";
-import { ChunkedTransferUtils } from "./ChunkedTransferUtils";
+import { ChunkedTransferCodec } from "./ChunkedTransferCodec";
 
+/**
+ * Constructs an instance of the standard chunk encoder of byte streams in the Kabomu library. Receives a writer
+ * into which it writes an unknown number of one or more chunks, 
+ * in which the last chunk has zero data length
+ * and all the previous ones have non-empty data. The last zero-data chunk
+ * is written only when writable.end() method is called.
+ * @param wrappedWriter the backing writer through which
+ * the encoded bytes will be sent
+ * @param maxChunkSize maximum size of chunks. Must not exceed
+ * the maximum signed 24-bit integer Can pass 0 to use a default value.
+ * @returns a writable stream wrapper for encoding subsequent chunks (ie not lead chunks)
+ * onto the provided underlying stream
+ */
 export function createChunkEncodingCustomWriter(wrappedWriter: Writable,
         maxChunkSize = 0) {
-    const buffer = Buffer.allocUnsafeSlow(maxChunkSize);
+    if (!wrappedWriter) {
+        throw new Error("wrappedWriter argument is null");
+    }
+    if (!maxChunkSize || maxChunkSize <= 0) {
+        maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+    }
+    if (maxChunkSize > ChunkedTransferCodec.HardMaxChunkSizeLimit) {
+        throw new Error(`max chunk size cannot exceed ${ChunkedTransferCodec.HardMaxChunkSizeLimit}. ` +
+            `received: ${maxChunkSize}`);
+    }
+    let buffer = Buffer.allocUnsafeSlow(maxChunkSize);
     let usedBufferOffset = 0;
-    const chunkTransferUtils = new ChunkedTransferUtils();
-    
-    const writeNextSubsequentChunk = async function(
-            data: Buffer, offset: number, length: number) {
-            const chunkRem = Math.min(length, buffer.length - usedBufferOffset);
-        if (usedBufferOffset + chunkRem < buffer.length) {
-            // save data in buffer for later sending
-            data.copy(buffer, usedBufferOffset, offset, offset + chunkRem);
-            usedBufferOffset += chunkRem;
-        }
-        else {
-            await chunkTransferUtils.encodeSubsequentChunkV1Header(
-                buffer.length, wrappedWriter);
+    const encoder = new ChunkedTransferCodec();
 
-            // next empty buffer
-            await IOUtils.writeBytes(wrappedWriter, buffer, 0,
-                usedBufferOffset);
-            usedBufferOffset = 0;
-
-            // now directly transfer data to writer.
-            await IOUtils.writeBytes(wrappedWriter, data, offset, chunkRem);
-        }
-        return chunkRem;
-    };
-        
     const writeAsync = async function(
             data: Buffer, offset: number, length: number, cb: any) {
         try {
@@ -46,19 +46,48 @@ export function createChunkEncodingCustomWriter(wrappedWriter: Writable,
             cb(e);
         }
     };
+    
+    const writeNextSubsequentChunk = async function(
+            data: Buffer, offset: number, length: number) {
+        const chunkRem = Math.min(length, buffer.length - usedBufferOffset);
+        if (usedBufferOffset + chunkRem < buffer.length) {
+            // save data in buffer for later sending
+            data.copy(buffer, usedBufferOffset, offset, offset + chunkRem);
+            usedBufferOffset += chunkRem;
+        }
+        else {
+            await encoder.encodeSubsequentChunkV1Header(
+                buffer.length, wrappedWriter);
+
+            // next empty buffer
+            // NB: have to recreate buffer just in case it is
+            // stored by underlying writer.
+            await IOUtils.writeBytes(wrappedWriter, buffer, 0,
+                usedBufferOffset);
+            buffer = Buffer.allocUnsafeSlow(buffer.length)
+            usedBufferOffset = 0;
+
+            // now directly transfer data to writer.
+            await IOUtils.writeBytes(wrappedWriter, data, offset, chunkRem);
+        }
+        return chunkRem;
+    };
 
     const finalAsync = async function(cb: any) {
         try {
             // write out remaining data.
+            // NB: have to recreate buffer just in case it is
+            // stored by underlying writer.
             if (usedBufferOffset > 0) {
-                await chunkTransferUtils.encodeSubsequentChunkV1Header(
+                await encoder.encodeSubsequentChunkV1Header(
                     usedBufferOffset, wrappedWriter);
                 await IOUtils.writeBytes(wrappedWriter, buffer, 0, usedBufferOffset);
+                buffer = Buffer.allocUnsafeSlow(buffer.length)
                 usedBufferOffset = 0;
             }
 
             // end by writing out empty terminating chunk
-            await chunkTransferUtils.encodeSubsequentChunkV1Header(0,
+            await encoder.encodeSubsequentChunkV1Header(0,
                 wrappedWriter);
             cb();
         }

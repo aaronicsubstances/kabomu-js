@@ -52,8 +52,8 @@ export class ChunkedTransferCodec {
 
     private _csvDataPrefix?: Buffer;
     private _csvData?: Array<string[]>;
-    private _headerBuffer = Buffer.allocUnsafeSlow(
-        ChunkedTransferCodec.LengthOfEncodedChunkLength + 2);
+    private _defaultBufferUsedForDecoding = Buffer.alloc(
+        ChunkedTransferCodec.LengthOfEncodedChunkLength + 2)
 
     /**
      * Encodes a subsequent chunk header to a writable stream.
@@ -66,14 +66,18 @@ export class ChunkedTransferCodec {
         if (!writer) {
             throw new Error("writer argument is null");
         }
+        // NB: cannot store buffer as an instance property
+        // just in case it is stored by writer.
+        const buffer = Buffer.allocUnsafeSlow(
+            ChunkedTransferCodec.LengthOfEncodedChunkLength + 2);
         ByteUtils.serializeUpToInt32BigEndian(
-            chunkDataLength + 2, this._headerBuffer, 0,
+            chunkDataLength + 2, buffer, 0,
             ChunkedTransferCodec.LengthOfEncodedChunkLength)
-        this._headerBuffer[ChunkedTransferCodec.LengthOfEncodedChunkLength] =
+        buffer[ChunkedTransferCodec.LengthOfEncodedChunkLength] =
             ChunkedTransferCodec.Version01
-        this._headerBuffer[ChunkedTransferCodec.LengthOfEncodedChunkLength + 1] = 0 // flags.
-        await IOUtils.writeBytes(writer, this._headerBuffer, 0,
-            ChunkedTransferCodec.LengthOfEncodedChunkLength + 2)
+        buffer[ChunkedTransferCodec.LengthOfEncodedChunkLength + 1] = 0 // flags.
+        await IOUtils.writeBytes(writer, buffer, 0,
+            buffer.length)
     }
 
     /**
@@ -95,7 +99,7 @@ export class ChunkedTransferCodec {
     async decodeSubsequentChunkV1Header(
             bufferToUse: Buffer | null, reader: Readable | null,
             maxChunkSize = 0) {
-        if (maxChunkSize <= 0) {
+        if (!maxChunkSize || maxChunkSize <= 0) {
             maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
         }
         if (!bufferToUse && !reader) {
@@ -104,7 +108,7 @@ export class ChunkedTransferCodec {
         }
         try {
             if (!bufferToUse) {
-                bufferToUse = this._headerBuffer;
+                bufferToUse = this._defaultBufferUsedForDecoding;
                 await IOUtils.readBytesFully(reader!, bufferToUse, 0,
                     ChunkedTransferCodec.LengthOfEncodedChunkLength + 2);
             }
@@ -144,7 +148,7 @@ export class ChunkedTransferCodec {
         if (!reader) {
             throw new Error("reader argument is null");
         }
-        if (!maxChunkSize || maxChunkSize < 0) {
+        if (!maxChunkSize || maxChunkSize <= 0) {
             maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
         }
         let chunkBytes: Buffer | undefined;
@@ -202,7 +206,7 @@ export class ChunkedTransferCodec {
         if (!writer) {
             throw new Error("writer argument is null");
         }
-        if (!maxChunkSize || maxChunkSize < 0) {
+        if (!maxChunkSize || maxChunkSize <= 0) {
             maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
         }
         this._updateSerializedRepresentation(chunk);
