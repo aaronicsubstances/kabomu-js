@@ -10,7 +10,7 @@ import { Readable } from "stream"
 describe("ContentLengthEnforcingCustomReader", function() {
     const testData = [
         {
-            contentLength: BigInt(0),
+            contentLength: 0,
             srcData: "",
             expected: ""
         },
@@ -20,7 +20,7 @@ describe("ContentLengthEnforcingCustomReader", function() {
             expected: ""
         },
         {
-            contentLength: BigInt(1),
+            contentLength: 1,
             srcData: "ab",
             expected: "a"
         },
@@ -40,7 +40,7 @@ describe("ContentLengthEnforcingCustomReader", function() {
             expected: "abc"
         },
         {
-            contentLength: BigInt(4),
+            contentLength: 4,
             srcData: "abcd",
             expected: "abcd"
         },
@@ -83,7 +83,7 @@ describe("ContentLengthEnforcingCustomReader", function() {
             srcData: ""
         },
         {
-            contentLength: BigInt(4),
+            contentLength: 4,
             srcData: "abc"
         },
         {

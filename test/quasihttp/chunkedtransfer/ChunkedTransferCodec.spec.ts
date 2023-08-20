@@ -11,7 +11,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (1)", async function() {
             const expectedChunk: LeadChunk ={
                 version: ChunkedTransferCodec.Version01,
-                contentLength: BigInt(0),
+                contentLength: 0,
                 flags: 0,
                 statusCode: 0
             }
@@ -38,13 +38,27 @@ describe("ChunkedTransferCodec", function() {
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
-        it("should pass (2)", async function() {
+        it("should pass (2)", function() {
+            const expectedChunk: LeadChunk ={
+                version: ChunkedTransferCodec.Version01,
+                contentLength: 0,
+                flags: 0,
+                statusCode: 0
+            }
+            const equivalentBytes = ByteUtils.stringToBytes(
+                "\u0001\u0000true,\"\",0,0,false,\"\",\"\",\"\",2,\"\"\n")
+            const actualChunk = ChunkedTransferCodec._deserialize(
+                equivalentBytes, 0, equivalentBytes.length)
+            assert.deepEqual(actualChunk, expectedChunk)
+        })
+
+        it("should pass (3)", async function() {
             const expectedChunk: LeadChunk ={
                 version: ChunkedTransferCodec.Version01,
                 flags: 2,
                 requestTarget: "/detail",
                 httpStatusMessage: "ok",
-                contentLength: BigInt(20),
+                contentLength: 20,
                 statusCode: 200,
                 httpVersion: "1.0",
                 method: "POST",
@@ -80,6 +94,30 @@ describe("ChunkedTransferCodec", function() {
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
+        it("should pass (4)", function() {
+            const expectedChunk: LeadChunk = {
+                version: ChunkedTransferCodec.Version01,
+                flags: 0,
+                requestTarget: "http://www.yoursite.com/category/keyword1,keyword2",
+                httpStatusMessage: "ok",
+                contentLength: 140_737_488_355_327,
+                statusCode: 2_147_483_647,
+                method: "PUT"
+            }
+            expectedChunk.headers = new Map<string, string[]>()
+            expectedChunk.headers.set("content-type", ["application/json"])
+            expectedChunk.headers.set("allow", ["GET,POST"])
+
+            const srcBytes = ByteUtils.stringToBytes(
+                "\u0001\u00001,\"http://www.yoursite.com/category/keyword1,keyword2\"," +
+                "2147483647,140737488355327,1,PUT,0,\"\",1,ok\n" +
+                "content-type,application/json\n" +
+                "allow,\"GET,POST\"\n")
+            const actualChunk = ChunkedTransferCodec._deserialize(
+                srcBytes, 0, srcBytes.length)
+            assert.deepEqual(actualChunk, expectedChunk)
+        })
+
         it("should succeed in verifying expected failure (1)", function() {
             assert.throws(() =>
                 ChunkedTransferCodec._deserialize(null as any, 0, 6))
@@ -101,8 +139,8 @@ describe("ChunkedTransferCodec", function() {
                     Buffer.from([1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 9]), 0, 11))
         })
 
-        it("should succeed in verifying expected failure (5)", function() {
-            nativeAssert.rejects(async () => {
+        it("should succeed in verifying expected failure (5)", async function() {
+            await nativeAssert.rejects(async () => {
                 const data = ByteUtils.stringToBytes(
                     "\u0000\u00001,1,1," +
                     "1,1,1,1," +
@@ -113,6 +151,36 @@ describe("ChunkedTransferCodec", function() {
                 ChunkedTransferCodec._deserialize(data, 0, data.length)
             }, (e: any) => {
                 expect(e.message).to.contain("version")
+                return true
+            })
+        })
+
+        it("should succeed in verifying expected failure (6)", async function() {
+            await nativeAssert.rejects(async () => {
+                const data = ByteUtils.stringToBytes(
+                    "\u0001\u00001,\"http://www.yoursite.com/category/keyword1,keyword2\"," +
+                    "2147483647,140737488355328,1,PUT,0,\"\",1,ok\n" +
+                    "content-type,application/json\n" +
+                    "allow,\"GET,POST\"\n"
+                )
+                ChunkedTransferCodec._deserialize(data, 0, data.length)
+            }, (e: any) => {
+                expect(e.message).to.contain("invalid content length")
+                return true
+            })
+        })
+
+        it("should succeed in verifying expected failure (7)", async function() {
+            await nativeAssert.rejects(async () => {
+                const data = ByteUtils.stringToBytes(
+                    "\u0001\u00001,\"http://www.yoursite.com/category/keyword1,keyword2\"," +
+                    "2147483648,140737488355327,1,PUT,0,\"\",1,ok\n" +
+                    "content-type,application/json\n" +
+                    "allow,\"GET,POST\"\n"
+                )
+                ChunkedTransferCodec._deserialize(data, 0, data.length)
+            }, (e: any) => {
+                expect(e.message).to.contain("invalid status code")
                 return true
             })
         })
@@ -300,7 +368,7 @@ describe("ChunkedTransferCodec", function() {
                 version: ChunkedTransferCodec.Version01,
                 flags: 0,
                 statusCode: 0,
-                contentLength: BigInt(0)
+                contentLength: 0
             }
 
             // act
@@ -338,7 +406,7 @@ describe("ChunkedTransferCodec", function() {
                 flags: 0,
                 requestTarget: "/abcdefghijklmop",
                 statusCode: 0,
-                contentLength: BigInt(0)
+                contentLength: 0
             }
 
             // act

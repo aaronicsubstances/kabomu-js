@@ -415,7 +415,7 @@ describe("IOUtils", function() {
 
             await IOUtils.endWrites(writer)
 
-            nativeAssert.rejects(async () =>
+            await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
                     Buffer.from([3, 4]), 0, 2))
 
@@ -434,7 +434,7 @@ describe("IOUtils", function() {
 
             await IOUtils.endWrites(writer)
 
-            nativeAssert.rejects(async () =>
+            await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
                     Buffer.from([3, 4]), 0, 2))
 
@@ -455,7 +455,7 @@ describe("IOUtils", function() {
 
             await IOUtils.endWrites(writer)
 
-            nativeAssert.rejects(async () =>
+            await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
                     Buffer.from([3, 4]), 0, 2))
 
@@ -477,19 +477,19 @@ describe("IOUtils", function() {
                 }
             })
 
-            nativeAssert.rejects(async () =>
+            await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
                     Buffer.from([3, 4]), 0, 2), {
                 message: "write problem!"
             })
 
-            nativeAssert.rejects(async () => {
+            await nativeAssert.rejects(async () => {
                 await IOUtils.endWrites(writer)
             }, {
                 message: "write problem!"
             })
 
-            nativeAssert.rejects(async () =>
+            await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
                     Buffer.from([3, 4]), 0, 2), {
                 message: "write problem!"

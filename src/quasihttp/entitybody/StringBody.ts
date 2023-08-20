@@ -3,11 +3,11 @@ import { IQuasiHttpBody } from "../types";
 import * as IOUtils from "../../common/IOUtils";
 
 export class StringBody implements IQuasiHttpBody {
-    contentLength: bigint;
+    contentLength: number;
     content: string;
     constructor(content: string) {
         this.content = content;
-        this.contentLength = BigInt(Buffer.byteLength(content));
+        this.contentLength = Buffer.byteLength(content);
     }
     getReader() {
         return Readable.from(Buffer.from(this.content));

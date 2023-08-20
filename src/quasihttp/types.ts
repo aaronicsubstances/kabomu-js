@@ -27,6 +27,8 @@ export interface LeadChunk {
 
     /**
      * The equivalent of HTTP response status code.
+     * 
+     * NB: Must be valid signed 32-bit integer.
      */
     statusCode?: number
 
@@ -42,8 +44,10 @@ export interface LeadChunk {
      *    3. negative: this means that there will be a quasi http body, but with an unknown number of
      *       bytes. This implies chunk encoding where one or more subsequent chunks will follow the
      *       lead chunk when serialized.
+     * 
+     * NB: Must be valid signed 48-bit integer.
      */
-    contentLength?: bigint
+    contentLength?: number
 
     /**
      * The equivalent of method component of HTTP request line.
@@ -104,7 +108,7 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
 }
 
 export interface IQuasiHttpBody extends ICustomDisposable, ICustomWritable {
-    contentLength: bigint
+    contentLength: number
     getReader(): Readable | null
 }
 
@@ -142,8 +146,8 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
 }
 
 export interface IQuasiHttpTransport {
-    getReader(connection: any): Promise<Readable>
-    getWriter(connection: any): Promise<Writable>
+    getReader(connection: any): Readable
+    getWriter(connection: any): Writable
     releaseConnection(connection: any): Promise<void>
 }
 

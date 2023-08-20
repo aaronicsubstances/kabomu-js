@@ -10,8 +10,10 @@ import {
 import { createRandomizedReadSizeBufferReader } from "../shared/RandomizedReadSizeBufferReader"
 import {
     createDelayPromise,
-    whenAnyPromiseSettled
 } from "../shared/ComparisonUtils"
+import {
+    whenAnyPromiseSettles
+} from "../../src/common/MiscUtilsInternal"
 
 describe("MemoryPipeCustomReaderWriter", function() {
     const testData = [
@@ -59,18 +61,18 @@ describe("MemoryPipeCustomReaderWriter", function() {
         await IOUtils.writeBytes(instance, Buffer.alloc(10), 0, 0)
 
         let delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([readPromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([readPromise, delayPromise]),
             1)
 
         let writePromise = IOUtils.writeBytes(instance,
             Buffer.from([0, 2, 4, 6, 8, 9]), 1, 3)
         delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([writePromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             0)
         writePromise = IOUtils.writeBytes(instance,
             Buffer.from([0, 2, 8, 10]), 2, 1)
         delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([writePromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             1)
         readLen = await readPromise
         assert.equal(readLen, 0)
@@ -131,18 +133,18 @@ describe("MemoryPipeCustomReaderWriter", function() {
         await IOUtils.writeBytes(instance, Buffer.alloc(10), 0, 0)
 
         let delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([readPromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([readPromise, delayPromise]),
             1)
 
         let writePromise = IOUtils.writeBytes(instance,
             Buffer.from([0, 2, 4, 6, 8, 9]), 1, 3)
         delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([writePromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             0)
         writePromise = IOUtils.writeBytes(instance,
             Buffer.from([0, 2, 8, 10]), 2, 1)
         delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([writePromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             1)
         readLen = await readPromise
         assert.equal(readLen, 0)
@@ -202,12 +204,12 @@ describe("MemoryPipeCustomReaderWriter", function() {
         let writePromise = IOUtils.writeBytes(instance,
             Buffer.from([0, 2, 4, 6, 8, 9]), 1, 3)
         let delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([writePromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             0)
         writePromise = IOUtils.writeBytes(instance,
             Buffer.from([0, 2, 8, 10]), 2, 1)
         delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettled([writePromise, delayPromise]),
+        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             1)
 
         readLen = await IOUtils.readBytes(instance,

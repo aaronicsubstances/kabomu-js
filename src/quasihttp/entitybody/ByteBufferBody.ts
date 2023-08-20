@@ -3,12 +3,12 @@ import { IQuasiHttpBody } from "../types";
 import * as IOUtils from "../../common/IOUtils";
 
 export class ByteBufferBody implements IQuasiHttpBody {
-    contentLength: bigint;
+    contentLength: number;
     buffer: Buffer;
 
     constructor(buffer: Buffer) {
         this.buffer = buffer;
-        this.contentLength = BigInt(buffer.length);
+        this.contentLength = buffer.length;
     }
 
     async release() {

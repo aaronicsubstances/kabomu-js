@@ -392,18 +392,28 @@ export class ChunkedTransferCodec {
         if (specialHeader.length < 10) {
             throw new Error("invalid special header");
         }
-        if (specialHeader[0] !== "0") {
+        if (specialHeader[0] === "1") {
             instance.requestTarget = specialHeader[1];
         }
-        instance.statusCode = parseIntExactly(specialHeader[2]);
-        instance.contentLength = BigInt(specialHeader[3]);
-        if (specialHeader[4] !== "0") {
+        try {
+            instance.statusCode = ByteUtils.parseInt32(specialHeader[2]);
+        }
+        catch {
+            throw new Error("invalid status code");
+        }
+        try {
+            instance.contentLength = ByteUtils.parseInt48(specialHeader[3]);
+        }
+        catch {
+            throw new Error("invalid content length");
+        }
+        if (specialHeader[4] === "1") {
             instance.method = specialHeader[5];
         }
-        if (specialHeader[6] !== "0") {
+        if (specialHeader[6] === "1") {
             instance.httpVersion = specialHeader[7];
         }
-        if (specialHeader[8] !== "0") {
+        if (specialHeader[8] === "1") {
             instance.httpStatusMessage = specialHeader[9];
         }
         for (let i = 1; i < csvData.length; i++) {
@@ -442,14 +452,6 @@ function makeBooleanZeroOrOne(s: any) {
 
 function stringifyPossibleNull(s: any) {
     return (s === null || s === undefined) ? "" : `${s}`;
-}
-
-function parseIntExactly(input: any) {
-    const n = Number(input);
-    if (Number.isNaN(n)) {
-        throw new Error("wrong input number: " + input);
-    }
-    return n;
 }
 
 function calculateSizeInBytesOfEscapedValue(raw: string) {

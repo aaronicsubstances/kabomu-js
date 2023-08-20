@@ -377,6 +377,15 @@ describe("ByteUtils", function() {
                 length: 4,
                 signed: false,
                 expected: -1_000_000_000
+            },
+            // the next would have been 2_294_967_196
+            // if deserializing entire 32-bits as unsigned.
+            {
+                rawBytes: Buffer.from([8, 2, 0x88, 0xca, 0x6b, 0x9c, 1]),
+                offset: 2,
+                length: 4,
+                signed: false,
+                expected: -2_000_000_100
             }
         ]
         testData.forEach(({rawBytes, offset, length, signed, expected}, i) => {
@@ -404,6 +413,170 @@ describe("ByteUtils", function() {
             assert.throws(() => {
                 ByteUtils.deserializeUpToInt32BigEndian(
                     Buffer.alloc(20), 0, 10, true)
+            })
+        })
+    })
+
+    describe("#parseInt48", function() {
+        const testData = [
+            {
+                input: "0",
+                expected: 0
+            },
+            {
+                input: "1",
+                expected: 1
+            },
+            {
+                input: "2",
+                expected: 2
+            },
+            {
+                input: " 20",
+                expected: 20
+            },
+            {
+                input: " 200 ",
+                expected: 200
+            },
+            {
+                input: "-1000",
+                expected: -1000
+            },
+            {
+                input: "1000000",
+                expected: 1_000_000
+            },
+            {
+                input: "-1000000000",
+                expected: -1_000_000_000
+            },
+            {
+                input: "4294967295",
+                expected: 4_294_967_295
+            },
+            {
+                input: "-50000000000000",
+                expected: -50_000_000_000_000
+            },
+            {
+                input: "100000000000000",
+                expected: 100_000_000_000_000
+            },
+            {
+                input: "140737488355327",
+                expected: 140_737_488_355_327
+            },
+            {
+                input: "-140737488355328",
+                expected: -140_737_488_355_328
+            },
+            // remainder are verifications
+            {
+                input: 2.0,
+                expected: 2.0
+            },
+            {
+                input: 140_737_488_355_327,
+                expected: 140_737_488_355_327
+            },
+            {
+                input: -140_737_488_355_328,
+                expected: -140_737_488_355_328
+            }
+        ]
+        testData.forEach(({input, expected}, i) => {
+            it(`should pass with input ${i}`, function() {
+                const actual = ByteUtils.parseInt48(input)
+                assert.equal(actual, expected)
+            })
+        })
+
+        const testErrorData = [
+            "", " ", null, "false", "xyz", "1.23", /*"2.0", */
+            "140737488355328", "-140737488355329", "72057594037927935",
+            [], {}
+        ]
+        testErrorData.forEach((input, i) => {
+            it(`should fail with input ${i}`, function() {
+                assert.throws(() =>
+                    ByteUtils.parseInt48(input))
+            })
+        })
+    })
+
+    describe("#parseInt32", function() {
+        const testData = [
+            {
+                input: "0",
+                expected: 0
+            },
+            {
+                input: "1",
+                expected: 1
+            },
+            {
+                input: "2",
+                expected: 2
+            },
+            {
+                input: " 20",
+                expected: 20
+            },
+            {
+                input: " 200 ",
+                expected: 200
+            },
+            {
+                input: "-1000",
+                expected: -1000
+            },
+            {
+                input: "1000000",
+                expected: 1_000_000
+            },
+            {
+                input: "-1000000000",
+                expected: -1_000_000_000
+            },
+            {
+                input: "2147483647",
+                expected: 2_147_483_647
+            },
+            {
+                input: "-2147483648",
+                expected: -2_147_483_648
+            },
+            // remainder are verifications
+            {
+                input: 2.0,
+                expected: 2.0
+            },
+            {
+                input:  2_147_483_647,
+                expected: 2_147_483_647
+            },
+            {
+                input: -2_147_483_648,
+                expected: -2_147_483_648
+            }
+        ]
+        testData.forEach(({input, expected}, i) => {
+            it(`should pass with input ${i}`, function() {
+                const actual = ByteUtils.parseInt32(input)
+                assert.equal(actual, expected)
+            })
+        })
+
+        const testErrorData = [
+            "", " ", null, "false", "xyz", "1.23", /*"2.0", */
+            "2147483648", "-2147483649", "50000000000000",
+            [], {}
+        ]
+        testErrorData.forEach((input, i) => {
+            it(`should fail with input ${i}`, function() {
+                assert.throws(() =>
+                    ByteUtils.parseInt32(input))
             })
         })
     })

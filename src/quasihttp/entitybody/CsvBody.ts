@@ -4,7 +4,7 @@ import * as IOUtils from "../../common/IOUtils";
 import * as CsvUtils from "../../common/CsvUtils";
 
 export class CsvBody implements IQuasiHttpBody {
-    contentLength = BigInt(-1);
+    contentLength = -1;
     content: Map<string, string[]>;
     constructor(content: Map<string, string[]>) {
         this.content = content;

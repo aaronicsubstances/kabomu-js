@@ -3,6 +3,7 @@ import { Readable, Writable } from "stream";
 import { QuasiHttpRequestProcessingError } from "./errors";
 import { IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
+import { whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
 import * as EntityBodyUtils from "./entitybody/EntityBodyUtils";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
 import { createContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
@@ -10,48 +11,28 @@ import { createChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncoding
 import { ByteBufferBody } from "./entitybody/ByteBufferBody";
 import { LambdaBasedQuasiHttpBody } from "./entitybody/LambdaBasedQuasiHttpBody";
 
-function parseIntExactly(input: any) {
-    const n = Number(input);
-    if (Number.isNaN(n)) {
-        throw new Error("wrong input number: " + input);
-    }
-    return n;
-}
-
 export function determineEffectiveNonZeroIntegerOption(
         preferred: number | null, fallback1: number | null,
         defaultValue: number) {
-    if (preferred !== null && typeof preferred !== "undefined") {
-        const effectiveValue = Number(preferred);
-        if (effectiveValue) {
-            return effectiveValue;
-        }
+    if (preferred) {
+        return preferred;
     }
-    if (fallback1 !== null && typeof fallback1 !== "undefined") {
-        const effectiveValue = Number(fallback1);
-        if (effectiveValue) {
-            return effectiveValue;
-        }
+    if (fallback1) {
+        return fallback1;
     }
-    return parseIntExactly(defaultValue);
+    return defaultValue;
 }
 
 export function determineEffectivePositiveIntegerOption(
         preferred: number | null, fallback1: number | null,
         defaultValue: number) {
-    if (preferred !== null && typeof preferred !== "undefined") {
-        const effectiveValue = Number(preferred);
-        if (!Number.isNaN(effectiveValue) && effectiveValue > 0) {
-            return effectiveValue;
-        }
+    if (preferred && preferred > 0) {
+        return preferred;
     }
-    if (fallback1 !== null && typeof fallback1 !== "undefined") {
-        const effectiveValue = Number(fallback1);
-        if (!Number.isNaN(effectiveValue) && effectiveValue > 0) {
-            return effectiveValue;
-        }
+    if (fallback1 && fallback1 > 0) {
+        return fallback1;
     }
-    return parseIntExactly(defaultValue);
+    return defaultValue;
 }
 
 export function determineEffectiveOptions(
@@ -76,10 +57,10 @@ export function determineEffectiveOptions(
 export function determineEffectiveBooleanOption(
         preferred: boolean | null, fallback1: boolean | null, 
         defaultValue: boolean) {
-    if (preferred !== null && typeof preferred !== "undefined") {
+    if (typeof preferred !== "undefined") {
         return !!preferred;
     }
-    if (fallback1 !== null && typeof fallback1 !== "undefined") {
+    if (typeof fallback1 !== "undefined") {
         return !!fallback1;
     }
     return !!defaultValue;
@@ -89,11 +70,11 @@ export function getEnvVarAsBoolean(
         environment: Map<string, any>, key: string) {
     if (environment && environment.has(key)) {
         const value = environment.get(key);
-        if (value !== null && typeof value !== "undefined") {
+        if (typeof value !== "undefined") {
             return !!value;
         }
     }
-    return null;
+    return undefined;
 }
 
 export async function createEquivalentOfUnknownBodyInMemory(
@@ -138,7 +119,7 @@ export async function transferBodyToTransport(
 
 export async function createBodyFromTransport(
         reader: Readable,
-        contentLength: bigint,
+        contentLength: number,
         releaseFunc: () => Promise<void> | null,
         maxChunkSize: number,
         bufferingEnabled: boolean,
@@ -147,7 +128,7 @@ export async function createBodyFromTransport(
         return null;
     }
 
-    if (contentLength < BigInt(0)) {
+    if (contentLength < 0) {
         reader = createChunkDecodingCustomReader(reader,
             maxChunkSize);
     }
@@ -188,13 +169,13 @@ export async function completeRequestProcessing<T>(
         promises.push(cancellationPromise);
     }
     while (promises.length > 1) {
-        const [firstTask] = await Promise.race(
-            promises.map(p => p.then(() => [p])));
-        if (firstTask === workPromise) {
+        const firstPromise = promises[await whenAnyPromiseSettles(
+            promises)]
+        if (firstPromise === workPromise) {
             break;
         }
-        await firstTask; // let any exceptions bubble up.
-        promises = promises.filter(p => p !== firstTask);
+        await firstPromise; // let any exceptions bubble up.
+        promises = promises.filter(p => p !== firstPromise);
     }
     return await workPromise;
 }

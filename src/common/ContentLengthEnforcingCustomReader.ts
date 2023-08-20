@@ -1,8 +1,9 @@
 import { Readable } from "stream";
 
 import { CustomIOError } from "./errors";
+import * as ByteUtils from "./ByteUtils";
 
-const generate = async function*(wrappedReader: Readable, expectedLength: bigint) {
+const generate = async function*(wrappedReader: Readable, expectedLength: number) {
     let bytesLeftToRead = expectedLength;
     if (!bytesLeftToRead) {
         // if bytes left to read is zero,
@@ -16,7 +17,7 @@ const generate = async function*(wrappedReader: Readable, expectedLength: bigint
         }
         else if (bytesLeftToRead >= chunk.length) {
             yield chunk;
-            bytesLeftToRead -= BigInt(chunk.length);
+            bytesLeftToRead -= chunk.length;
             if (!bytesLeftToRead) {
                 break;
             }
@@ -26,7 +27,7 @@ const generate = async function*(wrappedReader: Readable, expectedLength: bigint
             yield chunk.subarray(0, numRead);
             wrappedReader.unshift(chunk.subarray(numRead,
                 chunk.length));
-            bytesLeftToRead = BigInt(0);
+            bytesLeftToRead = 0;
             break;
         }
     }
@@ -47,9 +48,10 @@ const generate = async function*(wrappedReader: Readable, expectedLength: bigint
  * @returns a stream decorating the reader argument
  */
 export function createContentLengthEnforcingCustomReader(
-        wrappedReader: Readable, expectedLength: bigint | number) {
+        wrappedReader: Readable, expectedLength: number) {
     if (!wrappedReader) {
         throw new Error("wrappedReader argument is null");
     }
-    return Readable.from(generate(wrappedReader, BigInt(expectedLength)));
+    return Readable.from(generate(wrappedReader, 
+        ByteUtils.parseInt48(expectedLength)));
 }

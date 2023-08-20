@@ -5,7 +5,7 @@ import * as IOUtils from "../../common/IOUtils";
 import { MissingDependencyError } from "../../common/errors";
 
 export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
-    contentLength = BigInt(-1);
+    contentLength = -1;
     writable?: ICustomWritable;
     releaseFunc?: () => Promise<void> | null;
     readerFunc?: () => Readable;
