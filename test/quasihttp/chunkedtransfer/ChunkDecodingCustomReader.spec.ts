@@ -42,7 +42,7 @@ describe("ChunkDecodingCustomReader", function() {
         
         // ensure subsequent reading attempts return 0
         assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1), 0, 1), 0)
+            Buffer.alloc(1)), 0)
     })
 
     it("should pass (2)", async function(){
@@ -74,7 +74,7 @@ describe("ChunkDecodingCustomReader", function() {
         
         // ensure subsequent reading attempts return 0
         assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1), 0, 1), 0)
+            Buffer.alloc(1)), 0)
     })
 
     it("should pass (3)", async function(){
@@ -113,7 +113,7 @@ describe("ChunkDecodingCustomReader", function() {
         
         // ensure subsequent reading attempts return 0
         assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1), 0, 1), 0)
+            Buffer.alloc(1)), 0)
     })
 
     it("should pass (4)", async function(){
@@ -148,7 +148,7 @@ describe("ChunkDecodingCustomReader", function() {
         
         // ensure subsequent reading attempts return 0
         assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1), 0, 1), 0)
+            Buffer.alloc(1)), 0)
     })
 
     it("should pass (5)", async function(){
@@ -181,7 +181,7 @@ describe("ChunkDecodingCustomReader", function() {
         
         // ensure subsequent reading attempts return 0
         assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1), 0, 1), 0)
+            Buffer.alloc(1)), 0)
     })
 
     it("should fail (1)", async function() {

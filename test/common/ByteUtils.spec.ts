@@ -91,19 +91,15 @@ describe("ByteUtils", function() {
     describe("#bytesToString", function() {
         it("should pass", function() {
             let data = Buffer.from([])
-            let offset = 0
-            let length = 0
             let expected = ""
-            let actual = ByteUtils.bytesToString(data, offset, length)
+            let actual = ByteUtils.bytesToString(data)
             assert.equal(actual, expected)
             actual = ByteUtils.bytesToString(data)
             assert.equal(actual, expected)
 
             data = Buffer.from([97, 98, 99])
-            offset = 0
-            length = data.length
             expected = "abc"
-            actual = ByteUtils.bytesToString(data, offset, length)
+            actual = ByteUtils.bytesToString(data)
             assert.equal(actual, expected)
             actual = ByteUtils.bytesToString(data)
             assert.equal(actual, expected)
@@ -111,10 +107,9 @@ describe("ByteUtils", function() {
             data = Buffer.from([0x46, 0x6f, 0x6f, 0x20, 0xc2, 0xa9, 0x20, 0x62, 0x61, 0x72, 0x20,
                 0xf0, 0x9d, 0x8c, 0x86, 0x20, 0x62, 0x61, 0x7a, 0x20, 0xe2, 0x98, 0x83,
                 0x20, 0x71, 0x75, 0x78])
-            offset = 1
-            length = data.length - 2
             expected = "oo \u00a9 bar \ud834\udf06 baz \u2603 qu"
-            actual = ByteUtils.bytesToString(data, offset, length)
+            actual = ByteUtils.bytesToString(data.subarray(1,
+                data.length - 1))
             assert.equal(actual, expected)
         })
     })

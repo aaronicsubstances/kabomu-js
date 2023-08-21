@@ -2,7 +2,6 @@ import { Readable, Writable, finished as finishedWithCb } from "stream";
 import { finished } from "node:stream/promises";
 
 import { CustomIOError } from "./errors";
-import * as ByteUtils from "../common/ByteUtils";
 
 /**
  * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
@@ -24,13 +23,9 @@ function createNonBufferChunkError(chunk: any) {
 /**
  * Performs writes on behalf of a writable stream
  * @param writer writable stream
- * @param data source buffer of bytes to write
- * @param offset starting position in buffer to start fetching
- * bytes to write out
- * @param length number of bytes to write
+ * @param data source buffer
  */
-export async function writeBytes(writer: Writable, data: Buffer,
-        offset: number, length: number) {
+export async function writeBytes(writer: Writable, data: Buffer) {
     if (!writer) {
         throw new Error("writer argument is null");
     }
@@ -51,7 +46,7 @@ export async function writeBytes(writer: Writable, data: Buffer,
                 }
             }
         });
-        writer.write(data.subarray(offset, offset + length), err => {
+        writer.write(data, err => {
             if (err) {
                 reject(err);
             }
@@ -67,14 +62,11 @@ export async function writeBytes(writer: Writable, data: Buffer,
 /**
  * Performs reads on behalf of a readable stream
  * @param reader readable stream
- * @param data destination buffer into which bytes read will be saved
- * @param offset starting position in buffer to start saving read bytes
- * @param length number of bytes to read
+ * @param data destination buffer
  * @returns a promise whose result will be the number of bytes actually read, which
- * depending of the kind of reader may be less than the number of bytes requested.
+ * depending of the kind of reader may be less than the destination buffer size.
  */
-export async function readBytes(reader: Readable, data: Buffer,
-        offset: number, length: number) {
+export async function readBytes(reader: Readable, data: Buffer) {
     if (!reader) {
         throw new Error("reader argument is null");
     }
@@ -102,26 +94,28 @@ export async function readBytes(reader: Readable, data: Buffer,
                 reader.removeListener('readable', readableCb);
                 if (!Buffer.isBuffer(chunk)) {
                     reject(createNonBufferChunkError(chunk))
-                }
-                else {
-                    const bytesRead = Math.min(length, chunk.length);
-                    if (bytesRead < chunk.length) {
-                        if (bytesRead) {
-                            reader.unshift(chunk.subarray(
-                                bytesRead, chunk.length));
-                        }
-                        else {
-                            reader.unshift(chunk);
-                        }
-                    }
-                    if (bytesRead) {
-                        chunk.copy(data, offset, 0, bytesRead);
-                    }
-                    resolve(bytesRead);
+
+                    // important to only abort after reject()
+                    controller.abort();
+                    return;
                 }
 
-                // important to only abort after resolve() or
-                // reject()
+                const bytesRead = Math.min(data.length, chunk.length);
+                if (bytesRead < chunk.length) {
+                    if (bytesRead) {
+                        reader.unshift(chunk.subarray(
+                            bytesRead, chunk.length));
+                    }
+                    else {
+                        reader.unshift(chunk);
+                    }
+                }
+                if (bytesRead) {
+                    chunk.copy(data, 0, 0, bytesRead);
+                }
+                resolve(bytesRead);
+
+                // important to only abort after resolve()
                 controller.abort();
             }
         };
@@ -134,18 +128,12 @@ export async function readBytes(reader: Readable, data: Buffer,
  * a buffer. An error occurs if an insufficient amount of bytes exist in
  * stream to fill the buffer.
  * @param reader source of bytes to read
- * @param data destination buffer
- * @param offset start position in buffer to fill form
- * @param length number of bytes to read. Failure to obtain this
- * number of bytes will result in an error
+ * @param data destination buffer to fill
  */
-export async function readBytesFully(reader: Readable, data: Buffer,
-        offset: number, length: number): Promise<void> {
+export async function readBytesFully(reader: Readable,
+        data: Buffer): Promise<void> {
     if (!reader) {
         throw new Error("reader argument is null");
-    }
-    if (!ByteUtils.isValidByteBufferSlice(data, offset, length)) {
-        throw new Error("invalid buffer slice");
     }
     // allow zero-byte reads to proceed to touch the
     // stream, rather than just return.
@@ -162,7 +150,7 @@ export async function readBytesFully(reader: Readable, data: Buffer,
                     reject(err);
                 }
                 else {
-                    if (length > 0) {
+                    if (data.length > 0) {
                         reject(new CustomIOError("unexpected end of read"));
                     }
                     else {
@@ -171,8 +159,7 @@ export async function readBytesFully(reader: Readable, data: Buffer,
                 }
             }
         });
-        const endOffset = offset + length;
-        let runningOffset = offset;
+        let bytesWritten = 0;
         readableCb = function() {
             let chunk: Buffer | null;
             while ((chunk = reader.read()) !== null) {
@@ -184,22 +171,20 @@ export async function readBytesFully(reader: Readable, data: Buffer,
                     controller.abort();
                     break;
                 }
-                if (runningOffset + chunk.length < endOffset) {
-                    chunk.copy(data, runningOffset);
-                    runningOffset += chunk.length;
+
+                if (bytesWritten + chunk.length < data.length) {
+                    chunk.copy(data, bytesWritten);
+                    bytesWritten += chunk.length;
                     continue;
                 }
                 // Remove the 'readable' listener before any unshifting.
                 reader.removeListener('readable', readableCb);
-                const bytesLeft = endOffset - runningOffset;
-                if (bytesLeft === chunk.length) {
-                    chunk.copy(data, runningOffset);
-                }
-                else {
+                const bytesLeft = data.length - bytesWritten;
+                if (bytesLeft < chunk.length) {
                     reader.unshift(chunk.subarray(
                         bytesLeft, chunk.length));
-                    chunk.copy(data, runningOffset, 0, bytesLeft);
                 }
+                chunk.copy(data, bytesWritten, 0, bytesLeft);
                 resolve();
 
                 // important to only abort after resolve()

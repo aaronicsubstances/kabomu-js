@@ -36,7 +36,7 @@ async function* generate(wrappedReader: Readable, maxChunkSize: number) {
         const chunk = Buffer.alloc(chunkDataLen);
         try {
             await IOUtils.readBytesFully(wrappedReader,
-                chunk, 0, chunk.length);
+                chunk);
             yield chunk;
         }
         catch (e) {

@@ -69,13 +69,14 @@ export function createChunkEncodingCustomWriter(wrappedWriter: Writable,
             // next empty buffer
             // NB: have to recreate buffer just in case it is
             // stored by underlying writer.
-            await IOUtils.writeBytes(wrappedWriter, buffer, 0,
-                usedBufferOffset);
+            await IOUtils.writeBytes(wrappedWriter,
+                buffer.subarray(0, usedBufferOffset));
             buffer = Buffer.allocUnsafeSlow(buffer.length)
             usedBufferOffset = 0;
 
             // now directly transfer data to writer.
-            await IOUtils.writeBytes(wrappedWriter, data, offset, chunkRem);
+            await IOUtils.writeBytes(wrappedWriter,
+                data.subarray(offset, offset + chunkRem));
         }
         return chunkRem;
     };
@@ -88,7 +89,8 @@ export function createChunkEncodingCustomWriter(wrappedWriter: Writable,
             if (usedBufferOffset > 0) {
                 await encoder.encodeSubsequentChunkV1Header(
                     usedBufferOffset, wrappedWriter);
-                await IOUtils.writeBytes(wrappedWriter, buffer, 0, usedBufferOffset);
+                await IOUtils.writeBytes(wrappedWriter,
+                    buffer.subarray(0, usedBufferOffset));
                 buffer = Buffer.allocUnsafeSlow(buffer.length)
                 usedBufferOffset = 0;
             }

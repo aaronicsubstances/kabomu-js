@@ -76,8 +76,7 @@ export class ChunkedTransferCodec {
         buffer[ChunkedTransferCodec.LengthOfEncodedChunkLength] =
             ChunkedTransferCodec.Version01
         buffer[ChunkedTransferCodec.LengthOfEncodedChunkLength + 1] = 0 // flags.
-        await IOUtils.writeBytes(writer, buffer, 0,
-            buffer.length)
+        await IOUtils.writeBytes(writer, buffer)
     }
 
     /**
@@ -115,8 +114,9 @@ export class ChunkedTransferCodec {
         try {
             if (!bufferToUse) {
                 bufferToUse = this._defaultBufferUsedForDecoding;
-                await IOUtils.readBytesFully(reader!, bufferToUse, 0,
-                    ChunkedTransferCodec.LengthOfEncodedChunkLength + 2);
+                await IOUtils.readBytesFully(reader!,
+                    bufferToUse.subarray(0,
+                        ChunkedTransferCodec.LengthOfEncodedChunkLength + 2));
             }
             const chunkLen = ByteUtils.deserializeUpToInt32BigEndian(bufferToUse,
                 0, ChunkedTransferCodec.LengthOfEncodedChunkLength, true);
@@ -167,11 +167,12 @@ export class ChunkedTransferCodec {
         try {
             const encodedLength = Buffer.allocUnsafeSlow(
                 ChunkedTransferCodec.LengthOfEncodedChunkLength);
-            if (await IOUtils.readBytes(reader, encodedLength, 0, 1) <= 0) {
+            if (await IOUtils.readBytes(reader,
+                    encodedLength.subarray(0, 1)) <= 0) {
                 return null;
             }
-            await IOUtils.readBytesFully(reader, encodedLength, 1,
-                encodedLength.length - 1);
+            await IOUtils.readBytesFully(reader,
+                encodedLength.subarray(1, encodedLength.length));
             const chunkLen = ByteUtils.deserializeUpToInt32BigEndian(encodedLength, 0,
                 encodedLength.length, true);
             validateChunkLength(chunkLen, maxChunkSize);
@@ -183,8 +184,7 @@ export class ChunkedTransferCodec {
         }
 
         try {
-            await IOUtils.readBytesFully(reader, chunkBytes, 0,
-                chunkBytes.length);
+            await IOUtils.readBytesFully(reader, chunkBytes);
         }
         catch (e) {
             throw new ChunkDecodingError("Failed to decode quasi http headers while " +
@@ -193,7 +193,7 @@ export class ChunkedTransferCodec {
 
         try
         {
-            const chunk = ChunkedTransferCodec._deserialize(chunkBytes, 0, chunkBytes.length);
+            const chunk = ChunkedTransferCodec._deserialize(chunkBytes);
             return chunk;
         }
         catch (e) {
@@ -235,7 +235,7 @@ export class ChunkedTransferCodec {
         const encodedLength = Buffer.allocUnsafeSlow(ChunkedTransferCodec.LengthOfEncodedChunkLength);
         ByteUtils.serializeUpToInt32BigEndian(byteCount, encodedLength, 0,
             encodedLength.length);
-        await IOUtils.writeBytes(writer, encodedLength, 0, encodedLength.length);
+        await IOUtils.writeBytes(writer, encodedLength);
         await this._writeOutSerializedRepresentation(writer);
     }
 
@@ -402,7 +402,7 @@ export class ChunkedTransferCodec {
         if (!csvDataPrefix || !csvData) {
             throw new Error("missing serialized representation");
         }
-        await IOUtils.writeBytes(writer, csvDataPrefix, 0, csvDataPrefix.length);
+        await IOUtils.writeBytes(writer, csvDataPrefix);
         await CsvUtils.serializeTo(csvData, writer);
     }
 
@@ -410,32 +410,28 @@ export class ChunkedTransferCodec {
      * Deserializes the structure from byte buffer. The serialization format version must be present.
      * Also headers without values will be skipped.
      * @param data the source byte buffer
-     * @param offset the start decoding position in data
-     * @param length the number of bytes to deserialize
      * @returns deserialized lead chunk structure
      */
-    static _deserialize(data: Buffer, offset: number, length: number): LeadChunk {
+    static _deserialize(data: Buffer): LeadChunk {
         if (!data) {
             throw new Error("data argument is null");
         }
-        if (!ByteUtils.isValidByteBufferSlice(data, offset, length)) {
-            throw new Error("invalid payload");
-        }
 
-        if (length < 10) {
+        if (data.length < 10) {
             throw new Error("too small to be a valid lead chunk");
         }
 
         const instance: LeadChunk = {
-            version: data[offset]
+            version: data[0]
         };
         if (!instance.version)
         {
             throw new Error("version not set");
         }
-        instance.flags = data[offset + 1];
+        instance.flags = data[1];
 
-        const csv = ByteUtils.bytesToString(data, offset + 2, length - 2);
+        const csv = ByteUtils.bytesToString(
+            data.subarray(2, data.length));
         const csvData = CsvUtils.deserialize(csv);
         if (!csvData.length) {
             throw new Error("invalid lead chunk");

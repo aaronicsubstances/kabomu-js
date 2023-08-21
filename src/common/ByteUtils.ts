@@ -38,16 +38,10 @@ export function stringToBytes(s: string) {
 /**
  * Creates a string from its UTF-8 encoding in a buffer.
  * @param data buffer containing UTF-8 encoded bytes
- * @param offset offset in buffer from which to begin decoding. defaults to start of buffer.
- * @param length number of bytes to decode. defaults to entire buffer length minus offset.
- * @returns string equivalent of byte buffer slice containing UTF-8 encoding
+ * @returns string equivalent of byte buffer containing UTF-8 encoding
  */
-export function bytesToString(data: Buffer, offset = 0, length?: number): string {
-    let offsetEnd = length;
-    if (offset && length) {
-        offsetEnd = offset + length;
-    }
-    return data.toString("utf8", offset, offsetEnd);
+export function bytesToString(data: Buffer): string {
+    return data.toString();
 }
 
 /**

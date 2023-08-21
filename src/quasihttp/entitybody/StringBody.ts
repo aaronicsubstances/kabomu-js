@@ -43,7 +43,6 @@ export class StringBody implements IQuasiHttpBody {
      */
     async writeBytesTo(writer: Writable) {
         const contentBytes = Buffer.from(this.content);
-        await IOUtils.writeBytes(writer, contentBytes, 0,
-            contentBytes.length);
+        await IOUtils.writeBytes(writer, contentBytes);
     }
 }

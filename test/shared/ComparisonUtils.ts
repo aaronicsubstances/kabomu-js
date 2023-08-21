@@ -34,7 +34,6 @@ export async function compareBodies(
     assert.equalBytes(actualBodyBytes, expectedBodyBytes)
 }
 
-
 export async function compareBodiesInvolvingUnknownSources(
         actual: IQuasiHttpBody | null, expected: IQuasiHttpBody,
         expectedBodyBytes: Buffer | null) {

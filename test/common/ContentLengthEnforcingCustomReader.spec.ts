@@ -119,16 +119,16 @@ describe("ContentLengthEnforcingCustomReader", function() {
             stream, -1)
         
         let actual = await IOUtils.readBytes(instance,
-            Buffer.alloc(0), 0, 0)
+            Buffer.alloc(0))
         assert.equal(actual, 0)
 
         let actual2 = Buffer.alloc(3)
-        actual = await IOUtils.readBytes(instance, actual2, 0, 3)
+        actual = await IOUtils.readBytes(instance, actual2)
         assert.equal(actual, 3)
         assert.equalBytes(actual2, Buffer.from([0, 1, 2]))
 
         actual = await IOUtils.readBytes(instance, 
-            Buffer.alloc(0), 0, 0)
+            Buffer.alloc(0))
         assert.equal(actual, 0)
     })
 
@@ -138,16 +138,16 @@ describe("ContentLengthEnforcingCustomReader", function() {
             stream, 3)
         
         let actual = await IOUtils.readBytes(instance,
-            Buffer.alloc(0), 0, 0)
+            Buffer.alloc(0))
         assert.equal(actual, 0)
 
         let actual2 = Buffer.alloc(3)
-        actual = await IOUtils.readBytes(instance, actual2, 0, 3)
+        actual = await IOUtils.readBytes(instance, actual2)
         assert.equal(actual, 3)
         assert.equalBytes(actual2, Buffer.from([0, 1, 2]))
 
         actual = await IOUtils.readBytes(instance, 
-            Buffer.alloc(0), 0, 0)
+            Buffer.alloc(0))
         assert.equal(actual, 0)
     })
 
@@ -163,14 +163,14 @@ describe("ContentLengthEnforcingCustomReader", function() {
         
         await nativeAssert.rejects(async () => {
             await IOUtils.readBytesFully(instance,
-                Buffer.alloc(contentLength), 0, contentLength)
+                Buffer.alloc(contentLength))
         }, (e: any) => {
             expect(e.message).to.contain(`length of ${contentLength}`)
             return true
         })
         
         await nativeAssert.rejects(async () => {
-            await IOUtils.readBytes(instance, Buffer.alloc(0), 0, 0)
+            await IOUtils.readBytes(instance, Buffer.alloc(0))
         }, (e: any) => {
             expect(e.message).to.contain(`length of ${contentLength}`)
             return true

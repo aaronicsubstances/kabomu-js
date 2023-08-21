@@ -35,7 +35,7 @@ describe("ChunkedTransferCodec", function() {
             assert.equal(computedByteCount, expectedBytes.length)
 
             const actualChunk = ChunkedTransferCodec._deserialize(
-                actualBytes, 0, actualBytes.length)
+                actualBytes)
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
@@ -49,7 +49,7 @@ describe("ChunkedTransferCodec", function() {
             const equivalentBytes = ByteUtils.stringToBytes(
                 "\u0001\u0000true,\"\",0,0,false,\"\",\"\",\"\",2,\"\"\n")
             const actualChunk = ChunkedTransferCodec._deserialize(
-                equivalentBytes, 0, equivalentBytes.length)
+                equivalentBytes)
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
@@ -89,7 +89,7 @@ describe("ChunkedTransferCodec", function() {
             assert.equal(computedByteCount, expectedBytes.length)
 
             const actualChunk = ChunkedTransferCodec._deserialize(
-                actualBytes, 0, actualBytes.length)
+                actualBytes)
             assert.notOk(actualChunk.headers?.get("a"))
             actualChunk.headers?.set("a", [])
             assert.deepEqual(actualChunk, expectedChunk)
@@ -115,32 +115,27 @@ describe("ChunkedTransferCodec", function() {
                 "content-type,application/json\n" +
                 "allow,\"GET,POST\"\n")
             const actualChunk = ChunkedTransferCodec._deserialize(
-                srcBytes, 0, srcBytes.length)
+                srcBytes)
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
         it("should succeed in verifying expected failure (1)", function() {
             assert.throws(() =>
-                ChunkedTransferCodec._deserialize(null as any, 0, 6))
+                ChunkedTransferCodec._deserialize(null as any))
         })
 
         it("should succeed in verifying expected failure (2)", function() {
             assert.throws(() =>
-                ChunkedTransferCodec._deserialize(Buffer.alloc(6), 6, 1))
+                ChunkedTransferCodec._deserialize(Buffer.alloc(7)))
         })
 
         it("should succeed in verifying expected failure (3)", function() {
             assert.throws(() =>
-                ChunkedTransferCodec._deserialize(Buffer.alloc(7), 0, 7))
-        })
-
-        it("should succeed in verifying expected failure (4)", function() {
-            assert.throws(() =>
                 ChunkedTransferCodec._deserialize(
-                    Buffer.from([1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 9]), 0, 11))
+                    Buffer.from([1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 9])))
         })
 
-        it("should succeed in verifying expected failure (5)", async function() {
+        it("should succeed in verifying expected failure (4)", async function() {
             await nativeAssert.rejects(async () => {
                 const data = ByteUtils.stringToBytes(
                     "\u0000\u00001,1,1," +
@@ -149,7 +144,7 @@ describe("ChunkedTransferCodec", function() {
                     "1,1,1," +
                     "1,1\n"
                 )
-                ChunkedTransferCodec._deserialize(data, 0, data.length)
+                ChunkedTransferCodec._deserialize(data)
             }, (e: any) => {
                 expect(e.message).to.contain("version")
                 return true
@@ -164,7 +159,7 @@ describe("ChunkedTransferCodec", function() {
                     "content-type,application/json\n" +
                     "allow,\"GET,POST\"\n"
                 )
-                ChunkedTransferCodec._deserialize(data, 0, data.length)
+                ChunkedTransferCodec._deserialize(data)
             }, (e: any) => {
                 expect(e.message).to.contain("invalid content length")
                 return true
@@ -179,7 +174,7 @@ describe("ChunkedTransferCodec", function() {
                     "content-type,application/json\n" +
                     "allow,\"GET,POST\"\n"
                 )
-                ChunkedTransferCodec._deserialize(data, 0, data.length)
+                ChunkedTransferCodec._deserialize(data)
             }, (e: any) => {
                 expect(e.message).to.contain("invalid status code")
                 return true

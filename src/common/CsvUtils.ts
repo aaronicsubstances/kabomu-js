@@ -225,14 +225,12 @@ export async function serializeTo(rows: Array<string[]>, writer: Writable) {
         let addCommaSeparator = false;
         for (const value of row) {
             if (addCommaSeparator) {
-                await IOUtils.writeBytes(writer, commaConstant, 0,
-                    commaConstant.length);
+                await IOUtils.writeBytes(writer, commaConstant);
             }
             await escapeValueTo(value, writer);
             addCommaSeparator = true;
         }
-        await IOUtils.writeBytes(writer, newlineConstant, 0,
-            newlineConstant.length);
+        await IOUtils.writeBytes(writer, newlineConstant);
     }
 }
 
@@ -273,7 +271,7 @@ export async function escapeValueTo(raw: string, writer: Writable) {
         raw = '"' + raw.replaceAll("\"", "\"\"") + '"';
     }
     const rawBytes = ByteUtils.stringToBytes(raw);
-    await IOUtils.writeBytes(writer, rawBytes, 0, rawBytes.length);
+    await IOUtils.writeBytes(writer, rawBytes);
 }
 
 /**

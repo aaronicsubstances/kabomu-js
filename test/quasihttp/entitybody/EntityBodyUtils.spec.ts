@@ -29,8 +29,7 @@ function* createTestData() {
     reader = null;
     fallback = {
         async writeBytesTo(writer) {
-            await IOUtils.writeBytes(writer, expected, 0,
-                expected.length)
+            await IOUtils.writeBytes(writer, expected)
         },
     } as ISelfWritable
     yield {
@@ -67,7 +66,7 @@ describe("EntityBodyUtils", function() {
             const troublesomeSelfWritable = {
                 async writeBytesTo(writer) {
                     await IOUtils.writeBytes(writer,
-                        Buffer.alloc(1000), 0, 1000)
+                        Buffer.alloc(1000))
                     throw new Error("enough!")
                 },
             } as ISelfWritable

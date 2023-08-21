@@ -11,25 +11,25 @@ describe("IOUtils", function() {
         it("should pass (1)", async function() {
             const stream = Readable.from(Buffer.from([1, 2, 3]))
             let actual = Buffer.alloc(3)
-            let actualReadLen = await IOUtils.readBytes(stream, actual, 0,
-                2)
+            let actualReadLen = await IOUtils.readBytes(stream,
+                actual.subarray(0, 2))
             assert.equal(actualReadLen, 2)
             assert.equalBytes(actual.subarray(0, 2),
                 Buffer.from([1, 2]))
 
             actualReadLen = await IOUtils.readBytes(stream,
-                actual, 1, 0)
+                actual.subarray(1, 1))
             assert.equal(actualReadLen, 0)
             assert.equalBytes(actual, Buffer.from([1, 2, 0]))
 
             actualReadLen = await IOUtils.readBytes(stream,
-                actual, 1, 2)
+                actual.subarray(1, 3))
             assert.equal(actualReadLen, 1)
             assert.equalBytes(actual.subarray(1, 2),
                 Buffer.from([3]))
 
             actualReadLen = await IOUtils.readBytes(stream,
-                actual, 2, 1)
+                actual.subarray(2, 3))
             assert.equal(actualReadLen, 0)
             assert.equalBytes(actual, Buffer.from([1, 3, 0]))
         })
@@ -41,31 +41,31 @@ describe("IOUtils", function() {
                 yield Buffer.from([3])
             }());
             let actual = Buffer.alloc(3)
-            let actualReadLen = await IOUtils.readBytes(stream, actual, 0,
-                2)
+            let actualReadLen = await IOUtils.readBytes(stream,
+                actual.subarray(0, 2))
             assert.equal(actualReadLen, 1)
             assert.equalBytes(actual.subarray(0, 2),
                 Buffer.from([1, 0]))
 
             actualReadLen = await IOUtils.readBytes(stream,
-                actual, 1, 2)
+                actual.subarray(1, 3))
             assert.equal(actualReadLen, 1)
             assert.equalBytes(actual.subarray(1, 2),
                 Buffer.from([2]))
 
             actualReadLen = await IOUtils.readBytes(stream,
-                actual, 2, 0)
+                actual.subarray(2, 2))
             assert.equal(actualReadLen, 0)
             assert.equalBytes(actual, Buffer.from([1, 2, 0]))
 
             actualReadLen = await IOUtils.readBytes(stream,
-                actual, 2, 1)
+                actual.subarray(2, 3))
             assert.equal(actualReadLen, 1)
             assert.equalBytes(actual.subarray(2, 3),
                 Buffer.from([3]))
 
             actualReadLen = await IOUtils.readBytes(stream,
-                actual, 2, 1)
+                actual.subarray(2, 3))
             assert.equal(actualReadLen, 0)
             assert.equalBytes(actual, Buffer.from([1, 2, 3]))
         })
@@ -73,7 +73,7 @@ describe("IOUtils", function() {
         it("should fail (1)", async function() {
             await nativeAssert.rejects(async () => {
                 await IOUtils.readBytes(null as any,
-                    Buffer.alloc(3), 0, 2 );
+                    Buffer.alloc(2));
             });
         })
 
@@ -82,7 +82,7 @@ describe("IOUtils", function() {
                 const reader = Readable.from(Buffer.alloc(2));
                 reader.destroy(new Error("failed"))
                 await IOUtils.readBytes(reader,
-                    Buffer.alloc(3), 0, 2 );
+                    Buffer.alloc(2));
             }, {
                 message: "failed"
             });
@@ -97,9 +97,9 @@ describe("IOUtils", function() {
                 // either of these reads should get
                 // to the problematic chunk.
                 await IOUtils.readBytes(reader,
-                    Buffer.alloc(3), 0, 2 );
+                    Buffer.alloc(2));
                 await IOUtils.readBytes(reader,
-                    Buffer.alloc(3), 0, 2 );
+                    Buffer.alloc(2));
             }, {
                 name: "CustomIOError",
                 message: "expected Buffer chunks but got chunk of type string"
@@ -116,8 +116,8 @@ describe("IOUtils", function() {
                     cb()
                 }
             })
-            await IOUtils.writeBytes(stream, Buffer.from([1, 2, 3]), 0, 2);
-            await IOUtils.writeBytes(stream, Buffer.from([0, 3, 2, 1]), 1, 2);
+            await IOUtils.writeBytes(stream, Buffer.from([1, 2]));
+            await IOUtils.writeBytes(stream, Buffer.from([3, 2]));
             const actual = Buffer.concat(chunks);
             assert.equalBytes(actual, Buffer.from([1, 2, 3, 2]))
         })
@@ -131,10 +131,10 @@ describe("IOUtils", function() {
                     cb()
                 }
             })
-            await IOUtils.writeBytes(stream, Buffer.from([]), 0, 0);
-            await IOUtils.writeBytes(stream, Buffer.from([1, 2, 3]), 0, 2);
-            await IOUtils.writeBytes(stream, Buffer.from([]), 0, 0);
-            await IOUtils.writeBytes(stream, Buffer.from([0, 3, 2, 1]), 1, 2);
+            await IOUtils.writeBytes(stream, Buffer.from([]));
+            await IOUtils.writeBytes(stream, Buffer.from([1, 2]));
+            await IOUtils.writeBytes(stream, Buffer.from([]));
+            await IOUtils.writeBytes(stream, Buffer.from([3, 2]));
             const actual = Buffer.concat(chunks);
             assert.equalBytes(actual, Buffer.from([1, 2, 3, 2]))
         })
@@ -142,7 +142,7 @@ describe("IOUtils", function() {
         it("should fail (1)", async function() {
             await nativeAssert.rejects(async () => {
                 await IOUtils.writeBytes(null as any,
-                    Buffer.alloc(3), 0, 2 );
+                    Buffer.alloc(2));
             });
         })
 
@@ -155,7 +155,7 @@ describe("IOUtils", function() {
                 })
                 writer.destroy()
                 await IOUtils.writeBytes(writer,
-                    Buffer.alloc(3), 0, 2 );
+                    Buffer.alloc(2));
             });
         })
 
@@ -173,7 +173,7 @@ describe("IOUtils", function() {
                     }
                 })
                 await IOUtils.writeBytes(writer,
-                    Buffer.alloc(3), 0, 2 );
+                    Buffer.alloc(2));
             }, {
                 message: "write failure"
             });
@@ -189,24 +189,28 @@ describe("IOUtils", function() {
             let readBuffer = Buffer.alloc(6)
 
             // act
-            await IOUtils.readBytesFully(reader, readBuffer, 0, 3)
+            await IOUtils.readBytesFully(reader,
+                readBuffer.subarray(0, 3))
 
             // assert
             assert.equalBytes(readBuffer.subarray(0, 3),
                 Buffer.from([0, 1, 2]))
             
             // assert that zero length reading doesn't cause problems.
-            await IOUtils.readBytesFully(reader, readBuffer, 3, 0)
+            await IOUtils.readBytesFully(reader,
+                readBuffer.subarray(3, 3))
 
             // act again
-            await IOUtils.readBytesFully(reader, readBuffer, 1, 3)
+            await IOUtils.readBytesFully(reader,
+                readBuffer.subarray(1, 4))
             
             // assert
             assert.equalBytes(readBuffer.subarray(1, 4),
                 Buffer.from([3, 4, 5]))
             
             // act again
-            await IOUtils.readBytesFully(reader, readBuffer, 3, 2)
+            await IOUtils.readBytesFully(reader,
+                readBuffer.subarray(3, 5))
             
             // assert
             assert.equalBytes(readBuffer.subarray(3, 5),
@@ -214,7 +218,8 @@ describe("IOUtils", function() {
 
             // test zero byte reads.
             readBuffer = Buffer.from([2, 3, 5, 8])
-            await IOUtils.readBytesFully(reader, readBuffer, 0, 0)
+            await IOUtils.readBytesFully(reader,
+                readBuffer.subarray(0, 0))
             assert.equalBytes(readBuffer, Buffer.from([2, 3, 5, 8]))
         })
 
@@ -226,8 +231,7 @@ describe("IOUtils", function() {
             let readBuffer = Buffer.alloc(5)
 
             // act
-            await IOUtils.readBytesFully(reader, readBuffer,
-                0, readBuffer.length)
+            await IOUtils.readBytesFully(reader, readBuffer)
             
             // assert
             assert.equalBytes(readBuffer,
@@ -235,8 +239,7 @@ describe("IOUtils", function() {
             
             // act and assert unexpected end of read
             await nativeAssert.rejects(async function() {
-                await IOUtils.readBytesFully(reader, readBuffer, 0,
-                    readBuffer.length);
+                await IOUtils.readBytesFully(reader, readBuffer);
             }, (err: any) => {
                 expect(err.message).to.contain("end of read")
                 return true
@@ -250,7 +253,7 @@ describe("IOUtils", function() {
                     yield 20
                 })());
                 await IOUtils.readBytesFully(reader,
-                    Buffer.alloc(10), 0, 5 );
+                    Buffer.alloc(5));
             }, {
                 name: "CustomIOError",
                 message: "expected Buffer chunks but got chunk of type number"
@@ -301,8 +304,7 @@ describe("IOUtils", function() {
                 assert.equalBytes(actual, expected)
 
                 // assert that reader has been exhausted.
-                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1),
-                    0, 1)
+                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1))
                 assert.equal(actual2, 0)
             })
         })
@@ -313,8 +315,7 @@ describe("IOUtils", function() {
                 const reader = createRandomizedReadSizeBufferReader(
                     Buffer.concat([expected, expected]))
                 const temp = Buffer.alloc(expected.length)
-                await IOUtils.readBytesFully(reader, temp, 0,
-                    temp.length)
+                await IOUtils.readBytesFully(reader, temp)
                 assert.equalBytes(temp, expected)
                 
                 // now continue to test readAllBytes() on
@@ -326,8 +327,7 @@ describe("IOUtils", function() {
                 assert.equalBytes(actual, expected)
 
                 // assert that reader has been exhausted.
-                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1),
-                    0, 1)
+                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1))
                 assert.equal(actual2, 0)
             })
         })
@@ -389,8 +389,7 @@ describe("IOUtils", function() {
                 assert.equalBytes(Buffer.concat(chunks), expected)
 
                 // assert that reader has been exhausted.
-                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1),
-                    0, 1)
+                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1))
                 assert.equal(actual2, 0)
             })
         })
@@ -404,8 +403,7 @@ describe("IOUtils", function() {
                 const reader = createRandomizedReadSizeBufferReader(
                     Buffer.concat([expected, expected]))
                 const temp = Buffer.alloc(expected.length)
-                await IOUtils.readBytesFully(reader, temp, 0,
-                    temp.length)
+                await IOUtils.readBytesFully(reader, temp)
                 assert.equalBytes(temp, expected)
 
                 // now continue to test copyBytes() on
@@ -425,8 +423,7 @@ describe("IOUtils", function() {
                 assert.equalBytes(Buffer.concat(chunks), expected)
 
                 // assert that reader has been exhausted.
-                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1),
-                    0, 1)
+                const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1))
                 assert.equal(actual2, 0)
             })
         })
@@ -443,13 +440,13 @@ describe("IOUtils", function() {
             })
 
             await IOUtils.writeBytes(writer,
-                Buffer.from([3, 4]), 0, 2)
+                Buffer.from([3, 4]))
 
             await IOUtils.endWrites(writer)
 
             await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
-                    Buffer.from([3, 4]), 0, 2))
+                    Buffer.from([3, 4])))
 
             assert.equalBytes(Buffer.concat(chunks),
                 Buffer.from([3, 4]))
@@ -468,7 +465,7 @@ describe("IOUtils", function() {
 
             await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
-                    Buffer.from([3, 4]), 0, 2))
+                    Buffer.from([3, 4])))
 
             assert.equalBytes(Buffer.concat(chunks),
                 Buffer.from([]))
@@ -489,7 +486,7 @@ describe("IOUtils", function() {
 
             await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
-                    Buffer.from([3, 4]), 0, 2))
+                    Buffer.from([3, 4])))
 
             assert.equalBytes(Buffer.concat(chunks),
                 Buffer.from([]))
@@ -511,7 +508,7 @@ describe("IOUtils", function() {
 
             await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
-                    Buffer.from([3, 4]), 0, 2), {
+                    Buffer.from([3, 4])), {
                 message: "write problem!"
             })
 
@@ -523,7 +520,7 @@ describe("IOUtils", function() {
 
             await nativeAssert.rejects(async () =>
                 IOUtils.writeBytes(writer,
-                    Buffer.from([3, 4]), 0, 2), {
+                    Buffer.from([3, 4])), {
                 message: "write problem!"
             })
 

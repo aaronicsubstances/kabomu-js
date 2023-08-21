@@ -41,7 +41,6 @@ export class ByteBufferBody implements IQuasiHttpBody {
      * @param writer suppllied writer
      */
     async writeBytesTo(writer: Writable): Promise<void> {
-        await IOUtils.writeBytes(writer, this.buffer, 0,
-            this.buffer.length);
+        await IOUtils.writeBytes(writer, this.buffer);
     }
 }

@@ -142,7 +142,7 @@ describe("LambdaBasedQuasiHttpBody", function() {
         const selfWritable: ISelfWritable = {
             async writeBytesTo(writer) {
                 await IOUtils.writeBytes(writer,
-                    srcData, 0, srcData.length)
+                    srcData)
             }
         }
         const instance = new LambdaBasedQuasiHttpBody(null,
