@@ -235,7 +235,8 @@ export class ChunkedTransferCodec {
 
     static updateResponse(response: IQuasiHttpResponse,
             chunk: LeadChunk) {
-        response.statusCode = chunk.statusCode ?? 0;
+        response.statusCode = ByteUtils.parseInt32(
+            chunk.statusCode ?? 0);
         response.httpStatusMessage = chunk.httpStatusMessage;
         response.headers = chunk.headers;
         response.httpVersion = chunk.httpVersion;
@@ -252,7 +253,8 @@ export class ChunkedTransferCodec {
         const requestBody = request.body;
         if (requestBody)
         {
-            chunk.contentLength = requestBody.contentLength;
+            chunk.contentLength = ByteUtils.parseInt48(
+                requestBody.contentLength ?? 0);
         }
         return chunk;
     }
@@ -260,14 +262,16 @@ export class ChunkedTransferCodec {
     static createFromResponse(response: IQuasiHttpResponse) {
         const chunk: LeadChunk = {
             version: ChunkedTransferCodec.Version01,
-            statusCode: response.statusCode,
             httpStatusMessage: response.httpStatusMessage,
             headers: response.headers,
             httpVersion: response.httpVersion
         };
+        chunk.statusCode = ByteUtils.parseInt32(
+            response.statusCode ?? 0);
         const responseBody = response.body;
         if (responseBody) {
-            chunk.contentLength = responseBody.contentLength;
+            chunk.contentLength = ByteUtils.parseInt48(
+                responseBody.contentLength ?? 0);
         }
         return chunk;
     }

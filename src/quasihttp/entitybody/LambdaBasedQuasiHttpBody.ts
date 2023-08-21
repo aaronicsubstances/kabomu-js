@@ -22,7 +22,7 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
     /**
      * Lambda function which can be used to release resources.
      */
-    releaseFunc?: () => Promise<void> | null;
+    releaseFunc?: (() => Promise<void>) | null;
 
     /**
      * Lambda function which can be used to provide a

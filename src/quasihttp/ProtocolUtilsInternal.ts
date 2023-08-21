@@ -4,35 +4,44 @@ import { QuasiHttpRequestProcessingError } from "./errors";
 import { IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
 import { whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
-import * as EntityBodyUtils from "./entitybody/EntityBodyUtils";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
 import { createContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
 import { createChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
 import { ByteBufferBody } from "./entitybody/ByteBufferBody";
 import { LambdaBasedQuasiHttpBody } from "./entitybody/LambdaBasedQuasiHttpBody";
+import { parseInt32 } from "../common/ByteUtils";
+import { getBodyReader } from "./entitybody/EntityBodyUtils";
 
 export function determineEffectiveNonZeroIntegerOption(
         preferred: number | null, fallback1: number | null,
         defaultValue: number) {
-    if (preferred) {
-        return preferred;
-    }
-    if (fallback1) {
-        return fallback1;
-    }
-    return defaultValue;
+    return parseInt32((function() {
+        if (preferred) {
+            return preferred;
+        }
+        if (fallback1) {
+            return fallback1;
+        }
+        return defaultValue;
+    })());
 }
 
 export function determineEffectivePositiveIntegerOption(
         preferred: number | null, fallback1: number | null,
         defaultValue: number) {
-    if (preferred && preferred > 0) {
-        return preferred;
+    if (preferred) {
+        const effectiveValue = parseInt32(preferred)
+        if (effectiveValue > 0) {
+            return effectiveValue
+        }
     }
-    if (fallback1 && fallback1 > 0) {
-        return fallback1;
+    if (fallback1) {
+        const effectiveValue = parseInt32(fallback1)
+        if (effectiveValue > 0) {
+            return effectiveValue
+        }
     }
-    return defaultValue;
+    return parseInt32(defaultValue);
 }
 
 export function determineEffectiveOptions(
@@ -57,53 +66,42 @@ export function determineEffectiveOptions(
 export function determineEffectiveBooleanOption(
         preferred: boolean | null, fallback1: boolean | null, 
         defaultValue: boolean) {
-    if (typeof preferred !== "undefined") {
+    if (preferred !== null && typeof preferred !== "undefined") {
         return !!preferred;
     }
-    if (typeof fallback1 !== "undefined") {
+    if (fallback1 !== null && typeof fallback1 !== "undefined") {
         return !!fallback1;
     }
     return !!defaultValue;
 }
 
 export function getEnvVarAsBoolean(
-        environment: Map<string, any>, key: string) {
+        environment: Map<string, any> | null, key: string) {
     if (environment && environment.has(key)) {
         const value = environment.get(key);
-        if (typeof value !== "undefined") {
+        if (value !== null && typeof value !== "undefined") {
             return !!value;
         }
     }
-    return undefined;
+    return null;
 }
 
 export async function createEquivalentOfUnknownBodyInMemory(
         body: IQuasiHttpBody, bodyBufferingLimit: number) {
-    // Assume that body is completely unknown,and as such has nothing
-    // to do with chunk transfer protocol
-    let reader = EntityBodyUtils.getBodyReader(body);
-
-    // but still enforce the content length. even if zero,
-    // still pass it on
-    const contentLength = body.contentLength;
-    if (contentLength >= 0) {
-        reader = createContentLengthEnforcingCustomReader(reader,
-            contentLength);
-    }
+    // Assume that body is completely unknown, and as such has nothing
+    // to do with chunk transfer protocol, or have no need for
+    // content length enforcement.
+    const reader = getBodyReader(body);
 
     // now read in entirety of body into memory
     const inMemBuffer = await IOUtils.readAllBytes(reader, bodyBufferingLimit);
-    
-    // finally maintain content length for the sake of tests.
-    const bufferedBody = new ByteBufferBody(inMemBuffer);
-    bufferedBody.contentLength = contentLength;
-    return bufferedBody;
+    return new ByteBufferBody(inMemBuffer);
 }
 
 export async function transferBodyToTransport(
-        writer: Writable, maxChunkSize: number, body: IQuasiHttpBody) {
-    const contentLength = body?.contentLength ?? 0;
-    if (!body || !contentLength) {
+        writer: Writable, maxChunkSize: number,
+        body: IQuasiHttpBody, contentLength: number) {
+    if (!contentLength) {
         return;
     }
     if (contentLength < 0) {
@@ -120,7 +118,7 @@ export async function transferBodyToTransport(
 export async function createBodyFromTransport(
         reader: Readable,
         contentLength: number,
-        releaseFunc: () => Promise<void> | null,
+        releaseFunc: (() => Promise<void>) | null,
         maxChunkSize: number,
         bufferingEnabled: boolean,
         bodyBufferingSizeLimit: number) {
@@ -153,10 +151,10 @@ export async function createBodyFromTransport(
 }
 
 export async function completeRequestProcessing<T>(
-        workPromise: Promise<T>, timeoutPromise: Promise<T>,
-        cancellationPromise: Promise<T>) {
+        workPromise: Promise<T>, timeoutPromise: Promise<T> | null,
+        cancellationPromise: Promise<T> | null) {
     if (!workPromise) {
-        throw new Error("received null workPromise argument");
+        throw new Error("workPromise argument is null");
     }
 
     // ignore null promises and successful results from
@@ -180,10 +178,11 @@ export async function completeRequestProcessing<T>(
     return await workPromise;
 }
 
-export function createTimeoutPromise<T>(
-        timeoutMillis: number, timeoutMsg: string) {
+export function createCancellableTimeoutPromise<T>(
+        timeoutMillis: number, timeoutMsg: string):
+        [Promise<T>, { cancel: () => void}] {
     if (!timeoutMillis || timeoutMillis <= 0) {
-        return [null, null];
+        return [null as any, null as any];
     }
     let _resolve: any, _reject: any;
     const timeoutPromise = new Promise<T>((resolve, reject) => {
@@ -198,7 +197,7 @@ export function createTimeoutPromise<T>(
     const cancellationHandle = {
         cancel() {
             clearTimeout(timeoutId);
-            _resolve();
+            _resolve(null);
         }
     }
     return [timeoutPromise, cancellationHandle];
