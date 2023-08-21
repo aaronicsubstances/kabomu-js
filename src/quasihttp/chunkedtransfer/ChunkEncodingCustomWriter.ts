@@ -2,6 +2,7 @@ import { Writable } from "stream";
 
 import * as IOUtils from "../../common/IOUtils";
 import { ChunkedTransferCodec } from "./ChunkedTransferCodec";
+import { parseInt32 } from "../../common/ByteUtils";
 
 /**
  * Constructs an instance of the standard chunk encoder of byte streams in the Kabomu library. Receives a writer
@@ -21,8 +22,14 @@ export function createChunkEncodingCustomWriter(wrappedWriter: Writable,
     if (!wrappedWriter) {
         throw new Error("wrappedWriter argument is null");
     }
-    if (!maxChunkSize || maxChunkSize <= 0) {
+    if (!maxChunkSize) {
         maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+    }
+    else {
+        maxChunkSize = parseInt32(maxChunkSize);
+        if (maxChunkSize <= 0) {
+            maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+        }
     }
     if (maxChunkSize > ChunkedTransferCodec.HardMaxChunkSizeLimit) {
         throw new Error(`max chunk size cannot exceed ${ChunkedTransferCodec.HardMaxChunkSizeLimit}. ` +

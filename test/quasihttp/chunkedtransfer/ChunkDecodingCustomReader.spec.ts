@@ -7,13 +7,23 @@ import * as ByteUtils from "../../../src/common/ByteUtils"
 import * as IOUtils from "../../../src/common/IOUtils"
 
 describe("ChunkDecodingCustomReader", function() {
+    it("should succeed in creation (1)", function() {
+        const reader = Readable.from(Buffer.alloc(0))
+        createChunkDecodingCustomReader(reader, 10_000_000)
+    })
+
+    it("should fail due to creation errors (1)", function() {
+        assert.throws(() => {
+            createChunkDecodingCustomReader(null as any, 0)
+        })
+    })
+
     it("should pass (1)", async function(){
         // arrange
         const srcData = Buffer.from([0, 0, 2, 1, 0])
         const backingReader = Readable.from(srcData)
-        const maxChunkSize = 2
         const instance = createChunkDecodingCustomReader(
-            backingReader, maxChunkSize)
+            backingReader)
         const chunks = new Array<Buffer>()
         const writer = new Writable({
             write(chunk, encoding, callback) {
@@ -128,6 +138,39 @@ describe("ChunkDecodingCustomReader", function() {
             },
         })
         const expected = "data bits and byte"
+
+        // act
+        await IOUtils.copyBytes(instance, writer)
+
+        // assert
+        assert.equal(ByteUtils.bytesToString(
+            Buffer.concat(chunks)), expected)
+        
+        // ensure subsequent reading attempts return 0
+        assert.equal(await IOUtils.readBytes(instance,
+            Buffer.alloc(1), 0, 1), 0)
+    })
+
+    it("should pass (5)", async function(){
+        // arrange
+        const srcData = Buffer.concat([
+            Buffer.from([0, 0, 17, 1, 0]),
+            ByteUtils.stringToBytes("it is finished."),
+            Buffer.from([0, 0, 2, 1, 0])
+        ])
+        // get randomized read request sizes.
+        const backingReader = Readable.from(srcData)
+        const maxChunkSize = "-8" as any
+        const instance = createChunkDecodingCustomReader(
+            backingReader, maxChunkSize)
+        const chunks = new Array<Buffer>()
+        const writer = new Writable({
+            write(chunk, encoding, callback) {
+                chunks.push(chunk)
+                callback()
+            },
+        })
+        const expected = "it is finished."
 
         // act
         await IOUtils.copyBytes(instance, writer)

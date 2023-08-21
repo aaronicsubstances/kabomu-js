@@ -500,7 +500,7 @@ describe("ByteUtils", function() {
         testErrorData.forEach((input, i) => {
             it(`should fail with input ${i}`, function() {
                 assert.throws(() =>
-                    ByteUtils.parseInt48(input))
+                    ByteUtils.parseInt48(input), /invalid 48-bit/)
             })
         })
     })
@@ -576,7 +576,7 @@ describe("ByteUtils", function() {
         testErrorData.forEach((input, i) => {
             it(`should fail with input ${i}`, function() {
                 assert.throws(() =>
-                    ByteUtils.parseInt32(input))
+                    ByteUtils.parseInt32(input), /invalid 32-bit/)
             })
         })
     })

@@ -26,10 +26,6 @@ export function createChunkDecodingCustomReader(
 }
 
 async function* generate(wrappedReader: Readable, maxChunkSize: number) {
-    if (!maxChunkSize || maxChunkSize < ChunkedTransferCodec.DefaultMaxChunkSizeLimit) {
-        maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSizeLimit;
-    }
-
     const decoder = new ChunkedTransferCodec();
     while (true) {
         const chunkDataLen = await decoder.decodeSubsequentChunkV1Header(

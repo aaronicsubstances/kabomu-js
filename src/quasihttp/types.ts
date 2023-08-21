@@ -81,7 +81,7 @@ export interface IQuasiHttpBody extends ICustomDisposable, ISelfWritable {
     
     /**
      * The number of bytes that the instance will supply,
-        /// or -1 (actually any negative value) to indicate an unknown number of bytes.
+     * or -1 (actually any negative value) to indicate an unknown number of bytes.
      */
     contentLength: number
 

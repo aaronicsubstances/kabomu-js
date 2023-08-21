@@ -45,10 +45,10 @@ export class ChunkedTransferCodec {
 
     /**
      * Constant which communicates the largest chunk size possible with the standard chunk transfer 
-     * implementation in the Kabomu library, and that is currently the largest
-     * signed integer that can fit into 3 bytes.
+     * implementation in the Kabomu library, and that is currently almost equal to
+     * the largest signed integer that can fit into 3 bytes.
      */
-    static readonly HardMaxChunkSizeLimit = 8_388_607;
+    static readonly HardMaxChunkSizeLimit = 8_388_500;
 
     private _csvDataPrefix?: Buffer;
     private _csvData?: Array<string[]>;
@@ -99,8 +99,14 @@ export class ChunkedTransferCodec {
     async decodeSubsequentChunkV1Header(
             bufferToUse: Buffer | null, reader: Readable | null,
             maxChunkSize = 0) {
-        if (!maxChunkSize || maxChunkSize <= 0) {
+        if (!maxChunkSize) {
             maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+        }
+        else {
+            maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
+            if (maxChunkSize <= 0) {
+                maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+            }
         }
         if (!bufferToUse && !reader) {
             throw new Error("reader arg cannot be null if " +
@@ -148,8 +154,14 @@ export class ChunkedTransferCodec {
         if (!reader) {
             throw new Error("reader argument is null");
         }
-        if (!maxChunkSize || maxChunkSize <= 0) {
+        if (!maxChunkSize) {
             maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+        }
+        else {
+            maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
+            if (maxChunkSize <= 0) {
+                maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+            }
         }
         let chunkBytes: Buffer | undefined;
         try {
@@ -206,17 +218,19 @@ export class ChunkedTransferCodec {
         if (!writer) {
             throw new Error("writer argument is null");
         }
-        if (!maxChunkSize || maxChunkSize <= 0) {
+        if (!maxChunkSize) {
             maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+        }
+        else {
+            maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
+            if (maxChunkSize <= 0) {
+                maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+            }
         }
         this._updateSerializedRepresentation(chunk);
         const byteCount = this._calculateSizeInBytesOfSerializedRepresentation();
         if (byteCount > maxChunkSize) {
-            throw new Error(`headers larger than max chunk size of ${maxChunkSize}`);
-        }
-        if (byteCount > ChunkedTransferCodec.HardMaxChunkSizeLimit) {
-            throw new Error(`headers larger than max chunk size limit of ` +
-                `${ChunkedTransferCodec.HardMaxChunkSizeLimit}`);
+            throw new Error(`headers exceed max chunk size of ${maxChunkSize}`);
         }
         const encodedLength = Buffer.allocUnsafeSlow(ChunkedTransferCodec.LengthOfEncodedChunkLength);
         ByteUtils.serializeUpToInt32BigEndian(byteCount, encodedLength, 0,
@@ -225,6 +239,14 @@ export class ChunkedTransferCodec {
         await this._writeOutSerializedRepresentation(writer);
     }
 
+    /**
+     * Updates a request object with corresponding properties on a
+     * lead chunk,
+     * in particular: method, target, http version and headers.
+     * @param request request instance to be updated
+     * @param chunk lead chunk instance which will be used
+     * to update request instance
+     */
     static updateRequest(request: IQuasiHttpRequest,
             chunk: LeadChunk) {
         request.method = chunk.method;
@@ -233,45 +255,71 @@ export class ChunkedTransferCodec {
         request.httpVersion = chunk.httpVersion;
     }
 
+    /**
+     * Updates a response object with corresponding properties on a
+     * lead chunk,
+     * in particular: status code, http status message, http version and headers.
+     * @param response response instance to be updated
+     * @param chunk lead chunk instance which will be used
+     * to update response instance
+     */
     static updateResponse(response: IQuasiHttpResponse,
             chunk: LeadChunk) {
         response.statusCode = ByteUtils.parseInt32(
-            chunk.statusCode ?? 0);
+            chunk.statusCode || 0);
         response.httpStatusMessage = chunk.httpStatusMessage;
         response.headers = chunk.headers;
         response.httpVersion = chunk.httpVersion;
     }
 
+    /**
+     * Creates a new lead chunk which is initialized
+     * with the corresponding properties on request object.
+     * @param request request object which will be used
+     * to initialize newly created lead chunk.
+     * @returns new lead chunk object with version set to v1, and
+     * request-related properties initialized
+     */
     static createFromRequest(request: IQuasiHttpRequest) {
         const chunk: LeadChunk = {
             version: ChunkedTransferCodec.Version01,
             method: request.method,
             requestTarget: request.target,
             headers: request.headers,
-            httpVersion: request.httpVersion
+            httpVersion: request.httpVersion,
+            contentLength: 0
         };
         const requestBody = request.body;
         if (requestBody)
         {
             chunk.contentLength = ByteUtils.parseInt48(
-                requestBody.contentLength ?? 0);
+                requestBody.contentLength || 0);
         }
         return chunk;
     }
 
+    /**
+     * Creates a new lead chunk which is initialized
+     * with the corresponding properties on response object.
+     * @param response response object which will be used
+     * to initialize newly created lead chunk.
+     * @returns new lead chunk object with version set to v1, and
+     * response-related properties initialized
+     */
     static createFromResponse(response: IQuasiHttpResponse) {
         const chunk: LeadChunk = {
             version: ChunkedTransferCodec.Version01,
             httpStatusMessage: response.httpStatusMessage,
             headers: response.headers,
-            httpVersion: response.httpVersion
+            httpVersion: response.httpVersion,
+            contentLength: 0
         };
         chunk.statusCode = ByteUtils.parseInt32(
-            response.statusCode ?? 0);
+            response.statusCode || 0);
         const responseBody = response.body;
         if (responseBody) {
             chunk.contentLength = ByteUtils.parseInt48(
-                responseBody.contentLength ?? 0);
+                responseBody.contentLength || 0);
         }
         return chunk;
     }
@@ -282,16 +330,16 @@ export class ChunkedTransferCodec {
      */
     _updateSerializedRepresentation(chunk: LeadChunk) {
         this._csvDataPrefix = Buffer.from([
-            chunk.version ?? ChunkedTransferCodec.Version01,
-            chunk.flags ?? 0]);
+            chunk.version || ChunkedTransferCodec.Version01,
+            chunk.flags || 0]);
 
         const csvData = new Array<string[]>();
         this._csvData = csvData;
         const specialHeaderRow = new Array<any>();
         specialHeaderRow.push(makeBooleanZeroOrOne(chunk.requestTarget));
         specialHeaderRow.push(stringifyPossibleNull(chunk.requestTarget));
-        specialHeaderRow.push(stringifyPossibleNull(chunk.statusCode ?? 0));
-        specialHeaderRow.push(stringifyPossibleNull(chunk.contentLength ?? 0));
+        specialHeaderRow.push(stringifyPossibleNull(chunk.statusCode || 0));
+        specialHeaderRow.push(stringifyPossibleNull(chunk.contentLength || 0));
         specialHeaderRow.push(makeBooleanZeroOrOne(chunk.method));
         specialHeaderRow.push(stringifyPossibleNull(chunk.method));
         specialHeaderRow.push(makeBooleanZeroOrOne(chunk.httpVersion));

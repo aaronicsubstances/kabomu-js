@@ -116,7 +116,13 @@ export function deserializeUpToInt32BigEndian(data: Buffer, offset: number,
  * @returns verified 48-bit integer
  */
 export function parseInt32(input: any) {
-    const n = parseInt48(input);
+    let n = 0;
+    try {
+        n = parseInt48(input);
+    }
+    catch {
+        throw new Error("invalid 32-bit integer: " + input);
+    }
     if (n < -2_147_483_648 || n > 2_147_483_647) {
         throw new Error("invalid 32-bit integer: " + input);
     }
