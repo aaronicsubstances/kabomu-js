@@ -14,6 +14,13 @@ export const DefaultDataBufferLimit = 134_217_728;
  */
 export const DefaultReadBufferSize = 8192;
 
+function createNonBufferChunkError(chunk: any) {
+    const chunkType = typeof chunk;
+    return new CustomIOError(
+        "expected Buffer chunks but got chunk of type " +
+        chunkType)
+}
+
 /**
  * Performs writes on behalf of a writable stream
  * @param writer writable stream
@@ -93,22 +100,28 @@ export async function readBytes(reader: Readable, data: Buffer,
             if (chunk !== null) {
                 // Remove the 'readable' listener before any unshifting.
                 reader.removeListener('readable', readableCb);
-                const bytesRead = Math.min(length, chunk.length);
-                if (bytesRead < chunk.length) {
+                if (!Buffer.isBuffer(chunk)) {
+                    reject(createNonBufferChunkError(chunk))
+                }
+                else {
+                    const bytesRead = Math.min(length, chunk.length);
+                    if (bytesRead < chunk.length) {
+                        if (bytesRead) {
+                            reader.unshift(chunk.subarray(
+                                bytesRead, chunk.length));
+                        }
+                        else {
+                            reader.unshift(chunk);
+                        }
+                    }
                     if (bytesRead) {
-                        reader.unshift(chunk.subarray(
-                            bytesRead, chunk.length));
+                        chunk.copy(data, offset, 0, bytesRead);
                     }
-                    else {
-                        reader.unshift(chunk);
-                    }
+                    resolve(bytesRead);
                 }
-                if (bytesRead) {
-                    chunk.copy(data, offset, 0, bytesRead);
-                }
-                resolve(bytesRead);
 
-                // important to only abort after resolve()
+                // important to only abort after resolve() or
+                // reject()
                 controller.abort();
             }
         };
@@ -163,6 +176,14 @@ export async function readBytesFully(reader: Readable, data: Buffer,
         readableCb = function() {
             let chunk: Buffer | null;
             while ((chunk = reader.read()) !== null) {
+                if (!Buffer.isBuffer(chunk)) {
+                    reader.removeListener('readable', readableCb)
+                    reject(createNonBufferChunkError(chunk))
+
+                    // important to only abort after reject()
+                    controller.abort();
+                    break;
+                }
                 if (runningOffset + chunk.length < endOffset) {
                     chunk.copy(data, runningOffset);
                     runningOffset += chunk.length;

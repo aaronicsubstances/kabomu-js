@@ -87,6 +87,24 @@ describe("IOUtils", function() {
                 message: "failed"
             });
         })
+
+        it("should fail (3)", async function() {
+            await nativeAssert.rejects(async () => {
+                const reader = Readable.from((function*(){
+                    yield Buffer.alloc(1)
+                    yield "problematic chunk"
+                })());
+                // either of these reads should get
+                // to the problematic chunk.
+                await IOUtils.readBytes(reader,
+                    Buffer.alloc(3), 0, 2 );
+                await IOUtils.readBytes(reader,
+                    Buffer.alloc(3), 0, 2 );
+            }, {
+                name: "CustomIOError",
+                message: "expected Buffer chunks but got chunk of type string"
+            });
+        })
     })
 
     describe("#writeBytes", function() {
@@ -200,7 +218,7 @@ describe("IOUtils", function() {
             assert.equalBytes(readBuffer, Buffer.from([2, 3, 5, 8]))
         })
 
-        it("should fail", async function() {
+        it("should fail (1)", async function() {
             // arrange
             const reader = createRandomizedReadSizeBufferReader(
                 Buffer.from([0, 1, 2, 3, 4, 5, 6, 7])
@@ -223,6 +241,20 @@ describe("IOUtils", function() {
                 expect(err.message).to.contain("end of read")
                 return true
             })
+        })
+
+        it("should fail (2)", async function() {
+            await nativeAssert.rejects(async () => {
+                const reader = Readable.from((function*(){
+                    yield Buffer.alloc(1)
+                    yield 20
+                })());
+                await IOUtils.readBytesFully(reader,
+                    Buffer.alloc(10), 0, 5 );
+            }, {
+                name: "CustomIOError",
+                message: "expected Buffer chunks but got chunk of type number"
+            });
         })
     })
 

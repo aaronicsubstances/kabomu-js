@@ -417,10 +417,64 @@ describe("ChunkedTransferCodec", function() {
             assert.deepEqual(actual, expected)
         })
 
-        it("should fail due to max chunk exceeded error", async function() {
+        it ("should pass even though default max chunk limit is exceeded", async function() {
+            // arrange
+            const srcStream = Readable.from((function*(){
+                 // length = 320_022, which exceeds 64kb
+                yield Buffer.from([0x04, 0xe2, 0x16, 1, 1])
+                yield ByteUtils.stringToBytes("1,1,1,1,1,1,1,1,1,1\n")
+                for (let i = 0; i < 40_000; i++) {
+                    const key = `${i}`.padStart(5, '0')
+                    yield ByteUtils.stringToBytes(
+                        `${key},1\n`)
+                }
+            })())
+            const maxChunkSize = 400_000
+            const expected: LeadChunk = {
+                version: ChunkedTransferCodec.Version01,
+                flags: 1,
+                requestTarget: "1",
+                statusCode: 1,
+                contentLength: 1,
+                method: "1",
+                httpVersion: "1",
+                httpStatusMessage: "1"
+            }
+            expected.headers = new Map()
+            for (let i = 0; i < 40_000; i++) {
+                const key = `${i}`.padStart(5, '0')
+                expected.headers.set(key, ["1"])
+            }
+
+            // act
+            const actual = await new ChunkedTransferCodec().readLeadChunk(
+                srcStream, maxChunkSize)
+
+            // assert
+            assert.deepEqual(actual, expected)
+        })
+
+        it("should fail due to max chunk exceeded error (1)", async function() {
             const srcStream = Readable.from(
                 Buffer.from([0xf, 0x42, 0x40])) // length of 1 million
             const maxChunkSize = 40
+ 
+            await nativeAssert.rejects(async () => {
+                await new ChunkedTransferCodec().readLeadChunk(srcStream,
+                    maxChunkSize)
+            }, (e: any) => {
+                expect(e.message).to.contain("headers")
+                assert.ok(e.cause)
+                expect(e.cause.message).to.contain("exceed")
+                expect(e.cause.message).to.contain("chunk size")
+                return true
+            })
+        })
+
+        it("should fail due to max chunk exceeded error (1)", async function() {
+            const srcStream = Readable.from(
+                Buffer.from([0xf, 0x42, 0x40])) // length of 1 million
+            const maxChunkSize = 400_000
  
             await nativeAssert.rejects(async () => {
                 await new ChunkedTransferCodec().readLeadChunk(srcStream,
