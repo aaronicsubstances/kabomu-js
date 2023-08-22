@@ -121,7 +121,7 @@ export interface IQuasiHttpRequest extends ICustomDisposable {
     /**
      * Optional request body
      */
-    body?: IQuasiHttpBody
+    body?: IQuasiHttpBody | null
 
     /**
      * Optional HTTP method value.
@@ -166,7 +166,7 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
     /**
      * Optional response body
      */
-    body?: IQuasiHttpBody
+    body?: IQuasiHttpBody | null
 
     /**
      * Optional HTTP response status text or reason phrase.

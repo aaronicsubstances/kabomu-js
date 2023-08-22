@@ -76,7 +76,8 @@ export function determineEffectiveBooleanOption(
 }
 
 export function getEnvVarAsBoolean(
-        environment: Map<string, any> | null, key: string) {
+        environment: Map<string, any> | null | undefined,
+        key: string) {
     if (environment && environment.has(key)) {
         const value = environment.get(key);
         if (value !== null && typeof value !== "undefined") {
@@ -100,7 +101,8 @@ export async function createEquivalentOfUnknownBodyInMemory(
 
 export async function transferBodyToTransport(
         writer: Writable, maxChunkSize: number,
-        body: IQuasiHttpBody, contentLength: number) {
+        body: IQuasiHttpBody,
+        contentLength: number | null | undefined) {
     if (!contentLength) {
         return;
     }
@@ -117,7 +119,7 @@ export async function transferBodyToTransport(
 
 export async function createBodyFromTransport(
         reader: Readable,
-        contentLength: number,
+        contentLength: number | null | undefined,
         releaseFunc: (() => Promise<void>) | null,
         maxChunkSize: number,
         bufferingEnabled: boolean,

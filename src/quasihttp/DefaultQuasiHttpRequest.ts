@@ -8,7 +8,7 @@ import { IQuasiHttpBody, IQuasiHttpRequest } from "./types";
 export class DefaultQuasiHttpRequest implements IQuasiHttpRequest {
     target?: string;
     headers?: Map<string, string[]>;
-    body?: IQuasiHttpBody;
+    body?: IQuasiHttpBody | null;
     method?: string;
     httpVersion?: string;
     environment?: Map<string, any>;

@@ -1,5 +1,13 @@
-import { IQuasiHttpApplication, IQuasiHttpRequest, IQuasiHttpResponse, IReceiveProtocolInternal } from "../../../src/quasihttp/types"
-import { ExpectationViolationError, MissingDependencyError } from "../../common/errors"
+import {
+    IQuasiHttpApplication,
+    IQuasiHttpRequest,
+    IQuasiHttpResponse,
+    IReceiveProtocolInternal
+} from "../../../src/quasihttp/types"
+import {
+    ExpectationViolationError,
+    MissingDependencyError
+} from "../../common/errors"
 
 export class AltReceiveProtocolInternal implements IReceiveProtocolInternal {
     application: IQuasiHttpApplication
