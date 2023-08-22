@@ -11,7 +11,7 @@ describe("ChunkedTransferCodec", function() {
     describe("internal tests without chunk length encoding/decoding", function() {
         it("should pass (1)", async function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 contentLength: 0,
                 flags: 0,
                 statusCode: 0
@@ -41,7 +41,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should pass (2)", function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 contentLength: 0,
                 flags: 0,
                 statusCode: 0
@@ -55,7 +55,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should pass (3)", async function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 2,
                 requestTarget: "/detail",
                 httpStatusMessage: "ok",
@@ -97,7 +97,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should pass (4)", function() {
             const expectedChunk: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 requestTarget: "http://www.yoursite.com/category/keyword1,keyword2",
                 httpStatusMessage: "ok",
@@ -302,7 +302,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (1)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.Version01
+                version: ChunkedTransferCodec.VERSION_01
             }
             const serializedLeadChunkSuffix = ByteUtils.stringToBytes(
                 "0,\"\",0,0,0,\"\",0,\"\",0,\"\"\n")
@@ -328,7 +328,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (2)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 5
             }
             const serializedLeadChunkSuffix = ByteUtils.stringToBytes(
@@ -355,7 +355,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (3)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 3,
                 requestTarget: "/foo/bar",
                 statusCode: 201,
@@ -399,7 +399,7 @@ describe("ChunkedTransferCodec", function() {
                 },
             })
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.Version01
+                version: ChunkedTransferCodec.VERSION_01
             }
             await nativeAssert.rejects(async () => {
                 await new ChunkedTransferCodec().writeLeadChunk(
@@ -410,7 +410,7 @@ describe("ChunkedTransferCodec", function() {
         it("should fail (1)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 3,
                 requestTarget: "/foo/bar",
                 statusCode: 201,
@@ -444,7 +444,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should fail (2)", async function() {
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 1,
                 requestTarget: "1",
                 statusCode: 1,
@@ -487,7 +487,7 @@ describe("ChunkedTransferCodec", function() {
                 [Buffer.from([0, 0, 26, 1, 0]), serializedLeadChunkSuffix])
             const srcStream = Readable.from(srcStreamContents)
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 statusCode: 0,
                 contentLength: 0
@@ -509,7 +509,7 @@ describe("ChunkedTransferCodec", function() {
                 [Buffer.from([0, 0, 28, 1, 0]), serializedLeadChunkSuffix])
             const srcStream = Readable.from(srcStreamContents)
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 statusCode: 100,
                 contentLength: 1
@@ -546,7 +546,7 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 10 // definitely less than actual serialized 
                                     // value but ok once it is less than 64K
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 requestTarget: "/abcdefghijklmop",
                 statusCode: 0,
@@ -575,7 +575,7 @@ describe("ChunkedTransferCodec", function() {
             })())
             const maxChunkSize = 400_000
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.Version01,
+                version: ChunkedTransferCodec.VERSION_01,
                 flags: 1,
                 requestTarget: "1",
                 statusCode: 1,
@@ -642,7 +642,8 @@ describe("ChunkedTransferCodec", function() {
 
         it("should fail due to insufficient data for length", async function() {
             const srcStream = Readable.from(
-                Buffer.alloc(ChunkedTransferCodec.LengthOfEncodedChunkLength - 1))
+                Buffer.alloc(2)) // insufficient because even 
+                                 // prefix length is 3 bytes
             const maxChunkSize = 40
  
             await nativeAssert.rejects(async () => {

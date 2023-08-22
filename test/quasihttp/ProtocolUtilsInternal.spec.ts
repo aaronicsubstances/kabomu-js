@@ -817,7 +817,7 @@ describe("ProtocolUtilsInternal", function() {
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
-            assert.isNull(actual)
+            assert.isNotOk(actual)
         })
         it("should pass (6)", async function() {
             // arrange
@@ -839,7 +839,7 @@ describe("ProtocolUtilsInternal", function() {
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
-            assert.isNull(actual)
+            assert.isNotOk(actual)
 
             // assert that transport wasn't released.
             assert.equal(releaseCallCount, 0)
@@ -931,7 +931,7 @@ describe("ProtocolUtilsInternal", function() {
             const cancellationPromise = Promise.resolve({})
             const actual = await ProtocolUtilsInternal.completeRequestProcessing(
                 workPromise, timeoutPromise, cancellationPromise)
-            assert.isNull(actual)
+            assert.isNotOk(actual)
         })
         it("should pass (4)", async function() {
             let expected = {}, instance2 = {}, instance3 = {}
@@ -1035,35 +1035,47 @@ describe("ProtocolUtilsInternal", function() {
         it("should pass (1)", function() {
             const actual = ProtocolUtilsInternal.createCancellableTimeoutPromise(
                 0, "")
-            assert.deepEqual(actual, [null, null])
+            assert.isNotOk(actual.promise)
+            assert.isNotOk(actual.isCancellationRequested())
         })
         it("should pass (2)", function() {
             const actual = ProtocolUtilsInternal.createCancellableTimeoutPromise(
                 -3, "")
-            assert.deepEqual(actual, [null, null])
+            assert.isNotOk(actual.promise)
+            assert.isNotOk(actual.isCancellationRequested())
         })
         it("should pass (3)", async function() {
             const expectedMsg = "sea";
+            const p = ProtocolUtilsInternal.createCancellableTimeoutPromise(
+                50, expectedMsg);
+            assert.isOk(p.promise)
+            assert.isNotOk(p.isCancellationRequested())
             await nativeAssert.rejects(async () => {
-                const res = ProtocolUtilsInternal.createCancellableTimeoutPromise(
-                    50, expectedMsg);
-                await res[0];
+                await p.promise
             }, (err: any) => {
                 assert.equal(err.reasonCode,
-                    QuasiHttpRequestProcessingError.ReasonCodeTimeout)
+                    QuasiHttpRequestProcessingError.REASON_CODE_TIMEOUT)
                 assert.equal(err.message, expectedMsg)
                 return true
             })
+            assert.isNotOk(p.isCancellationRequested())
+            p.cancel()
+            assert.isOk(p.isCancellationRequested())
+            p.cancel()
+            assert.isOk(p.isCancellationRequested())
         })
         it("should pass (4)", async function() {
-            const [actualPromise, timeoutId] = 
-                ProtocolUtilsInternal.createCancellableTimeoutPromise<number>(
+            const p = ProtocolUtilsInternal.createCancellableTimeoutPromise<number>(
                     500, "")
+            assert.isOk(p.promise)
+            assert.isNotOk(p.isCancellationRequested())
             await createDelayPromise(100);
-            assert.ok(timeoutId)
-            timeoutId.cancel()
-            const actual = await actualPromise
-            assert.isNull(actual)
+            p.cancel()
+            assert.isOk(p.isCancellationRequested())
+            const actual = await p.promise
+            assert.isNotOk(actual)
+            p.cancel()
+            assert.isOk(p.isCancellationRequested())
         })
     })
 })

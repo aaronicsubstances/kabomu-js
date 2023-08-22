@@ -14,7 +14,8 @@ import { IQuasiHttpBody } from "../types";
  * @param body the quasi http body
  * @returns a stream which can be used to read bytes from the body
  */
-export function getBodyReader(body: IQuasiHttpBody): Readable {
+export function getBodyReader(
+        body: IQuasiHttpBody | null | undefined): Readable {
     if (!body) {
         throw new Error("received null body argument");
     }

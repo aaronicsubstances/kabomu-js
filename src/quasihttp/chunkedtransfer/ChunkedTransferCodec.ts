@@ -9,6 +9,13 @@ import {
     IQuasiHttpResponse
 } from "../types";
 
+
+/**
+ * Constant used internally to indicate the number of bytes used to encode the length
+ * of a lead or subsequent chunk, which is 3.
+ */
+const lengthOfEncodedChunkLength = 3;
+
 /**
  * Contains helper functions for implementing the custom chunked transfer
  * protocol used by the Kabomu libary.
@@ -18,13 +25,13 @@ export class ChunkedTransferCodec {
     /**
      * Current version of standard chunk serialization format.
      */
-    static readonly Version01 = 1;
+    static readonly VERSION_01 = 1;
 
     /**
      * The default value of max chunk size used by quasi http servers and clients.
      * Equal to 8,192 bytes.
      */
-    static readonly DefaultMaxChunkSize = 8192;
+    static readonly DEFAULT_MAX_CHUNK_SIZE = 8192;
 
     /**
      * The maximum value of a max chunk size that can be tolerated during chunk decoding even if it
@@ -35,25 +42,19 @@ export class ChunkedTransferCodec {
      * some prior negotiation (manual or automated) on max chunk sizes, or else chunks may be rejected
      * by receivers as too large.
      */
-    static readonly DefaultMaxChunkSizeLimit = 65_536;
-
-    /**
-     * Constant used internally to indicate the number of bytes used to encode the length
-     * of a lead or subsequent chunk, which is 3.
-     */
-    static readonly LengthOfEncodedChunkLength = 3;
+    static readonly DEFAULT_MAX_CHUNK_SIZE_LIMIT = 65_536;
 
     /**
      * Constant which communicates the largest chunk size possible with the standard chunk transfer 
      * implementation in the Kabomu library, and that is currently almost equal to
      * the largest signed integer that can fit into 3 bytes.
      */
-    static readonly HardMaxChunkSizeLimit = 8_388_500;
+    static readonly HARD_MAX_CHUNK_SIZE_LIMIT = 8_388_500;
 
     private _csvDataPrefix?: Buffer;
     private _csvData?: Array<string[]>;
     private _defaultBufferUsedForDecoding = Buffer.alloc(
-        ChunkedTransferCodec.LengthOfEncodedChunkLength + 2)
+        lengthOfEncodedChunkLength + 2)
 
     /**
      * Encodes a subsequent chunk header to a writable stream.
@@ -67,15 +68,15 @@ export class ChunkedTransferCodec {
             throw new Error("writer argument is null");
         }
         // NB: cannot store buffer as an instance property
-        // just in case it is stored by writer.
+        // because it may be stored by writer.
         const buffer = Buffer.allocUnsafeSlow(
-            ChunkedTransferCodec.LengthOfEncodedChunkLength + 2);
+            lengthOfEncodedChunkLength + 2);
         ByteUtils.serializeUpToInt32BigEndian(
             chunkDataLength + 2, buffer, 0,
-            ChunkedTransferCodec.LengthOfEncodedChunkLength)
-        buffer[ChunkedTransferCodec.LengthOfEncodedChunkLength] =
-            ChunkedTransferCodec.Version01
-        buffer[ChunkedTransferCodec.LengthOfEncodedChunkLength + 1] = 0 // flags.
+            lengthOfEncodedChunkLength)
+        buffer[lengthOfEncodedChunkLength] =
+            ChunkedTransferCodec.VERSION_01
+        buffer[lengthOfEncodedChunkLength + 1] = 0 // flags.
         await IOUtils.writeBytes(writer, buffer)
     }
 
@@ -99,12 +100,12 @@ export class ChunkedTransferCodec {
             bufferToUse: Buffer | null, reader: Readable | null,
             maxChunkSize = 0) {
         if (!maxChunkSize) {
-            maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
         }
         else {
             maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
             if (maxChunkSize <= 0) {
-                maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+                maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
             }
         }
         if (!bufferToUse && !reader) {
@@ -116,14 +117,14 @@ export class ChunkedTransferCodec {
                 bufferToUse = this._defaultBufferUsedForDecoding;
                 await IOUtils.readBytesFully(reader!,
                     bufferToUse.subarray(0,
-                        ChunkedTransferCodec.LengthOfEncodedChunkLength + 2));
+                        lengthOfEncodedChunkLength + 2));
             }
             const chunkLen = ByteUtils.deserializeUpToInt32BigEndian(bufferToUse,
-                0, ChunkedTransferCodec.LengthOfEncodedChunkLength, true);
+                0, lengthOfEncodedChunkLength, true);
             validateChunkLength(chunkLen, maxChunkSize);
 
-            const version = bufferToUse[ChunkedTransferCodec.LengthOfEncodedChunkLength];
-            //const flags = bufferToUse[ChunkedTransferCodec.LengthOfEncodedChunkLength+1];
+            const version = bufferToUse[lengthOfEncodedChunkLength];
+            //const flags = bufferToUse[lengthOfEncodedChunkLength+1];
             if (!version) {
                 throw new Error("version not set");
             }
@@ -155,18 +156,18 @@ export class ChunkedTransferCodec {
             throw new Error("reader argument is null");
         }
         if (!maxChunkSize) {
-            maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
         }
         else {
             maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
             if (maxChunkSize <= 0) {
-                maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+                maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
             }
         }
         let chunkBytes: Buffer | undefined;
         try {
             const encodedLength = Buffer.allocUnsafeSlow(
-                ChunkedTransferCodec.LengthOfEncodedChunkLength);
+                lengthOfEncodedChunkLength);
             if (await IOUtils.readBytes(reader,
                     encodedLength.subarray(0, 1)) <= 0) {
                 return null;
@@ -219,12 +220,12 @@ export class ChunkedTransferCodec {
             throw new Error("writer argument is null");
         }
         if (!maxChunkSize) {
-            maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
         }
         else {
             maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
             if (maxChunkSize <= 0) {
-                maxChunkSize = ChunkedTransferCodec.DefaultMaxChunkSize;
+                maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
             }
         }
         this._updateSerializedRepresentation(chunk);
@@ -232,7 +233,8 @@ export class ChunkedTransferCodec {
         if (byteCount > maxChunkSize) {
             throw new Error(`headers exceed max chunk size of ${maxChunkSize}`);
         }
-        const encodedLength = Buffer.allocUnsafeSlow(ChunkedTransferCodec.LengthOfEncodedChunkLength);
+        const encodedLength = Buffer.allocUnsafeSlow(
+            lengthOfEncodedChunkLength);
         ByteUtils.serializeUpToInt32BigEndian(byteCount, encodedLength, 0,
             encodedLength.length);
         await IOUtils.writeBytes(writer, encodedLength);
@@ -282,7 +284,7 @@ export class ChunkedTransferCodec {
      */
     static createFromRequest(request: IQuasiHttpRequest) {
         const chunk: LeadChunk = {
-            version: ChunkedTransferCodec.Version01,
+            version: ChunkedTransferCodec.VERSION_01,
             method: request.method,
             requestTarget: request.target,
             headers: request.headers,
@@ -308,7 +310,7 @@ export class ChunkedTransferCodec {
      */
     static createFromResponse(response: IQuasiHttpResponse) {
         const chunk: LeadChunk = {
-            version: ChunkedTransferCodec.Version01,
+            version: ChunkedTransferCodec.VERSION_01,
             httpStatusMessage: response.httpStatusMessage,
             headers: response.headers,
             httpVersion: response.httpVersion,
@@ -330,7 +332,7 @@ export class ChunkedTransferCodec {
      */
     _updateSerializedRepresentation(chunk: LeadChunk) {
         this._csvDataPrefix = Buffer.from([
-            chunk.version || ChunkedTransferCodec.Version01,
+            chunk.version || ChunkedTransferCodec.VERSION_01,
             chunk.flags || 0]);
 
         const csvData = new Array<string[]>();
@@ -485,11 +487,11 @@ function validateChunkLength(chunkLen: number, maxChunkSize: number) {
     if (chunkLen < 0) {
         throw new Error(`received negative chunk size of ${chunkLen}`);
     }
-    if (chunkLen > ChunkedTransferCodec.DefaultMaxChunkSizeLimit &&
+    if (chunkLen > ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT &&
             chunkLen > maxChunkSize) {
         throw new Error(
             `received chunk size of ${chunkLen} exceeds` +
-            ` default limit on max chunk size (${ChunkedTransferCodec.DefaultMaxChunkSizeLimit})` +
+            ` default limit on max chunk size (${ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT})` +
             ` as well as maximum configured chunk size of ${maxChunkSize}`);
     }
 }

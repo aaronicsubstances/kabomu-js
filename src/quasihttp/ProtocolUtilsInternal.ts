@@ -1,7 +1,7 @@
 import { Readable, Writable } from "stream";
 
 import { QuasiHttpRequestProcessingError } from "./errors";
-import { IQuasiHttpBody } from "./types";
+import { ICancellablePromiseInternal, IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
 import { whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
@@ -179,10 +179,16 @@ export async function completeRequestProcessing<T>(
 }
 
 export function createCancellableTimeoutPromise<T>(
-        timeoutMillis: number, timeoutMsg: string):
-        [Promise<T>, { cancel: () => void}] {
+        timeoutMillis: number, timeoutMsg: string) {
     if (!timeoutMillis || timeoutMillis <= 0) {
-        return [null as any, null as any];
+        return {
+            isCancellationRequested() {
+                return false
+            },
+            cancel() {
+                
+            },
+        } as ICancellablePromiseInternal<T>
     }
     let _resolve: any, _reject: any;
     const timeoutPromise = new Promise<T>((resolve, reject) => {
@@ -190,15 +196,22 @@ export function createCancellableTimeoutPromise<T>(
         _reject = reject;
     });
     const timeoutId = setTimeout(() => {
-        const timeoutError = new QuasiHttpRequestProcessingError(timeoutMsg);
-        timeoutError.reasonCode = QuasiHttpRequestProcessingError.ReasonCodeTimeout;
+        const timeoutError = new QuasiHttpRequestProcessingError(
+            timeoutMsg,
+            QuasiHttpRequestProcessingError.REASON_CODE_TIMEOUT);
         _reject(timeoutError);
     }, timeoutMillis);
-    const cancellationHandle = {
+    let cancelled = false;
+    const cancellationHandle: ICancellablePromiseInternal<T> = {
+        promise: timeoutPromise,
+        isCancellationRequested() {
+            return cancelled
+        },
         cancel() {
             clearTimeout(timeoutId);
             _resolve(null);
+            cancelled = true;
         }
     }
-    return [timeoutPromise, cancellationHandle];
+    return cancellationHandle
 }

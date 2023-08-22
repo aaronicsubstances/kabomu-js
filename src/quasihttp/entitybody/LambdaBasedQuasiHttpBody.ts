@@ -13,11 +13,11 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
     contentLength = -1;
 
     /**
-     * Implementation of ICustomWritable to which entire
+     * Implementation of ISelfWritable to which entire
      * implementation of writeBytesTo() can be delegated to.
      * Default implementation kicks in only if this property is null.
      */
-    writable?: ISelfWritable;
+    selfWritable?: ISelfWritable;
 
     /**
      * Lambda function which can be used to release resources.
@@ -35,11 +35,11 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
      * Creates a new instance and initializes the contentLength
      * property to -1.
      * @param readerFunc value for readerFunc property
-     * @param writable value for writable property
+     * @param selfWritable value for selfWritable property
      */
-    constructor(readerFunc?: any, writable?: any) {
+    constructor(readerFunc?: any, selfWritable?: any) {
         this.readerFunc = readerFunc;
-        this.writable = writable;
+        this.selfWritable = selfWritable;
     }
 
     /**
@@ -74,8 +74,8 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
      * the bytes to be written.
      */
     async writeBytesTo(writer: Writable) {
-        if (this.writable) {
-            await this.writable.writeBytesTo(writer);
+        if (this.selfWritable) {
+            await this.selfWritable.writeBytesTo(writer);
             return;
         }
         const reader = this.getReader();
