@@ -1,7 +1,7 @@
 import { Readable, Writable } from "stream";
 
 import { QuasiHttpRequestProcessingError } from "./errors";
-import { ICancellablePromiseInternal, IQuasiHttpBody } from "./types";
+import { ICancellablePromiseInternal, IPendingPromiseInternal, IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
 import { whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
@@ -190,28 +190,34 @@ export function createCancellableTimeoutPromise<T>(
             },
         } as ICancellablePromiseInternal<T>
     }
-    let _resolve: any, _reject: any;
-    const timeoutPromise = new Promise<T>((resolve, reject) => {
-        _resolve = resolve;
-        _reject = reject;
-    });
+    const pendingPromise = createPendingPromise<T>()
     const timeoutId = setTimeout(() => {
         const timeoutError = new QuasiHttpRequestProcessingError(
             timeoutMsg,
             QuasiHttpRequestProcessingError.REASON_CODE_TIMEOUT);
-        _reject(timeoutError);
+        pendingPromise.reject(timeoutError);
     }, timeoutMillis);
     let cancelled = false;
     const cancellationHandle: ICancellablePromiseInternal<T> = {
-        promise: timeoutPromise,
+        promise: pendingPromise.promise,
         isCancellationRequested() {
             return cancelled
         },
         cancel() {
             clearTimeout(timeoutId);
-            _resolve(null);
+            pendingPromise.resolve(null as T);
             cancelled = true;
         }
     }
     return cancellationHandle
+}
+
+export function createPendingPromise<T>() {
+    const pendingPromise = {
+    } as IPendingPromiseInternal<T>
+    pendingPromise.promise = new Promise<T>((resolve, reject) => {
+        pendingPromise.resolve = resolve
+        pendingPromise.reject = reject
+    })
+    return pendingPromise;
 }

@@ -259,7 +259,7 @@ describe("ChunkEncodingCustomWriter", function() {
                 cb()
             },
         })
-        const maxChunkSize = ChunkedTransferCodec.HardMaxChunkSizeLimit
+        const maxChunkSize = ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT
         const instance = createChunkEncodingCustomWriter(destStream,
             maxChunkSize)
         

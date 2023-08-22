@@ -149,7 +149,7 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
      * Optional HTTP response status code. Falsy values will
      * be interpreted as 0.
      */
-    statusCode: number
+    statusCode?: number
 
     /**
      * Optional map of string arrays keyed by strings,
@@ -343,7 +343,7 @@ export interface IQuasiHttpAltTransport {
      * processed by the tranport instance.
      */
     processSendRequest(remoteEndpoint: any, request: IQuasiHttpRequest,
-        sendOptions: QuasiHttpSendOptions): QuasiHttpSendResponse
+        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse
 
     /**
      * Makes a direct send request on behalf of an instance of
@@ -365,9 +365,9 @@ export interface IQuasiHttpAltTransport {
      * @returns an object containing a promise whose result will be the quasi http response
      * processed by the tranport instance.
      */
-    processSendRequest(remoteEndpoint: any,
+    processSendRequest2(remoteEndpoint: any,
         requestFunc: (env: Map<string, any>) => Promise<IQuasiHttpRequest>,
-        sendOptions: QuasiHttpSendOptions): QuasiHttpSendResponse
+        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse
     
     /**
      * Attempts to cancel an ongoing send request.
@@ -463,7 +463,7 @@ export interface IQuasiHttpApplication {
      * quasi http request
      */
     processRequest(request: IQuasiHttpRequest):
-        Promise<IQuasiHttpResponse>
+        Promise<IQuasiHttpResponse | null>
 }
 
 export interface ProtocolSendResultInternal {
@@ -473,16 +473,22 @@ export interface ProtocolSendResultInternal {
 
 export interface ISendProtocolInternal {
     cancel(): Promise<void>
-    send(): Promise<ProtocolSendResultInternal>
+    send(): Promise<ProtocolSendResultInternal | null>
 }
 
 export interface IReceiveProtocolInternal {
     cancel(): Promise<void>
-    receive(): Promise<IQuasiHttpResponse>
+    receive(): Promise<IQuasiHttpResponse | null>
 }
 
 export interface ICancellablePromiseInternal<T> {
-    promise: Promise<T> | null
+    promise: Promise<T>
     isCancellationRequested(): boolean
     cancel(): void
+}
+
+export interface IPendingPromiseInternal<T> {
+    promise: Promise<T>
+    resolve: (r: T) => void
+    reject: (r: Error) => void
 }
