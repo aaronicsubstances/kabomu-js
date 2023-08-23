@@ -4,7 +4,7 @@ const { expect, assert } = require('chai').use(require('chai-bytes'))
 import * as ByteUtils from "../../src/common/ByteUtils"
 import * as IOUtils from "../../src/common/IOUtils"
 import { createContentLengthEnforcingCustomReader } from "../../src/common/ContentLengthEnforcingCustomReader"
-import { createRandomizedReadSizeBufferReader } from "../shared/RandomizedReadSizeBufferReader"
+import { createRandomizedReadSizeBufferReader } from "../shared/common/RandomizedReadSizeBufferReader"
 import { Readable } from "stream"
 
 describe("ContentLengthEnforcingCustomReader", function() {

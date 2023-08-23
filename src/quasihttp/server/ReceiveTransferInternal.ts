@@ -1,5 +1,5 @@
 import {
-    ICancellablePromiseInternal,
+    ICancellableTimeoutPromiseInternal,
     IQuasiHttpRequest,
     IQuasiHttpResponse,
     IReceiveProtocolInternal
@@ -8,7 +8,7 @@ import {
 export class ReceiveTransferInternal {
     private _abortCalled = false
     protocol: IReceiveProtocolInternal
-    timeoutId?: ICancellablePromiseInternal<IQuasiHttpResponse | null>
+    timeoutId?: ICancellableTimeoutPromiseInternal
     request?: IQuasiHttpRequest
 
     constructor(protocol: IReceiveProtocolInternal) {
@@ -34,7 +34,7 @@ export class ReceiveTransferInternal {
         return res;
     }
 
-    async abort(res: IQuasiHttpResponse | null) {
+    async abort(res: IQuasiHttpResponse | undefined) {
         if (this.trySetAborted()) {
             this.timeoutId?.cancel();
 

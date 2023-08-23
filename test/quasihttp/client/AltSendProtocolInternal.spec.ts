@@ -18,7 +18,7 @@ import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
 import * as ByteUtils from "../../../src/common/ByteUtils"
 import {
     compareResponsesInvolvingUnknownSources
-} from "../../shared/ComparisonUtils"
+} from "../../shared/common/ComparisonUtils"
 import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHttpResponse"
 
 class HelperQuasiHttpAltTransport implements IQuasiHttpAltTransport {
@@ -47,7 +47,7 @@ class ErrorQuasiHttpBody implements IQuasiHttpBody {
     get contentLength(): number {
         throw new Error("Method not implemented.")
     }
-    getReader(): Readable | null {
+    getReader(): Readable | undefined {
         throw new Error("Method not implemented.")
     }
     release(): Promise<void> {
@@ -67,9 +67,9 @@ describe("AltSendProtocolInternal", function() {
         }, ExpectationViolationError)
         await nativeAssert.rejects(async () => {
             const instance = new AltSendProtocolInternal({
-                responsePromise: Promise.resolve(null),
+                responsePromise: Promise.resolve(undefined),
                 transportBypass: null as any,
-                ensureNonNullResponse: true
+                ensureTruthyResponse: true
             })
             await instance.send()
         }, (err: any) => {
@@ -81,12 +81,12 @@ describe("AltSendProtocolInternal", function() {
     test("send for no response", async function() {
         const transport = new HelperQuasiHttpAltTransport()
         const instance = new AltSendProtocolInternal({
-            responsePromise: Promise.resolve(null),
+            responsePromise: Promise.resolve(undefined),
             transportBypass: transport,
-            ensureNonNullResponse: false
+            ensureTruthyResponse: false
         })
         const actual = await instance.send()
-        assert.isNull(actual)
+        assert.isNotOk(actual)
     })
 
     test("send ensures release on receiving error response (1)", async function() {
@@ -104,7 +104,7 @@ describe("AltSendProtocolInternal", function() {
             responsePromise: Promise.resolve(expectedResponse),
             sendCancellationHandle: {},
             responseBufferingEnabled: true,
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         await nativeAssert.rejects(async () => {
             await instance.send()
@@ -132,7 +132,7 @@ describe("AltSendProtocolInternal", function() {
             sendCancellationHandle: {},
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 5,
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         await nativeAssert.rejects(async () => {
             await instance.send()
@@ -161,7 +161,7 @@ describe("AltSendProtocolInternal", function() {
             responsePromise: Promise.resolve(expectedResponse),
             responseBufferingEnabled: false,
             transportBypass: transport,
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         const res = await instance.send()
         assert.equal(responseReleaseCallCount, 0)
@@ -193,7 +193,7 @@ describe("AltSendProtocolInternal", function() {
             responsePromise: Promise.resolve(expectedResponse),
             responseBufferingEnabled: false,
             transportBypass: transport,
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         const res = await instance.send()
         assert.equal(responseReleaseCallCount, 1)
@@ -224,7 +224,7 @@ describe("AltSendProtocolInternal", function() {
             responseBufferingEnabled: false,
             transportBypass: transport,
             sendCancellationHandle: [],
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         const res = await instance.send()
         assert.equal(responseReleaseCallCount, 1)
@@ -255,7 +255,7 @@ describe("AltSendProtocolInternal", function() {
             responsePromise: Promise.resolve(expectedResponse),
             responseBufferingEnabled: true,
             transportBypass: transport,
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         const res = await instance.send()
         assert.equal(responseReleaseCallCount, 1)
@@ -279,7 +279,7 @@ describe("AltSendProtocolInternal", function() {
             responsePromise: Promise.resolve(expectedResponse),
             responseBufferingEnabled: true,
             transportBypass: transport,
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         const res = await instance.send()
         assert.equal(responseReleaseCallCount, 1)
@@ -306,7 +306,7 @@ describe("AltSendProtocolInternal", function() {
             responsePromise: Promise.resolve(expectedResponse),
             transportBypass: transport,
             responseBufferingEnabled: true,
-            ensureNonNullResponse: true
+            ensureTruthyResponse: true
         })
         const response = await instance.send()
         assert.equal(responseReleaseCallCount, 1)
@@ -428,7 +428,7 @@ describe("AltSendProtocolInternal", function() {
                     sendCancellationHandle: sendCancellationHandle,
                     responseBufferingEnabled: true,
                     responseBodyBufferingSizeLimit: responseBodyBufferingLimit,
-                    ensureNonNullResponse: true
+                    ensureTruthyResponse: true
                 })
                 const response = await instance.send()
                 assert.isOk(response?.responseBufferingApplied)

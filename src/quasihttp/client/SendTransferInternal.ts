@@ -1,5 +1,5 @@
 import {
-    ICancellablePromiseInternal,
+    ICancellableTimeoutPromiseInternal,
     IPendingPromiseInternal,
     IQuasiHttpRequest,
     ISendProtocolInternal,
@@ -9,8 +9,8 @@ import {
 export class SendTransferInternal {
     private _abortCalled = false
     protocol: ISendProtocolInternal
-    timeoutId?: ICancellablePromiseInternal<ProtocolSendResultInternal | null>
-    cancellationTcs?: IPendingPromiseInternal<ProtocolSendResultInternal | null>
+    timeoutId?: ICancellableTimeoutPromiseInternal
+    cancellationTcs?: IPendingPromiseInternal<ProtocolSendResultInternal | undefined>
     request?: IQuasiHttpRequest
 
     constructor(protocol: ISendProtocolInternal) {
@@ -32,12 +32,12 @@ export class SendTransferInternal {
     async startProtocol()
     {
         const res = await this.protocol.send();
-        await this.abort(null, res);
+        await this.abort(undefined, res);
         return res;
     }
 
-    async abort(cancellationError: Error | null,
-            res: ProtocolSendResultInternal | null) {
+    async abort(cancellationError: Error | undefined,
+            res: ProtocolSendResultInternal | undefined) {
         if (this.trySetAborted()) {
             this.timeoutId?.cancel();
 
@@ -45,7 +45,7 @@ export class SendTransferInternal {
                 this.cancellationTcs?.reject(cancellationError)
             }
             else {
-                this.cancellationTcs?.resolve(null)
+                this.cancellationTcs?.resolve(undefined)
             }
 
             if (cancellationError || !res?.response?.body ||

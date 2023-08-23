@@ -22,7 +22,7 @@ export class AltReceiveProtocolInternal implements IReceiveProtocolInternal {
     async cancel(): Promise<void> {
     }
 
-    receive(): Promise<IQuasiHttpResponse | null> {
+    receive(): Promise<IQuasiHttpResponse | undefined> {
         if (!this.application) {
             throw new MissingDependencyError("application")
         }

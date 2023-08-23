@@ -6,7 +6,7 @@ import * as ByteUtils from "../../../src/common/ByteUtils"
 import { Readable, Writable } from "stream"
 import { IQuasiHttpRequest, IQuasiHttpResponse, LeadChunk } from "../../../src/quasihttp/types"
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
-import { assertLeadChunkEqual } from "../../shared/ComparisonUtils"
+import { compareLeadChunks } from "../../shared/common/ComparisonUtils"
 
 describe("ChunkedTransferCodec", function() {
     describe("internal tests without chunk length encoding/decoding", function() {
@@ -91,7 +91,7 @@ describe("ChunkedTransferCodec", function() {
 
             const actualChunk = ChunkedTransferCodec._deserialize(
                 actualBytes)
-            assertLeadChunkEqual(actualChunk, expectedChunk)
+            compareLeadChunks(actualChunk, expectedChunk)
         })
 
         it("should pass (4)", async function() {
@@ -120,7 +120,7 @@ describe("ChunkedTransferCodec", function() {
 
             const actualChunk = ChunkedTransferCodec._deserialize(
                 equivalentBytes)
-            assertLeadChunkEqual(actualChunk, expectedChunk)
+            compareLeadChunks(actualChunk, expectedChunk)
         })
 
         it("should pass (5)", async function() {
@@ -308,12 +308,12 @@ describe("ChunkedTransferCodec", function() {
         testData.forEach(({srcData, maxChunkSize, expected}, i) => {
             it(`should pass with input ${i}`, async function() {
                 let actual = await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    srcData, null, maxChunkSize)
+                    srcData, undefined, maxChunkSize)
                 assert.equal(actual, expected)
 
                 // should work indirectly with stream
                 actual = await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    null, Readable.from(srcData), maxChunkSize)
+                    null as any, Readable.from(srcData), maxChunkSize)
                 assert.equal(actual, expected)
             })
         })
@@ -321,7 +321,7 @@ describe("ChunkedTransferCodec", function() {
         it("should fail with argument error (1)", async function() {
             await nativeAssert.rejects(async () => {
                 await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    null, null, 0)
+                    null as any, undefined, 0)
             }, (e: any) => {
                 expect(e.message).to.contain("reader")
                 return true
@@ -331,7 +331,7 @@ describe("ChunkedTransferCodec", function() {
         it("should fail with argument error (2)", async function() {
             await nativeAssert.rejects(async () => {
                 await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    Buffer.from([0, 0, 2, 1, 0]), null, true as any)
+                    Buffer.from([0, 0, 2, 1, 0]), undefined, true as any)
             }, (e: any) => {
                 expect(e.message).to.contain("invalid 32-bit")
                 return true
@@ -356,7 +356,7 @@ describe("ChunkedTransferCodec", function() {
             it(`should fail with usage ${i}`, async function() {
                 await nativeAssert.rejects(async () => {
                     await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                        srcData, null, maxChunkSize)
+                        srcData, undefined, maxChunkSize)
                 })
             })
         })
@@ -834,6 +834,7 @@ describe("ChunkedTransferCodec", function() {
             }
             const expected: LeadChunk = {
                 version: 1,
+                flags: 0,
                 requestTarget: undefined,
                 method: undefined,
                 headers: undefined,
@@ -866,6 +867,7 @@ describe("ChunkedTransferCodec", function() {
             }
             const expected: LeadChunk = {
                 version: 1,
+                flags: 0,
                 requestTarget: "/index.html",
                 method: "POST",
                 headers,
@@ -898,6 +900,7 @@ describe("ChunkedTransferCodec", function() {
             }
             const expected: LeadChunk = {
                 version: 1,
+                flags: 0,
                 requestTarget: "",
                 method: "",
                 headers,
@@ -943,6 +946,7 @@ describe("ChunkedTransferCodec", function() {
             }
             const expected: LeadChunk = {
                 version: 1,
+                flags: 0,
                 statusCode: -1,
                 httpStatusMessage: undefined,
                 headers: undefined,
@@ -974,6 +978,7 @@ describe("ChunkedTransferCodec", function() {
             }
             const expected: LeadChunk = {
                 version: 1,
+                flags: 0,
                 statusCode: 200,
                 httpStatusMessage: "Ok",
                 headers,
@@ -1006,6 +1011,7 @@ describe("ChunkedTransferCodec", function() {
             }
             const expected: LeadChunk = {
                 version: 1,
+                flags: 0,
                 statusCode: 4,
                 httpStatusMessage: "",
                 headers,

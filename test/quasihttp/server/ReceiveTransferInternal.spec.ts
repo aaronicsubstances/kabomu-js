@@ -4,7 +4,7 @@ import { ReceiveTransferInternal } from "../../../src/quasihttp/server/ReceiveTr
 import { DefaultQuasiHttpRequest } from "../../../src/quasihttp/DefaultQuasiHttpRequest"
 import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHttpResponse"
 import {
-    ICancellablePromiseInternal,
+    ICancellableTimeoutPromiseInternal,
     IQuasiHttpRequest,
     IQuasiHttpResponse,
     IReceiveProtocolInternal
@@ -13,9 +13,9 @@ import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
 
 class HelperReceiveProtocol implements IReceiveProtocolInternal {
     cancelled = false
-    expectedCancelError: Error | null
-    expectedReceiveError: Error | null
-    expectedReceiveResult: IQuasiHttpResponse | null
+    expectedCancelError?: Error
+    expectedReceiveError?: Error
+    expectedReceiveResult?: IQuasiHttpResponse
 
     constructor(options: any) {
         this.expectedCancelError = options?.expectedCancelError
@@ -129,7 +129,7 @@ describe("ReceiveTransferInternal", function() {
 
             // act to verify no errors are raised with
             // the missing props
-            await instance.abort(null);
+            await instance.abort(undefined);
         })
         it("should pass (4)", async function() {
             // arrange
@@ -152,7 +152,7 @@ describe("ReceiveTransferInternal", function() {
                 cancel() {
                     cancelled = true
                 },
-            } as ICancellablePromiseInternal<IQuasiHttpResponse>;
+            } as ICancellableTimeoutPromiseInternal;
             let responseReleaseCallCount = 0
             const response: IQuasiHttpResponse = {
                 body: new StringBody("unbuffered"),
@@ -190,7 +190,7 @@ describe("ReceiveTransferInternal", function() {
                 cancel() {
                     cancelled = true
                 },
-            } as ICancellablePromiseInternal<IQuasiHttpResponse>;
+            } as ICancellableTimeoutPromiseInternal;
             instance.trySetAborted()
             let responseReleaseCallCount = 0
             const response: IQuasiHttpResponse = {
@@ -226,7 +226,7 @@ describe("ReceiveTransferInternal", function() {
                 cancel() {
                     cancelled = true
                 },
-            } as ICancellablePromiseInternal<IQuasiHttpResponse>;
+            } as ICancellableTimeoutPromiseInternal;
             const res = new DefaultQuasiHttpResponse({
                 body: new StringBody("deal")
             })

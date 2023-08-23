@@ -89,9 +89,9 @@ export interface IQuasiHttpBody extends ICustomDisposable, ISelfWritable {
 
     /**
      * Returns a readable stream for reading byte representation of the instance.
-     * Can also return null indicate that direct reading is not supported.
+     * Can also return undefined indicate that direct reading is not supported.
      */
-    getReader(): Readable | null
+    getReader(): Readable | undefined
 }
 
 /**
@@ -121,7 +121,7 @@ export interface IQuasiHttpRequest extends ICustomDisposable {
     /**
      * Optional request body
      */
-    body?: IQuasiHttpBody | null
+    body?: IQuasiHttpBody
 
     /**
      * Optional HTTP method value.
@@ -166,7 +166,7 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
     /**
      * Optional response body
      */
-    body?: IQuasiHttpBody | null
+    body?: IQuasiHttpBody
 
     /**
      * Optional HTTP response status text or reason phrase.
@@ -261,10 +261,10 @@ export interface QuasiHttpSendOptions {
     responseBodyBufferingSizeLimit?: number
 
     /**
-     * Indicates whether null responses received from sending requests
+     * Indicates whether falsy responses received from sending requests
      * should result in an error, or should simply be returned as is.
      */
-    ensureNonNullResponse?: boolean 
+    ensureTruthyResponse?: boolean 
 }
 
 /**
@@ -463,7 +463,7 @@ export interface IQuasiHttpApplication {
      * quasi http request
      */
     processRequest(request: IQuasiHttpRequest):
-        Promise<IQuasiHttpResponse | null>
+        Promise<IQuasiHttpResponse | undefined>
 }
 
 export interface ProtocolSendResultInternal {
@@ -473,16 +473,16 @@ export interface ProtocolSendResultInternal {
 
 export interface ISendProtocolInternal {
     cancel(): Promise<void>
-    send(): Promise<ProtocolSendResultInternal | null>
+    send(): Promise<ProtocolSendResultInternal | undefined>
 }
 
 export interface IReceiveProtocolInternal {
     cancel(): Promise<void>
-    receive(): Promise<IQuasiHttpResponse | null>
+    receive(): Promise<IQuasiHttpResponse | undefined>
 }
 
-export interface ICancellablePromiseInternal<T> {
-    promise: Promise<T>
+export interface ICancellableTimeoutPromiseInternal {
+    promise: Promise<void>
     isCancellationRequested(): boolean
     cancel(): void
 }

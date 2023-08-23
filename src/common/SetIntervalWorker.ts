@@ -64,7 +64,7 @@ export class SetIntervalWorker {
         }
         const pendingWorkTimestamp = new Date();
         const doWorkFunc = this.doWorkFunc;
-        const actualWork = Promise.resolve(doWorkFunc ? doWorkFunc.call(this) : null);
+        const actualWork = Promise.resolve(doWorkFunc ? doWorkFunc.call(this) : undefined);
         // interpret negative value to mean disabling of timeout.
         if (workTimeoutSecs < 0) {
             const internalProceed = await actualWork;

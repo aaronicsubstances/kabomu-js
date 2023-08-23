@@ -24,7 +24,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
     maxChunkSize: number
     responseBufferingEnabled: boolean
     responseBodyBufferingSizeLimit: number
-    ensureNonNullResponse: boolean
+    ensureTruthyResponse: boolean
 
     constructor(options: {
                 request: IQuasiHttpRequest
@@ -33,7 +33,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
                 maxChunkSize: number
                 responseBufferingEnabled: boolean
                 responseBodyBufferingSizeLimit: number
-                ensureNonNullResponse: boolean
+                ensureTruthyResponse: boolean
             }) {
         this.request = options?.request
         this.transport = options?.transport
@@ -41,7 +41,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
         this.maxChunkSize = options?.maxChunkSize
         this.responseBufferingEnabled = options?.responseBufferingEnabled
         this.responseBodyBufferingSizeLimit = options?.responseBodyBufferingSizeLimit
-        this.ensureNonNullResponse = options?.ensureNonNullResponse
+        this.ensureTruthyResponse = options?.ensureTruthyResponse
     }
 
     async cancel(): Promise<void> {
@@ -51,7 +51,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
         }
     }
 
-    async send(): Promise<ProtocolSendResultInternal | null> {
+    async send(): Promise<ProtocolSendResultInternal | undefined> {
         if (!this.transport) {
             throw new MissingDependencyError("client transport")
         }
@@ -80,10 +80,10 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
         const chunk = await new ChunkedTransferCodec().readLeadChunk(reader,
             this.maxChunkSize)
         if (!chunk) {
-            if (this.ensureNonNullResponse) {
+            if (this.ensureTruthyResponse) {
                 throw new QuasiHttpRequestProcessingError("no response")
             }
-            return null
+            return undefined
         }
         const response = new DefaultQuasiHttpResponse()
         ChunkedTransferCodec.updateResponse(response, chunk)

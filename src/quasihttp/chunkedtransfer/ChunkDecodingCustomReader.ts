@@ -29,7 +29,7 @@ async function* generate(wrappedReader: Readable, maxChunkSize: number) {
     const decoder = new ChunkedTransferCodec();
     while (true) {
         const chunkDataLen = await decoder.decodeSubsequentChunkV1Header(
-            null, wrappedReader, maxChunkSize);
+            undefined, wrappedReader, maxChunkSize);
         if (chunkDataLen === 0) {
             break;
         }

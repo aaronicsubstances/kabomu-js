@@ -1,7 +1,7 @@
 const { assert } = require("chai").use(require("chai-bytes"))
-import * as IOUtils from "../../src/common/IOUtils"
-import { IQuasiHttpBody, IQuasiHttpResponse, LeadChunk } from "../../src/quasihttp/types"
-import { getBodyReader } from "../../src/quasihttp/entitybody/EntityBodyUtils";
+import * as IOUtils from "../../../src/common/IOUtils"
+import { IQuasiHttpBody, IQuasiHttpRequest, IQuasiHttpResponse, LeadChunk } from "../../../src/quasihttp/types"
+import { getBodyReader } from "../../../src/quasihttp/entitybody/EntityBodyUtils";
 
 /**
  * This JavaScript function always returns a random number between min (included) and max (excluded).
@@ -20,7 +20,7 @@ export function createDelayPromise(millis: number) {
     })
 }
 
-export function assertLeadChunkEqual(
+export function compareLeadChunks(
         actual: LeadChunk | null | undefined,
         expected: LeadChunk | null | undefined) {
     if (!actual || !expected) {
@@ -36,6 +36,22 @@ export function assertLeadChunkEqual(
     assert.equal(actual.httpVersion, expected.httpVersion);
     assert.equal(actual.httpStatusMessage, expected.httpStatusMessage);
     compareHeaders(actual.headers, expected.headers);
+}
+
+export async function compareRequests(
+        actual: IQuasiHttpRequest | null | undefined,
+        expected: IQuasiHttpRequest | null | undefined,
+        expectedReqBodyBytes?: Buffer | null) {
+    if (!expected || !actual) {
+        assert.equal(actual, expected);
+        return;
+    }
+    assert.equal(actual.method, expected.method);
+    assert.equal(actual.httpVersion, expected.httpVersion);
+    assert.equal(actual.target, expected.target);
+    compareHeaders(actual.headers, expected.headers);
+    //assert.equal(actual.environment, expected.environment);
+    await compareBodies(actual.body, expected.body, expectedReqBodyBytes);
 }
 
 export async function compareResponses(

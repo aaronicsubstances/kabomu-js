@@ -5,10 +5,10 @@ import * as ProtocolUtilsInternal from "../../src/quasihttp/ProtocolUtilsInterna
 import { QuasiHttpRequestProcessingError } from "../../src/quasihttp/errors"
 import {
     createDelayPromise,
-} from "../shared/ComparisonUtils"
+} from "../shared/common/ComparisonUtils"
 import { ByteBufferBody } from "../../src/quasihttp/entitybody/ByteBufferBody"
 import { StringBody } from "../../src/quasihttp/entitybody/StringBody"
-import * as ComparisonUtils from "../shared/ComparisonUtils"
+import * as ComparisonUtils from "../shared/common/ComparisonUtils"
 import { IQuasiHttpBody } from "../../src/quasihttp/types"
 import * as ByteUtils from "../../src/common/ByteUtils"
 import * as IOUtils from "../../src/common/IOUtils"
@@ -230,8 +230,8 @@ describe("ProtocolUtilsInternal", function() {
     describe("#determineEffectiveOptions", function() {
         const testData = [
             {
-                preferred: null,
-                fallback: null,
+                preferred: null as any,
+                fallback: undefined,
                 expected: new Map()
             },
             {
@@ -241,11 +241,11 @@ describe("ProtocolUtilsInternal", function() {
             },
             {
                 preferred: new Map([["a", 2], ["b", 3]]),
-                fallback: null,
+                fallback: null as any,
                 expected: new Map([["a", 2], ["b", 3]]),
             },
             {
-                preferred: null,
+                preferred: undefined,
                 fallback: new Map([["a", 2], ["b", 3]]),
                 expected: new Map([["a", 2], ["b", 3]]),
             },
@@ -356,14 +356,14 @@ describe("ProtocolUtilsInternal", function() {
                 expected: false
             },
             {
-                environment: null,
+                environment: undefined,
                 key: "k1",
-                expected: null
+                expected: undefined
             },
             {
                 environment: new Map<string, any>([["d2", "TRUE"], ["e", "ghana"]]),
                 key: "f",
-                expected: null
+                expected: undefined
             },
             {
                 environment: new Map<string, any>([["ty2", "TRUE"], ["c", {}]]),
@@ -674,7 +674,7 @@ describe("ProtocolUtilsInternal", function() {
             const expectedData = ByteUtils.stringToBytes(srcData)
             const reader = Readable.from(expectedData)
             const contentLength = srcData.length
-            const releaseFunc = null
+            const releaseFunc = undefined
             const maxChunkSize = 6
             const bufferingEnabled = false
             const bodyBufferingSizeLimit = 2
@@ -744,7 +744,7 @@ describe("ProtocolUtilsInternal", function() {
                 }
             })())
             const contentLength = -1
-            const releaseFunc = null
+            const releaseFunc = undefined
             const maxChunkSize = 2  // should have no effect since it is
                                     // less than hard limit
             const bufferingEnabled = true 
@@ -806,7 +806,7 @@ describe("ProtocolUtilsInternal", function() {
             const expectedData = ByteUtils.stringToBytes(srcData)
             const reader = Readable.from(expectedData)
             const contentLength = "" as any
-            const releaseFunc = null
+            const releaseFunc = undefined
             const maxChunkSize = 0
             const bufferingEnabled = false
             const bodyBufferingSizeLimit = 0
@@ -856,7 +856,7 @@ describe("ProtocolUtilsInternal", function() {
             const expectedData = ByteUtils.stringToBytes("bits and bytes")
             const reader = Readable.from(srcData)
             const contentLength = -3
-            const releaseFunc = null
+            const releaseFunc = undefined
             const maxChunkSize = 60
             const bufferingEnabled = true 
             const bodyBufferingSizeLimit = 3
@@ -904,8 +904,8 @@ describe("ProtocolUtilsInternal", function() {
         it("should pass (1)", async function() {
             const expected = {}
             const workPromise = Promise.resolve(expected)
-            const timeoutPromise = null
-            const cancellationPromise = null
+            const timeoutPromise = undefined
+            const cancellationPromise = undefined
             const actual = await ProtocolUtilsInternal.completeRequestProcessing(
                 workPromise, timeoutPromise, cancellationPromise)
             assert.strictEqual(actual, expected)
@@ -913,7 +913,7 @@ describe("ProtocolUtilsInternal", function() {
         it("should pass (2)", async function() {
             const expected = {}
             const workPromise = Promise.resolve(expected)
-            const timeoutPromise = null
+            const timeoutPromise = undefined
             const cancellationPromise = (async function(){
                 await createDelayPromise(1_000)
                 return null
@@ -927,7 +927,7 @@ describe("ProtocolUtilsInternal", function() {
                 await createDelayPromise(1_000)
                 return null
             })()
-            const timeoutPromise = null
+            const timeoutPromise = undefined
             const cancellationPromise = Promise.resolve({})
             const actual = await ProtocolUtilsInternal.completeRequestProcessing(
                 workPromise, timeoutPromise, cancellationPromise)
@@ -1064,7 +1064,7 @@ describe("ProtocolUtilsInternal", function() {
             assert.isOk(p.isCancellationRequested())
         })
         it("should pass (4)", async function() {
-            const p = ProtocolUtilsInternal.createCancellableTimeoutPromise<number>(
+            const p = ProtocolUtilsInternal.createCancellableTimeoutPromise(
                     500, "")
             assert.isOk(p.promise)
             assert.isNotOk(p.isCancellationRequested())

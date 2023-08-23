@@ -1,7 +1,7 @@
 import { Readable, Writable } from "stream";
 
 import { QuasiHttpRequestProcessingError } from "./errors";
-import { ICancellablePromiseInternal, IPendingPromiseInternal, IQuasiHttpBody } from "./types";
+import { ICancellableTimeoutPromiseInternal, IPendingPromiseInternal, IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
 import { whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
@@ -13,7 +13,8 @@ import { parseInt32 } from "../common/ByteUtils";
 import { getBodyReader } from "./entitybody/EntityBodyUtils";
 
 export function determineEffectiveNonZeroIntegerOption(
-        preferred: number | null, fallback1: number | null,
+        preferred: number | undefined,
+        fallback1: number | undefined,
         defaultValue: number) {
     return parseInt32((function() {
         if (preferred) {
@@ -27,7 +28,8 @@ export function determineEffectiveNonZeroIntegerOption(
 }
 
 export function determineEffectivePositiveIntegerOption(
-        preferred: number | null, fallback1: number | null,
+        preferred: number | undefined,
+        fallback1: number | undefined,
         defaultValue: number) {
     if (preferred) {
         const effectiveValue = parseInt32(preferred)
@@ -45,8 +47,8 @@ export function determineEffectivePositiveIntegerOption(
 }
 
 export function determineEffectiveOptions(
-        preferred?: Map<string, any> | null,
-        fallback?: Map<string, any> | null) {
+        preferred: Map<string, any> | undefined,
+        fallback: Map<string, any> | undefined) {
     const dest = new Map<string, any>();
     // since we want preferred options to overwrite fallback options,
     // set fallback options first.
@@ -64,7 +66,8 @@ export function determineEffectiveOptions(
 }
 
 export function determineEffectiveBooleanOption(
-        preferred: boolean | null, fallback1: boolean | null, 
+        preferred: boolean | undefined,
+        fallback1: boolean | undefined, 
         defaultValue: boolean) {
     if (preferred !== null && typeof preferred !== "undefined") {
         return !!preferred;
@@ -76,7 +79,7 @@ export function determineEffectiveBooleanOption(
 }
 
 export function getEnvVarAsBoolean(
-        environment: Map<string, any> | null | undefined,
+        environment: Map<string, any> | undefined,
         key: string) {
     if (environment && environment.has(key)) {
         const value = environment.get(key);
@@ -84,11 +87,12 @@ export function getEnvVarAsBoolean(
             return !!value;
         }
     }
-    return null;
+    return undefined;
 }
 
 export async function createEquivalentOfUnknownBodyInMemory(
-        body: IQuasiHttpBody, bodyBufferingLimit: number | undefined) {
+        body: IQuasiHttpBody,
+        bodyBufferingLimit: number | undefined) {
     // Assume that body is completely unknown, and as such has nothing
     // to do with chunk transfer protocol, or have no need for
     // content length enforcement.
@@ -100,9 +104,10 @@ export async function createEquivalentOfUnknownBodyInMemory(
 }
 
 export async function transferBodyToTransport(
-        writer: Writable, maxChunkSize: number,
+        writer: Writable,
+        maxChunkSize: number | undefined,
         body: IQuasiHttpBody,
-        contentLength: number | null | undefined) {
+        contentLength: number | undefined) {
     if (!contentLength) {
         return;
     }
@@ -119,13 +124,14 @@ export async function transferBodyToTransport(
 
 export async function createBodyFromTransport(
         reader: Readable,
-        contentLength: number | null | undefined,
-        releaseFunc: (() => Promise<void>) | null,
-        maxChunkSize: number,
-        bufferingEnabled: boolean,
-        bodyBufferingSizeLimit: number) {
+        contentLength: number | undefined,
+        releaseFunc: (() => Promise<void>) | undefined,
+        maxChunkSize: number | undefined,
+        bufferingEnabled: boolean | undefined,
+        bodyBufferingSizeLimit: number | undefined)
+        : Promise<IQuasiHttpBody | undefined> {
     if (!contentLength) {
-        return null;
+        return undefined;
     }
 
     if (contentLength < 0) {
@@ -153,8 +159,9 @@ export async function createBodyFromTransport(
 }
 
 export async function completeRequestProcessing<T>(
-        workPromise: Promise<T>, timeoutPromise: Promise<T> | null,
-        cancellationPromise: Promise<T> | null) {
+        workPromise: Promise<T>,
+        timeoutPromise: Promise<any> | undefined,
+        cancellationPromise: Promise<any> | undefined) {
     if (!workPromise) {
         throw new Error("workPromise argument is null");
     }
@@ -180,7 +187,7 @@ export async function completeRequestProcessing<T>(
     return await workPromise;
 }
 
-export function createCancellableTimeoutPromise<T>(
+export function createCancellableTimeoutPromise(
         timeoutMillis: number, timeoutMsg: string) {
     if (!timeoutMillis || timeoutMillis <= 0) {
         return {
@@ -190,9 +197,9 @@ export function createCancellableTimeoutPromise<T>(
             cancel() {
                 
             },
-        } as ICancellablePromiseInternal<T>
+        } as ICancellableTimeoutPromiseInternal
     }
-    const pendingPromise = createPendingPromise<T>()
+    const pendingPromise = createPendingPromise<void>()
     const timeoutId = setTimeout(() => {
         const timeoutError = new QuasiHttpRequestProcessingError(
             timeoutMsg,
@@ -200,14 +207,14 @@ export function createCancellableTimeoutPromise<T>(
         pendingPromise.reject(timeoutError);
     }, timeoutMillis);
     let cancelled = false;
-    const cancellationHandle: ICancellablePromiseInternal<T> = {
+    const cancellationHandle: ICancellableTimeoutPromiseInternal = {
         promise: pendingPromise.promise,
         isCancellationRequested() {
             return cancelled
         },
         cancel() {
             clearTimeout(timeoutId);
-            pendingPromise.resolve(null as T);
+            pendingPromise.resolve();
             cancelled = true;
         }
     }

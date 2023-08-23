@@ -15,26 +15,26 @@ import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
 
 export class AltSendProtocolInternal implements ISendProtocolInternal {
     sendCancellationHandle?: any
-    responsePromise: Promise<IQuasiHttpResponse | null>
+    responsePromise: Promise<IQuasiHttpResponse | undefined>
     transportBypass: IQuasiHttpAltTransport
     responseBufferingEnabled?: boolean
     responseBodyBufferingSizeLimit?: number
-    ensureNonNullResponse?: boolean
+    ensureTruthyResponse?: boolean
 
     constructor(options: {
                 sendCancellationHandle?: any
-                responsePromise: Promise<IQuasiHttpResponse | null>
+                responsePromise: Promise<IQuasiHttpResponse | undefined>
                 transportBypass: IQuasiHttpAltTransport
                 responseBufferingEnabled?: boolean
                 responseBodyBufferingSizeLimit?: number
-                ensureNonNullResponse?: boolean
+                ensureTruthyResponse?: boolean
             }) {
         this.sendCancellationHandle = options?.sendCancellationHandle
         this.responsePromise = options?.responsePromise
         this.transportBypass = options?.transportBypass
         this.responseBufferingEnabled = options?.responseBufferingEnabled
         this.responseBodyBufferingSizeLimit = options?.responseBodyBufferingSizeLimit
-        this.ensureNonNullResponse = options?.ensureNonNullResponse
+        this.ensureTruthyResponse = options?.ensureTruthyResponse
     }
 
     async cancel(): Promise<void> {
@@ -44,7 +44,7 @@ export class AltSendProtocolInternal implements ISendProtocolInternal {
         }
     }
 
-    async send(): Promise<ProtocolSendResultInternal | null> {
+    async send(): Promise<ProtocolSendResultInternal | undefined> {
         if (!this.responsePromise) {
             throw new ExpectationViolationError("responsePromise")
         }
@@ -52,10 +52,10 @@ export class AltSendProtocolInternal implements ISendProtocolInternal {
         let response = await this.responsePromise
 
         if (!response) {
-            if (this.ensureNonNullResponse) {
+            if (this.ensureTruthyResponse) {
                 throw new QuasiHttpRequestProcessingError("no response");
             }
-            return null
+            return undefined
         }
         
         // save for closing later if needed.

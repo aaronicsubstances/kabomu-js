@@ -7,7 +7,10 @@
  * @param length length of range in byte array. Invalid if negative.
  * @returns true if byte buffer slice is valid; false if otherwise.
  */
-export function isValidByteBufferSlice(data: Buffer | null, offset: number, length: number) {
+export function isValidByteBufferSlice(
+        data: Buffer | undefined,
+        offset: number,
+        length: number) {
     if (!data) {
         return false;
     }

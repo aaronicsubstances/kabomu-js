@@ -5,7 +5,7 @@ import { DefaultQuasiHttpRequest } from "../../../src/quasihttp/DefaultQuasiHttp
 import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHttpResponse"
 import { createPendingPromise } from "../../../src/quasihttp/ProtocolUtilsInternal"
 import {
-    ICancellablePromiseInternal,
+    ICancellableTimeoutPromiseInternal,
     IQuasiHttpRequest,
     IQuasiHttpResponse,
     ISendProtocolInternal,
@@ -15,9 +15,9 @@ import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
 
 class HelperSendProtocol implements ISendProtocolInternal {
     cancelled = false
-    expectedCancelError: Error | null
-    expectedSendError: Error | null
-    expectedSendResult: ProtocolSendResultInternal | null
+    expectedCancelError?: Error
+    expectedSendError?: Error
+    expectedSendResult?: ProtocolSendResultInternal
 
     constructor(options: any) {
         this.expectedCancelError = options?.expectedCancelError
@@ -127,7 +127,7 @@ describe("SendTransferInternal", function() {
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
             instance.request = request
-            const cancellationError = null
+            const cancellationError = undefined
             let responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 responseBufferingApplied: true,
@@ -151,7 +151,7 @@ describe("SendTransferInternal", function() {
             // arrange
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
-            const cancellationError = null
+            const cancellationError = undefined
             const res: ProtocolSendResultInternal = {}
 
             // act
@@ -164,11 +164,11 @@ describe("SendTransferInternal", function() {
             // arrange
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
-            const cancellationError = null
+            const cancellationError = undefined
             instance.trySetAborted()
 
             // act
-            await instance.abort(cancellationError, null)
+            await instance.abort(cancellationError, undefined)
 
             // assert
             assert.isNotOk(protocol.cancelled)
@@ -184,7 +184,7 @@ describe("SendTransferInternal", function() {
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
             instance.request = request
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | null>()
+            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
             const cancellationError = new Error("IOE")
             const res: ProtocolSendResultInternal = {}
 
@@ -219,10 +219,10 @@ describe("SendTransferInternal", function() {
                 cancel() {
                     cancelled = true
                 },
-            } as ICancellablePromiseInternal<ProtocolSendResultInternal>
+            } as ICancellableTimeoutPromiseInternal
             instance.request = request
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | null>()
-            const cancellationError = null
+            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
+            const cancellationError = undefined
             var responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 response: {
@@ -243,7 +243,7 @@ describe("SendTransferInternal", function() {
             assert.equal(requestReleaseCallCount, 1)
             assert.equal(responseReleaseCallCount, 0)
             assert.isOk(instance.cancellationTcs)
-            assert.isNull(await instance.cancellationTcs!.promise)
+            assert.isNotOk(await instance.cancellationTcs!.promise)
         })
         it("should pass (6)", async function() {
             // arrange
@@ -264,9 +264,9 @@ describe("SendTransferInternal", function() {
                 cancel() {
                     cancelled = true
                 },
-            } as ICancellablePromiseInternal<ProtocolSendResultInternal>
+            } as ICancellableTimeoutPromiseInternal
             instance.trySetAborted()
-            const cancellationError = null
+            const cancellationError = undefined
             var responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 response: {
@@ -292,7 +292,7 @@ describe("SendTransferInternal", function() {
             const request = new DefaultQuasiHttpRequest()
             const instance = new SendTransferInternal(null as any)
             instance.request = request
-            const cancellationError = null
+            const cancellationError = undefined
             const res: ProtocolSendResultInternal = {
                 responseBufferingApplied: false,
                 response: new DefaultQuasiHttpResponse({
@@ -317,9 +317,9 @@ describe("SendTransferInternal", function() {
                 cancel() {
                     cancelled = true
                 },
-            } as ICancellablePromiseInternal<ProtocolSendResultInternal>
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | null>()
-            const cancellationError = null
+            } as ICancellableTimeoutPromiseInternal
+            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
+            const cancellationError = undefined
             const res: ProtocolSendResultInternal = {
                 responseBufferingApplied: true
             }
@@ -330,7 +330,7 @@ describe("SendTransferInternal", function() {
 
             assert.isOk(instance.timeoutId?.isCancellationRequested())
             assert.isOk(instance.cancellationTcs)
-            assert.isNull(await instance.cancellationTcs!.promise)
+            assert.isNotOk(await instance.cancellationTcs!.promise)
         })
         it("should pass (9)", async function() {
             // arrange
@@ -352,9 +352,9 @@ describe("SendTransferInternal", function() {
                 cancel() {
                     cancelled = true
                 },
-            } as ICancellablePromiseInternal<ProtocolSendResultInternal>
+            } as ICancellableTimeoutPromiseInternal
             instance.request = request
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | null>()
+            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
             var responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 response: {

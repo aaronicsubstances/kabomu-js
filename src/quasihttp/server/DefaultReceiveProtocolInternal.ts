@@ -18,15 +18,15 @@ import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
 export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal {
     application: IQuasiHttpApplication
     transport: IQuasiHttpTransport
-    connection: any
-    maxChunkSize: number
+    connection?: any
+    maxChunkSize?: number
     requestEnvironment?: Map<string, any>
 
     constructor(options: {
                 application: IQuasiHttpApplication
                 transport: IQuasiHttpTransport
-                connection: any
-                maxChunkSize: number
+                connection?: any
+                maxChunkSize?: number
                 requestEnvironment?: Map<string, any>
             }) {
         this.application = options?.application
@@ -44,7 +44,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
         }
     }
 
-    async receive(): Promise<IQuasiHttpResponse | null> {
+    async receive(): Promise<IQuasiHttpResponse | undefined> {
         if (!this.transport) {
             throw new MissingDependencyError("server transport")
         }
@@ -62,7 +62,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
         try
         {
             await this.transferResponseToTransport(response);
-            return null;
+            return undefined;
         }
         finally
         {
@@ -85,7 +85,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
         })
         ChunkedTransferCodec.updateRequest(request, chunk)
         request.body = await createBodyFromTransport(
-            reader, chunk.contentLength, null,
+            reader, chunk.contentLength, undefined,
             this.maxChunkSize, false, 0);
         return request
     }
@@ -101,7 +101,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
         const writer = this.transport.getWriter(this.connection)
         await new ChunkedTransferCodec().writeLeadChunk(
             writer, leadChunk, this.maxChunkSize)
-        await transferBodyToTransport(writer,this.maxChunkSize,
+        await transferBodyToTransport(writer, this.maxChunkSize,
             response.body as any, leadChunk.contentLength)
     }
 }

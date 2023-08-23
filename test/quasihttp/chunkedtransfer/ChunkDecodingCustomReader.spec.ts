@@ -2,7 +2,7 @@ import nativeAssert from "assert/strict"
 const { expect, assert } = require('chai').use(require('chai-bytes'))
 import { Readable, Writable } from "stream"
 import { createChunkDecodingCustomReader } from "../../../src/quasihttp/chunkedtransfer/ChunkDecodingCustomReader"
-import { createRandomizedReadSizeBufferReader } from "../../shared/RandomizedReadSizeBufferReader"
+import { createRandomizedReadSizeBufferReader } from "../../shared/common/RandomizedReadSizeBufferReader"
 import * as ByteUtils from "../../../src/common/ByteUtils"
 import * as IOUtils from "../../../src/common/IOUtils"
 

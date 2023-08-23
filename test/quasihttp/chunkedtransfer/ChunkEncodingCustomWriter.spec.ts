@@ -1,7 +1,7 @@
 const { assert } = require('chai').use(require('chai-bytes'))
 import { Readable, Writable } from "stream"
 import { createChunkEncodingCustomWriter } from "../../../src/quasihttp/chunkedtransfer/ChunkEncodingCustomWriter"
-import { createRandomizedReadSizeBufferReader } from "../../shared/RandomizedReadSizeBufferReader"
+import { createRandomizedReadSizeBufferReader } from "../../shared/common/RandomizedReadSizeBufferReader"
 import * as ByteUtils from "../../../src/common/ByteUtils"
 import * as IOUtils from "../../../src/common/IOUtils"
 import { ChunkedTransferCodec } from "../../../src/quasihttp/chunkedtransfer/ChunkedTransferCodec"

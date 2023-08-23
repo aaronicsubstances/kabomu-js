@@ -97,7 +97,8 @@ export class ChunkedTransferCodec {
      * data following the decoded header.
      */
     async decodeSubsequentChunkV1Header(
-            bufferToUse: Buffer | null, reader: Readable | null,
+            bufferToUse: Buffer | undefined,
+            reader: Readable | undefined,
             maxChunkSize = 0) {
         if (!maxChunkSize) {
             maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
@@ -170,7 +171,7 @@ export class ChunkedTransferCodec {
                 lengthOfEncodedChunkLength);
             if (await IOUtils.readBytes(reader,
                     encodedLength.subarray(0, 1)) <= 0) {
-                return null;
+                return undefined;
             }
             await IOUtils.readBytesFully(reader,
                 encodedLength.subarray(1, encodedLength.length));
@@ -285,6 +286,7 @@ export class ChunkedTransferCodec {
     static createFromRequest(request: IQuasiHttpRequest) {
         const chunk: LeadChunk = {
             version: ChunkedTransferCodec.VERSION_01,
+            flags: 0,
             method: request.method,
             requestTarget: request.target,
             headers: request.headers,
@@ -311,6 +313,7 @@ export class ChunkedTransferCodec {
     static createFromResponse(response: IQuasiHttpResponse) {
         const chunk: LeadChunk = {
             version: ChunkedTransferCodec.VERSION_01,
+            flags: 0,
             httpStatusMessage: response.httpStatusMessage,
             headers: response.headers,
             httpVersion: response.httpVersion,
@@ -504,11 +507,11 @@ function validateChunkLength(chunkLen: number, maxChunkSize: number) {
 }
 
 function makeBooleanZeroOrOne(s: any) {
-    return (s === null || s === undefined) ? "0" : "1";
+    return (s === null || typeof s === "undefined") ? "0" : "1";
 }
 
 function stringifyPossibleNull(s: any) {
-    return (s === null || s === undefined) ? "" : `${s}`;
+    return (s === null || typeof s === "undefined") ? "" : `${s}`;
 }
 
 function calculateSizeInBytesOfEscapedValue(raw: string) {

@@ -6,7 +6,7 @@ describe("ByteUtils", function() {
     describe("#isValidByteBufferSlice", function() {
         const testData = [
             {
-                data: null,
+                data: undefined,
                 offset: 0,
                 length: 0,
                 expected: false

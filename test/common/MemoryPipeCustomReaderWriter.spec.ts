@@ -7,10 +7,10 @@ import {
     createMemoryPipeCustomReaderWriter,
     endWritesOnMemoryPipe
 } from "../../src/common/MemoryPipeCustomReaderWriter"
-import { createRandomizedReadSizeBufferReader } from "../shared/RandomizedReadSizeBufferReader"
+import { createRandomizedReadSizeBufferReader } from "../shared/common/RandomizedReadSizeBufferReader"
 import {
     createDelayPromise,
-} from "../shared/ComparisonUtils"
+} from "../shared/common/ComparisonUtils"
 import {
     whenAnyPromiseSettles
 } from "../../src/common/MiscUtilsInternal"

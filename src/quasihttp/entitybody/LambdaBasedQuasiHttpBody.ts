@@ -22,14 +22,14 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
     /**
      * Lambda function which can be used to release resources.
      */
-    releaseFunc?: (() => Promise<void>) | null;
+    releaseFunc?: (() => Promise<void>) | undefined;
 
     /**
      * Lambda function which can be used to provide a
      * fallback readable stream, to support default
      * implementation for writeBytesTo() method.
      */
-    readerFunc?: () => Readable | null;
+    readerFunc?: () => Readable | undefined;
 
     /**
      * Creates a new instance and initializes the contentLength
@@ -46,11 +46,10 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
      * Returns value returned by invoking readerFunc property.
      * Returns null if readerFunc property is null.
      */
-    getReader(): Readable | null {
-        if (!this.readerFunc) {
-            return null;
+    getReader(): Readable | undefined {
+        if (this.readerFunc) {
+            return this.readerFunc();
         }
-        return this.readerFunc();
     }
 
     /**

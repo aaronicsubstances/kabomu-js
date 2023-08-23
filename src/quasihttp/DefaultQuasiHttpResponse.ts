@@ -8,7 +8,7 @@ import { IQuasiHttpBody, IQuasiHttpResponse } from "./types";
 export class DefaultQuasiHttpResponse implements IQuasiHttpResponse {
     statusCode = 0;
     headers?: Map<string, string[]>;
-    body?: IQuasiHttpBody | null;
+    body?: IQuasiHttpBody;
     httpStatusMessage?: string;
     httpVersion?: string;
     environment?: Map<string, any>;

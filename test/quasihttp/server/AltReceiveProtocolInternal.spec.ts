@@ -22,7 +22,7 @@ describe("AltReceiveProtocolInternal", function() {
         it("should pass (2)", async function() {
             const app: IQuasiHttpApplication = {
                 async processRequest(request) {
-                    return null
+                    return undefined
                 },
             } 
             const instance = new AltReceiveProtocolInternal(
