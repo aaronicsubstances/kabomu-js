@@ -540,6 +540,42 @@ describe("ChunkedTransferCodec", function() {
                 return true
             })
         })
+
+        it("should fail (3)", async function() {
+            const leadChunk: LeadChunk = {
+                version: ChunkedTransferCodec.VERSION_01,
+                flags: 1,
+                requestTarget: "1",
+                statusCode: 1,
+                contentLength: 1,
+                method: "1",
+                httpVersion: "1",
+                httpStatusMessage: "1"
+            }
+            leadChunk.headers = new Map()
+            for (let i = 0; i < 40_000; i++) {
+                const key = `${i}`.padStart(5, '0')
+                leadChunk.headers.set(key, ["1"])
+            }
+
+            const destStream = new Writable({
+                write(chunk, encoding, cb) {
+                    cb()
+                },
+            })
+
+            // act
+            await nativeAssert.rejects(async () => {
+                await new ChunkedTransferCodec().writeLeadChunk(
+                    destStream, leadChunk,
+                    1 + ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
+            }, (e: any) => {
+                expect(e.message).to.contain("headers")
+                expect(e.message).to.contain("exceed")
+                expect(e.message).to.contain("chunk size")
+                return true
+            })
+        })
     })
 
     describe("#readLeadChunk", function() {

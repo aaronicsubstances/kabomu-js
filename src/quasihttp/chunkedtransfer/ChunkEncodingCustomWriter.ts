@@ -27,13 +27,10 @@ export function createChunkEncodingCustomWriter(wrappedWriter: Writable,
     }
     else {
         maxChunkSize = parseInt32(maxChunkSize);
-        if (maxChunkSize <= 0) {
+        if (maxChunkSize <= 0 ||
+                maxChunkSize > ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT) {
             maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
         }
-    }
-    if (maxChunkSize > ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT) {
-        throw new Error(`max chunk size cannot exceed ${ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT}. ` +
-            `received: ${maxChunkSize}`);
     }
     let buffer = Buffer.allocUnsafeSlow(maxChunkSize);
     let usedBufferOffset = 0;

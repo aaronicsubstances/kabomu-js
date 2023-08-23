@@ -101,12 +101,12 @@ export class ChunkedTransferCodec {
             reader: Readable | undefined,
             maxChunkSize = 0) {
         if (!maxChunkSize) {
-            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
+            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
         }
         else {
             maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
-            if (maxChunkSize <= 0) {
-                maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
+            if (maxChunkSize < ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT) {
+                maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
             }
         }
         if (!bufferToUse && !reader) {
@@ -157,12 +157,12 @@ export class ChunkedTransferCodec {
             throw new Error("reader argument is null");
         }
         if (!maxChunkSize) {
-            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
+            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
         }
         else {
             maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
-            if (maxChunkSize <= 0) {
-                maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
+            if (maxChunkSize < ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT) {
+                maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
             }
         }
         let chunkBytes: Buffer | undefined;
@@ -225,7 +225,8 @@ export class ChunkedTransferCodec {
         }
         else {
             maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
-            if (maxChunkSize <= 0) {
+            if (maxChunkSize <= 0 ||
+                    maxChunkSize > ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT) {
                 maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
             }
         }
@@ -501,8 +502,8 @@ function validateChunkLength(chunkLen: number, maxChunkSize: number) {
             chunkLen > maxChunkSize) {
         throw new Error(
             `received chunk size of ${chunkLen} exceeds` +
-            ` default limit on max chunk size (${ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT})` +
-            ` as well as maximum configured chunk size of ${maxChunkSize}`);
+            ` default limit on max chunk size of ` +
+            `${ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT}`);
     }
 }
 
