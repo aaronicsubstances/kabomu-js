@@ -61,7 +61,7 @@ async function serializeRequestToBeRead(
         }
     })
     await new ChunkedTransferCodec().writeLeadChunk(writer,
-        reqChunk)
+        reqChunk, ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
     const headerStream = Readable.from(Buffer.concat(
         chunks))
     helpingReaders.push(headerStream)
@@ -326,6 +326,33 @@ describe("DefaultReceiveProtocolInternal", function() {
             })
             expectedResBodyBytes = stringToBytes("<a>this is news</a>")
             expectedResponse.body = new LambdaBasedQuasiHttpBody()
+            expectedResponse.body.contentLength = expectedResBodyBytes.length
+            yield {
+                connection,
+                maxChunkSize,
+                request,
+                requestBodyBytes,
+                reqEnv,
+                expectedResponse,
+                expectedResBodyBytes
+            }
+
+            // next...
+            connection = []
+            maxChunkSize = 150_000
+            reqEnv = undefined
+            request = new DefaultQuasiHttpRequest({
+                target: "/fxn".padStart(70_000)
+            })
+            requestBodyBytes = Buffer.alloc(80_000)
+            request.body = new ByteBufferBody(requestBodyBytes)
+            request.body.contentLength = -1
+            expectedResponse = new DefaultQuasiHttpResponse({
+                httpStatusMessage: "ok".padStart(90_000)
+            })
+            expectedResBodyBytes = Buffer.alloc(100_000)
+            expectedResponse.body = new LambdaBasedQuasiHttpBody()
+            expectedResponse.body.contentLength = -1
             yield {
                 connection,
                 maxChunkSize,
@@ -411,7 +438,8 @@ describe("DefaultReceiveProtocolInternal", function() {
                 headerReceiver = Readable.from(Buffer.concat(
                     hChunks))
                 const actualResChunk = await new ChunkedTransferCodec()
-                    .readLeadChunk(headerReceiver)
+                    .readLeadChunk(headerReceiver,
+                        ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
                 // verify all contents of headerReceiver was used
                 // before comparing lead chunks
                 assert.equal(await IOUtils.readBytes(headerReceiver,
@@ -422,7 +450,7 @@ describe("DefaultReceiveProtocolInternal", function() {
                     bChunks))
                 if (expectedResChunk.contentLength! < 0) {
                     bodyReceiver = createChunkDecodingCustomReader(
-                        bodyReceiver)
+                        bodyReceiver, ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
                 }
                 const actualResBodyBytes = await IOUtils.readAllBytes(bodyReceiver)
                 if (expectedResponse.body) {

@@ -456,6 +456,38 @@ describe("ChunkedTransferCodec", function() {
             assert.equalBytes(Buffer.concat(chunks), expectedStreamContents)
         })
 
+        it("should pass (4)", async function() {
+            // arrange
+            const leadChunk: LeadChunk = {
+                version: ChunkedTransferCodec.VERSION_01,
+                flags: 0
+            }
+            leadChunk.headers = new Map<string, string[]>()
+            leadChunk.headers.set("h".padStart(70_000), ["1"])
+
+            const expectedStreamContents = Buffer.concat(
+                [Buffer.from([1, 0x11, 0x8d, 1, 0]),
+                ByteUtils.stringToBytes("0,\"\",0,0,0,\"\",0,\"\",0,\"\"\n"),
+                ByteUtils.stringToBytes("h".padStart(70_000) + ",1\n")
+            ])
+
+            const chunks = new Array<Buffer>()
+            const destStream = new Writable({
+                write(chunk, encoding, cb) {
+                    chunks.push(chunk)
+                    cb()
+                },
+            })
+
+            // act
+            await new ChunkedTransferCodec().writeLeadChunk(
+                destStream, leadChunk,
+                ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
+
+            // assert
+            assert.equalBytes(Buffer.concat(chunks), expectedStreamContents)
+        })
+
         it("should fail due to argument errors", async function() {
             const writer = new Writable({
                 write(chunk, encoding, callback) {
