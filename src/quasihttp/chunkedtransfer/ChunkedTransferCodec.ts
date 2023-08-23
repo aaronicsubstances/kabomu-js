@@ -351,8 +351,11 @@ export class ChunkedTransferCodec {
         csvData.push(specialHeaderRow);
         const headers = chunk.headers;
         if (headers) {
-            for (const [header, values] of headers) {
-                if (!values.length) {
+            for (let [header, values] of headers) {
+                if (typeof values === "string") {
+                    values = [values]
+                }
+                if (!values || !values.length) {
                     continue;
                 }
                 const headerRow = new Array<string>();
@@ -471,12 +474,16 @@ export class ChunkedTransferCodec {
             if (headerRow.length < 2) {
                 continue;
             }
+            const headerName = headerRow[0]
             const headerValue = headerRow.slice(1);
             let headers = instance.headers;
             if (!headers) {
                 instance.headers = headers = new Map<string, string[]>(); 
             }
-            headers.set(headerRow[0], headerValue);
+            if (!headers.has(headerName)) {
+                headers.set(headerName, [])
+            }
+            headers.get(headerName)!.push(...headerValue);
         }
 
         return instance;

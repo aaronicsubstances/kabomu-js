@@ -1025,7 +1025,6 @@ describe("ProtocolUtilsInternal", function() {
                 await ProtocolUtilsInternal.completeRequestProcessing(
                     workPromise as any, timeoutPromise, cancellationPromise)
             }, {
-                name: "Error",
                 message: "workPromise argument is null"
             })
         })

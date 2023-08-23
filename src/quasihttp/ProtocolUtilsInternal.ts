@@ -88,7 +88,7 @@ export function getEnvVarAsBoolean(
 }
 
 export async function createEquivalentOfUnknownBodyInMemory(
-        body: IQuasiHttpBody, bodyBufferingLimit: number) {
+        body: IQuasiHttpBody, bodyBufferingLimit: number | undefined) {
     // Assume that body is completely unknown, and as such has nothing
     // to do with chunk transfer protocol, or have no need for
     // content length enforcement.

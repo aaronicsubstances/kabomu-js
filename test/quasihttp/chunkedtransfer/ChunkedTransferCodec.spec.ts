@@ -6,6 +6,7 @@ import * as ByteUtils from "../../../src/common/ByteUtils"
 import { Readable, Writable } from "stream"
 import { IQuasiHttpRequest, IQuasiHttpResponse, LeadChunk } from "../../../src/quasihttp/types"
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
+import { assertLeadChunkEqual } from "../../shared/ComparisonUtils"
 
 describe("ChunkedTransferCodec", function() {
     describe("internal tests without chunk length encoding/decoding", function() {
@@ -90,12 +91,75 @@ describe("ChunkedTransferCodec", function() {
 
             const actualChunk = ChunkedTransferCodec._deserialize(
                 actualBytes)
-            assert.notOk(actualChunk.headers?.get("a"))
-            actualChunk.headers?.set("a", [])
-            assert.deepEqual(actualChunk, expectedChunk)
+            assertLeadChunkEqual(actualChunk, expectedChunk)
         })
 
-        it("should pass (4)", function() {
+        it("should pass (4)", async function() {
+            const expectedChunk: LeadChunk ={
+                version: ChunkedTransferCodec.VERSION_01,
+                flags: 2,
+                requestTarget: "/detail",
+                httpStatusMessage: "ok",
+                contentLength: 20,
+                statusCode: 200,
+                httpVersion: "1.0",
+                method: "POST",
+            }
+            expectedChunk.headers = new Map<string, string[]>()
+            expectedChunk.headers.set("accept", ["text/plain", "", "text/xml"])
+            expectedChunk.headers.set("b", ["myinside\u00c6.team"])
+            
+            const equivalentBytes = ByteUtils.stringToBytes(
+                "\u0001\u00021,/detail,200,20,1,POST,1,1.0,1,ok\n" +
+                "accept,text/plain\n" +
+                "accept,\"\"\n" +
+                "accept\n" +
+                "a\n" +
+                "b,myinside\u00c6.team\n" +
+                "accept,text/xml\n")
+
+            const actualChunk = ChunkedTransferCodec._deserialize(
+                equivalentBytes)
+            assertLeadChunkEqual(actualChunk, expectedChunk)
+        })
+
+        it("should pass (5)", async function() {
+            const expectedChunk: LeadChunk ={
+                version: ChunkedTransferCodec.VERSION_01,
+                flags: 2,
+                requestTarget: "/detail",
+                httpStatusMessage: "ok",
+                contentLength: 20,
+                statusCode: 200,
+                httpVersion: "1.0",
+                method: "POST",
+            }
+            expectedChunk.headers = new Map<string, string[]>()
+            expectedChunk.headers.set("accept", [ null as any, "text/plain", "text/xml"])
+            expectedChunk.headers.set("a", null as any)
+            expectedChunk.headers.set("b", "myinside\u00c6.team" as any)
+            const chunks = new Array<Buffer>()
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    chunks.push(chunk)
+                    callback()
+                },
+            })
+            const instance = new ChunkedTransferCodec()
+            instance._updateSerializedRepresentation(expectedChunk)
+            const computedByteCount = instance._calculateSizeInBytesOfSerializedRepresentation()
+            await instance._writeOutSerializedRepresentation(writer)
+            const actualBytes = Buffer.concat(chunks)
+
+            const expectedBytes = ByteUtils.stringToBytes(
+                "\u0001\u00021,/detail,200,20,1,POST,1,1.0,1,ok\n" +
+                "accept,\"\",text/plain,text/xml\n" +
+                "b,myinside\u00c6.team\n")
+            assert.equalBytes(actualBytes, expectedBytes)
+            assert.equal(computedByteCount, expectedBytes.length)
+        })
+
+        it("should pass (6)", function() {
             const expectedChunk: LeadChunk = {
                 version: ChunkedTransferCodec.VERSION_01,
                 flags: 0,

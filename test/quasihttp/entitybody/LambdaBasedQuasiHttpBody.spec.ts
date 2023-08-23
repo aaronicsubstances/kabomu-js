@@ -5,6 +5,7 @@ import * as ByteUtils from "../../../src/common/ByteUtils"
 import * as IOUtils from "../../../src/common/IOUtils"
 import { LambdaBasedQuasiHttpBody } from "../../../src/quasihttp/entitybody/LambdaBasedQuasiHttpBody"
 import { ISelfWritable } from "../../../src/common/types";
+import { MissingDependencyError } from "../../../src/common/errors";
 
 describe("LambdaBasedQuasiHttpBody", function() {
     const testData = [
@@ -179,8 +180,7 @@ describe("LambdaBasedQuasiHttpBody", function() {
             },
         })
         await nativeAssert.rejects(() =>
-            new LambdaBasedQuasiHttpBody().writeBytesTo(writer), {
-               name: "MissingDependencyError" 
-            })
+            new LambdaBasedQuasiHttpBody().writeBytesTo(writer),
+            MissingDependencyError)
     })
 })

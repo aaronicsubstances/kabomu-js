@@ -14,20 +14,20 @@ import {
 import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
 
 export class AltSendProtocolInternal implements ISendProtocolInternal {
-    sendCancellationHandle: any
-    responsePromise: Promise<IQuasiHttpResponse>
+    sendCancellationHandle?: any
+    responsePromise: Promise<IQuasiHttpResponse | null>
     transportBypass: IQuasiHttpAltTransport
-    responseBufferingEnabled: boolean
-    responseBodyBufferingSizeLimit: number
-    ensureNonNullResponse: boolean
+    responseBufferingEnabled?: boolean
+    responseBodyBufferingSizeLimit?: number
+    ensureNonNullResponse?: boolean
 
     constructor(options: {
-                sendCancellationHandle: any
-                responsePromise: Promise<IQuasiHttpResponse>
+                sendCancellationHandle?: any
+                responsePromise: Promise<IQuasiHttpResponse | null>
                 transportBypass: IQuasiHttpAltTransport
-                responseBufferingEnabled: boolean
-                responseBodyBufferingSizeLimit: number
-                ensureNonNullResponse: boolean
+                responseBufferingEnabled?: boolean
+                responseBodyBufferingSizeLimit?: number
+                ensureNonNullResponse?: boolean
             }) {
         this.sendCancellationHandle = options?.sendCancellationHandle
         this.responsePromise = options?.responsePromise
