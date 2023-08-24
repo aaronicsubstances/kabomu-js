@@ -423,7 +423,7 @@ export interface IQuasiHttpTransport {
      * @param connection the connection associated with the writer
      * @returns a stream which can be used to write bytes to the connection argument
      */
-    getReader(connection: any): Readable
+    getReader(connection: any): Readable | undefined
 
     /**
      * Gets a reader which can be used to read data from a connection of
@@ -431,7 +431,7 @@ export interface IQuasiHttpTransport {
      * @param connection the connection associated with the reader
      * @returns a stream which can be used to read bytes from the connection argument
      */
-    getWriter(connection: any): Writable
+    getWriter(connection: any): Writable | undefined
 
     /**
      * Releases resources held by a connection of a quasi http transport instance.

@@ -20,6 +20,9 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
         if (connection !== this._expectedConnection) {
             throw new Error("unexpected connection")
         }
+        if (!this._backingWriter) {
+            return null as any
+        }
         const that = this
         const writeAsync = async function(chunk: any, cb: any) {
             try {
@@ -44,6 +47,9 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
     getReader(connection: any): Readable {
         if (connection !== this._expectedConnection) {
             throw new Error("unexpected connection")
+        }
+        if (!this._backingReader) {
+            return null as any
         }
         const that = this
         return Readable.from((async function*() {

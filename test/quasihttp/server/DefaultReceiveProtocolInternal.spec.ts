@@ -4,7 +4,8 @@ import { Readable, Writable } from "stream";
 import {
     IQuasiHttpApplication,
     IQuasiHttpRequest,
-    IQuasiHttpResponse
+    IQuasiHttpResponse,
+    IQuasiHttpTransport
 } from "../../../src/quasihttp/types";
 import { ISelfWritable } from "../../../src/common/types";
 import * as IOUtils from "../../../src/common/IOUtils"
@@ -133,6 +134,63 @@ describe("DefaultReceiveProtocolInternal", function() {
             })
             await instance.receive()
         }, MissingDependencyError)
+    })
+
+    test("no reader for request headers error", async function() {
+        const connection = []
+        const application: IQuasiHttpApplication = {
+            async processRequest(request) {
+                return new DefaultQuasiHttpResponse()
+            },
+        }
+        const resStream = new Writable({
+            write(chunk, encoding, callback) {
+                callback()
+            },
+        })
+        const transport = new DemoQuasiHttpTransport(connection,
+            null as any, resStream)
+        const instance = new DefaultReceiveProtocolInternal({
+            application,
+            transport,
+            connection
+        })
+
+        await nativeAssert.rejects(async () => {
+            await instance.receive()
+        }, (err: any) => {
+            assert.instanceOf(err, QuasiHttpRequestProcessingError)
+            expect(err.message).to.contain("no reader for connection")
+            return true
+        })
+    })
+
+    test("no writer for response headers error", async function() {
+        const connection = []
+        const request = new DefaultQuasiHttpRequest()
+        const reqStream = await createReqStream(request,
+            0, 0);
+        const application: IQuasiHttpApplication = {
+            async processRequest(request) {
+                return new DefaultQuasiHttpResponse()
+            },
+        }
+        const transport = new DemoQuasiHttpTransport(connection,
+            reqStream, null as any)
+        const instance = new DefaultReceiveProtocolInternal({
+            application,
+            transport,
+            connection
+        })
+
+        await nativeAssert.rejects(async () => {
+            await instance.receive()
+        }, (err: any) => {
+            assert.instanceOf(err, QuasiHttpRequestProcessingError)
+            expect(err.message).to.contain(
+                "no writer for connection")
+            return true
+        })
     })
 
     test("receive for rejection of null responses", async function() {

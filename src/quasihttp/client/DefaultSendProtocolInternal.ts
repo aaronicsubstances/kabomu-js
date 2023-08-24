@@ -20,20 +20,20 @@ import {
 export class DefaultSendProtocolInternal implements ISendProtocolInternal {
     request: IQuasiHttpRequest
     transport: IQuasiHttpTransport
-    connection: any
-    maxChunkSize: number
-    responseBufferingEnabled: boolean
-    responseBodyBufferingSizeLimit: number
-    ensureTruthyResponse: boolean
+    connection?: any
+    maxChunkSize?: number
+    responseBufferingEnabled?: boolean
+    responseBodyBufferingSizeLimit?: number
+    ensureTruthyResponse?: boolean
 
     constructor(options: {
                 request: IQuasiHttpRequest
                 transport: IQuasiHttpTransport
-                connection: any
-                maxChunkSize: number
-                responseBufferingEnabled: boolean
-                responseBodyBufferingSizeLimit: number
-                ensureTruthyResponse: boolean
+                connection?: any
+                maxChunkSize?: number
+                responseBufferingEnabled?: boolean
+                responseBodyBufferingSizeLimit?: number
+                ensureTruthyResponse?: boolean
             }) {
         this.request = options?.request
         this.transport = options?.transport
@@ -60,7 +60,10 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
         }
 
         const writer = this.transport.getWriter(this.connection)
-        
+        if (!writer) {
+            throw new QuasiHttpRequestProcessingError("no writer for connection")
+        }
+
         // send lead chunk first, before racing sending of request body
         // and receiving of response.
         const leadChunk = CustomChunkedTransferCodec.createFromRequest(this.request)
@@ -77,6 +80,10 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
 
     async startFetchingResponse() {
         const reader = this.transport.getReader(this.connection)
+        if (!reader) {
+            throw new QuasiHttpRequestProcessingError("no reader for connection")
+        }
+
         const chunk = await new CustomChunkedTransferCodec().readLeadChunk(reader,
             this.maxChunkSize)
         if (!chunk) {

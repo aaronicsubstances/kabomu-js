@@ -75,6 +75,10 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
 
     async readRequestLeadChunk() {
         const reader = this.transport.getReader(this.connection)
+        if (!reader) {
+            throw new QuasiHttpRequestProcessingError("no reader for connection")
+        }
+
         const chunk = await new CustomChunkedTransferCodec().readLeadChunk(reader,
             this.maxChunkSize)
         if (!chunk) {
@@ -97,8 +101,12 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
             return;
         }
 
-        const leadChunk = CustomChunkedTransferCodec.createFromResponse(response)
         const writer = this.transport.getWriter(this.connection)
+        if (!writer) {
+            throw new QuasiHttpRequestProcessingError("no writer for connection")
+        }
+
+        const leadChunk = CustomChunkedTransferCodec.createFromResponse(response)
         await new CustomChunkedTransferCodec().writeLeadChunk(
             writer, leadChunk, this.maxChunkSize)
         await transferBodyToTransport(writer, this.maxChunkSize,
