@@ -1,6 +1,6 @@
 import { MissingDependencyError } from "../../common/errors";
 import { DefaultQuasiHttpRequest } from "../DefaultQuasiHttpRequest";
-import { ChunkedTransferCodec } from "../chunkedtransfer/ChunkedTransferCodec";
+import { CustomChunkedTransferCodec } from "../chunkedtransfer/CustomChunkedTransferCodec";
 import { QuasiHttpRequestProcessingError } from "../errors";
 import {
     IQuasiHttpApplication,
@@ -75,7 +75,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
 
     async readRequestLeadChunk() {
         const reader = this.transport.getReader(this.connection)
-        const chunk = await new ChunkedTransferCodec().readLeadChunk(reader,
+        const chunk = await new CustomChunkedTransferCodec().readLeadChunk(reader,
             this.maxChunkSize)
         if (!chunk) {
             throw new QuasiHttpRequestProcessingError("no request")
@@ -83,7 +83,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
         const request = new DefaultQuasiHttpRequest({
             environment: this.requestEnvironment
         })
-        ChunkedTransferCodec.updateRequest(request, chunk)
+        CustomChunkedTransferCodec.updateRequest(request, chunk)
         request.body = await createBodyFromTransport(
             reader, chunk.contentLength, undefined,
             this.maxChunkSize, false, 0);
@@ -97,9 +97,9 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
             return;
         }
 
-        const leadChunk = ChunkedTransferCodec.createFromResponse(response)
+        const leadChunk = CustomChunkedTransferCodec.createFromResponse(response)
         const writer = this.transport.getWriter(this.connection)
-        await new ChunkedTransferCodec().writeLeadChunk(
+        await new CustomChunkedTransferCodec().writeLeadChunk(
             writer, leadChunk, this.maxChunkSize)
         await transferBodyToTransport(writer, this.maxChunkSize,
             response.body as any, leadChunk.contentLength)

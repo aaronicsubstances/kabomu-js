@@ -8,7 +8,7 @@ import {
     createBodyFromTransport,
     transferBodyToTransport
 } from "../ProtocolUtilsInternal";
-import { ChunkedTransferCodec } from "../chunkedtransfer/ChunkedTransferCodec";
+import { CustomChunkedTransferCodec } from "../chunkedtransfer/CustomChunkedTransferCodec";
 import { QuasiHttpRequestProcessingError } from "../errors";
 import {
     IQuasiHttpRequest,
@@ -63,8 +63,8 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
         
         // send lead chunk first, before racing sending of request body
         // and receiving of response.
-        const leadChunk = ChunkedTransferCodec.createFromRequest(this.request)
-        await new ChunkedTransferCodec().writeLeadChunk(writer, leadChunk, this.maxChunkSize)
+        const leadChunk = CustomChunkedTransferCodec.createFromRequest(this.request)
+        await new CustomChunkedTransferCodec().writeLeadChunk(writer, leadChunk, this.maxChunkSize)
         const reqTransferPromise = transferBodyToTransport(writer,
             this.maxChunkSize, this.request.body as any, leadChunk.contentLength)
         const resFetchPromise = this.startFetchingResponse()
@@ -77,7 +77,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
 
     async startFetchingResponse() {
         const reader = this.transport.getReader(this.connection)
-        const chunk = await new ChunkedTransferCodec().readLeadChunk(reader,
+        const chunk = await new CustomChunkedTransferCodec().readLeadChunk(reader,
             this.maxChunkSize)
         if (!chunk) {
             if (this.ensureTruthyResponse) {
@@ -86,7 +86,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
             return undefined
         }
         const response = new DefaultQuasiHttpResponse()
-        ChunkedTransferCodec.updateResponse(response, chunk)
+        CustomChunkedTransferCodec.updateResponse(response, chunk)
         const releaseFunc = async () => this.transport.releaseConnection(this.connection)
         response.body = await createBodyFromTransport(
             reader, chunk.contentLength, releaseFunc,

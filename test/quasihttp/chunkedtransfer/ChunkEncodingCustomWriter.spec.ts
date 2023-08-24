@@ -4,7 +4,7 @@ import { createChunkEncodingCustomWriter } from "../../../src/quasihttp/chunkedt
 import { createRandomizedReadSizeBufferReader } from "../../shared/common/RandomizedReadSizeBufferReader"
 import * as ByteUtils from "../../../src/common/ByteUtils"
 import * as IOUtils from "../../../src/common/IOUtils"
-import { ChunkedTransferCodec } from "../../../src/quasihttp/chunkedtransfer/ChunkedTransferCodec"
+import { CustomChunkedTransferCodec } from "../../../src/quasihttp/chunkedtransfer/CustomChunkedTransferCodec"
 
 describe("ChunkEncodingCustomWriter", function() {
     it("should succeed in creation (1)", function() {
@@ -247,7 +247,7 @@ describe("ChunkEncodingCustomWriter", function() {
                 cb()
             },
         })
-        const maxChunkSize = ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT
+        const maxChunkSize = CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT
         const instance = createChunkEncodingCustomWriter(destStream,
             maxChunkSize)
         
@@ -281,7 +281,7 @@ describe("ChunkEncodingCustomWriter", function() {
                 cb()
             },
         })
-        const maxChunkSize = ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT
+        const maxChunkSize = CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT
         const instance = createChunkEncodingCustomWriter(destStream,
             maxChunkSize)
 
@@ -376,7 +376,7 @@ describe("ChunkEncodingCustomWriter", function() {
         reader = Readable.from(srcChunks)  // reset for another reading.
         chunks.length = 0 // reset for another writing
         instance = createChunkEncodingCustomWriter(destStream,
-            ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT + 1)
+            CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT + 1)
         await IOUtils.copyBytes(reader, instance)
         await IOUtils.endWrites(instance)
         actual = Buffer.concat(chunks)

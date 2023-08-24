@@ -1,6 +1,6 @@
 import { Readable } from "stream";
 
-import { ChunkedTransferCodec } from "./ChunkedTransferCodec";
+import { CustomChunkedTransferCodec } from "./CustomChunkedTransferCodec";
 import { ChunkDecodingError } from "../errors";
 import * as IOUtils from "../../common/IOUtils";
 
@@ -26,7 +26,7 @@ export function createChunkDecodingCustomReader(
 }
 
 async function* generate(wrappedReader: Readable, maxChunkSize: number) {
-    const decoder = new ChunkedTransferCodec();
+    const decoder = new CustomChunkedTransferCodec();
     while (true) {
         const chunkDataLen = await decoder.decodeSubsequentChunkV1Header(
             undefined, wrappedReader, maxChunkSize);
@@ -40,8 +40,8 @@ async function* generate(wrappedReader: Readable, maxChunkSize: number) {
             yield chunk;
         }
         catch (e) {
-            throw new ChunkDecodingError("Error encountered while " +
-                "decoding a subsequent chunk body", { cause: e });
+            throw new ChunkDecodingError("Failed to decode quasi http body while " +
+                "reading in chunk data", { cause: e});
         }
     }
 }

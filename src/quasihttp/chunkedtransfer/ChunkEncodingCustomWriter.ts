@@ -1,7 +1,7 @@
 import { Writable } from "stream";
 
 import * as IOUtils from "../../common/IOUtils";
-import { ChunkedTransferCodec } from "./ChunkedTransferCodec";
+import { CustomChunkedTransferCodec } from "./CustomChunkedTransferCodec";
 import { parseInt32 } from "../../common/ByteUtils";
 
 /**
@@ -23,18 +23,18 @@ export function createChunkEncodingCustomWriter(wrappedWriter: Writable,
         throw new Error("wrappedWriter argument is null");
     }
     if (!maxChunkSize) {
-        maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
+        maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
     }
     else {
         maxChunkSize = parseInt32(maxChunkSize);
         if (maxChunkSize <= 0 ||
-                maxChunkSize > ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT) {
-            maxChunkSize = ChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
+                maxChunkSize > CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT) {
+            maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
         }
     }
     let buffer = Buffer.allocUnsafeSlow(maxChunkSize);
     let usedBufferOffset = 0;
-    const encoder = new ChunkedTransferCodec();
+    const encoder = new CustomChunkedTransferCodec();
 
     const writeAsync = async function(
             data: Buffer, offset: number, length: number, cb: any) {

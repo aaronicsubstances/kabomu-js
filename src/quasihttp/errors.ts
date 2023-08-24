@@ -1,11 +1,5 @@
 import { KabomuError } from "../common/errors";
 
-/**
- * Error thrown to indicate failure in decoding of byte streams expected to be
- * encoded according to custom chunked transfer defined in Kabomu library.
- */
-export class ChunkDecodingError extends KabomuError { }
-
 // the following codes are reserved for future use.
 const reasonCodeReserved4 = 4;
 const reasonCodeReserved5 = 5;
@@ -60,5 +54,28 @@ export class QuasiHttpRequestProcessingError extends KabomuError {
         }
         this.reasonCode = reasonCode ??
             QuasiHttpRequestProcessingError.REASON_CODE_GENERAL;
+    }
+}
+
+
+/**
+ * Error thrown to indicate failure in encoding byte streams
+ * according to custom chunked transfer defined in Kabomu library.
+ */
+export class ChunkEncodingError extends QuasiHttpRequestProcessingError {
+    constructor(message: string, options?: ErrorOptions) {
+        super(message, QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+            options)
+    }
+}
+
+/**
+ * Error thrown to indicate failure in decoding of byte streams expected to be
+ * encoded according to custom chunked transfer defined in Kabomu library.
+ */
+export class ChunkDecodingError extends QuasiHttpRequestProcessingError {
+    constructor(message: string, options?: ErrorOptions) {
+        super(message, QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+            options)
     }
 }

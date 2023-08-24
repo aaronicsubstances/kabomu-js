@@ -1,18 +1,19 @@
 import nativeAssert from "assert/strict"
 const { expect, assert } = require('chai').use(require('chai-bytes'))
 
-import { ChunkedTransferCodec } from "../../../src/quasihttp/chunkedtransfer/ChunkedTransferCodec"
+import { CustomChunkedTransferCodec } from "../../../src/quasihttp/chunkedtransfer/CustomChunkedTransferCodec"
 import * as ByteUtils from "../../../src/common/ByteUtils"
 import { Readable, Writable } from "stream"
 import { IQuasiHttpRequest, IQuasiHttpResponse, LeadChunk } from "../../../src/quasihttp/types"
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
 import { compareLeadChunks } from "../../shared/common/ComparisonUtils"
+import { ChunkDecodingError, ChunkEncodingError } from "../../../src/quasihttp/errors"
 
-describe("ChunkedTransferCodec", function() {
+describe("CustomChunkedTransferCodec", function() {
     describe("internal tests without chunk length encoding/decoding", function() {
         it("should pass (1)", async function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 contentLength: 0,
                 flags: 0,
                 statusCode: 0
@@ -24,7 +25,7 @@ describe("ChunkedTransferCodec", function() {
                     callback()
                 },
             })
-            const instance = new ChunkedTransferCodec()
+            const instance = new CustomChunkedTransferCodec()
             instance._updateSerializedRepresentation(expectedChunk)
             const computedByteCount = instance._calculateSizeInBytesOfSerializedRepresentation()
             await instance._writeOutSerializedRepresentation(writer)
@@ -35,28 +36,28 @@ describe("ChunkedTransferCodec", function() {
             assert.equalBytes(actualBytes, expectedBytes)
             assert.equal(computedByteCount, expectedBytes.length)
 
-            const actualChunk = ChunkedTransferCodec._deserialize(
+            const actualChunk = CustomChunkedTransferCodec._deserialize(
                 actualBytes)
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
         it("should pass (2)", function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 contentLength: 0,
                 flags: 0,
                 statusCode: 0
             }
             const equivalentBytes = ByteUtils.stringToBytes(
                 "\u0001\u0000true,\"\",0,0,false,\"\",\"\",\"\",2,\"\"\n")
-            const actualChunk = ChunkedTransferCodec._deserialize(
+            const actualChunk = CustomChunkedTransferCodec._deserialize(
                 equivalentBytes)
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
         it("should pass (3)", async function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 2,
                 requestTarget: "/detail",
                 httpStatusMessage: "ok",
@@ -76,7 +77,7 @@ describe("ChunkedTransferCodec", function() {
                     callback()
                 },
             })
-            const instance = new ChunkedTransferCodec()
+            const instance = new CustomChunkedTransferCodec()
             instance._updateSerializedRepresentation(expectedChunk)
             const computedByteCount = instance._calculateSizeInBytesOfSerializedRepresentation()
             await instance._writeOutSerializedRepresentation(writer)
@@ -89,14 +90,14 @@ describe("ChunkedTransferCodec", function() {
             assert.equalBytes(actualBytes, expectedBytes)
             assert.equal(computedByteCount, expectedBytes.length)
 
-            const actualChunk = ChunkedTransferCodec._deserialize(
+            const actualChunk = CustomChunkedTransferCodec._deserialize(
                 actualBytes)
             compareLeadChunks(actualChunk, expectedChunk)
         })
 
         it("should pass (4)", async function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 2,
                 requestTarget: "/detail",
                 httpStatusMessage: "ok",
@@ -118,14 +119,14 @@ describe("ChunkedTransferCodec", function() {
                 "b,myinside\u00c6.team\n" +
                 "accept,text/xml\n")
 
-            const actualChunk = ChunkedTransferCodec._deserialize(
+            const actualChunk = CustomChunkedTransferCodec._deserialize(
                 equivalentBytes)
             compareLeadChunks(actualChunk, expectedChunk)
         })
 
         it("should pass (5)", async function() {
             const expectedChunk: LeadChunk ={
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 2,
                 requestTarget: "/detail",
                 httpStatusMessage: "ok",
@@ -145,7 +146,7 @@ describe("ChunkedTransferCodec", function() {
                     callback()
                 },
             })
-            const instance = new ChunkedTransferCodec()
+            const instance = new CustomChunkedTransferCodec()
             instance._updateSerializedRepresentation(expectedChunk)
             const computedByteCount = instance._calculateSizeInBytesOfSerializedRepresentation()
             await instance._writeOutSerializedRepresentation(writer)
@@ -161,7 +162,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should pass (6)", function() {
             const expectedChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 requestTarget: "http://www.yoursite.com/category/keyword1,keyword2",
                 httpStatusMessage: "ok",
@@ -178,24 +179,24 @@ describe("ChunkedTransferCodec", function() {
                 "2147483647,140737488355327,1,PUT,0,\"\",1,ok\n" +
                 "content-type,application/json\n" +
                 "allow,\"GET,POST\"\n")
-            const actualChunk = ChunkedTransferCodec._deserialize(
+            const actualChunk = CustomChunkedTransferCodec._deserialize(
                 srcBytes)
             assert.deepEqual(actualChunk, expectedChunk)
         })
 
         it("should succeed in verifying expected failure (1)", function() {
             assert.throws(() =>
-                ChunkedTransferCodec._deserialize(null as any))
+                CustomChunkedTransferCodec._deserialize(null as any))
         })
 
         it("should succeed in verifying expected failure (2)", function() {
             assert.throws(() =>
-                ChunkedTransferCodec._deserialize(Buffer.alloc(7)))
+                CustomChunkedTransferCodec._deserialize(Buffer.alloc(7)))
         })
 
         it("should succeed in verifying expected failure (3)", function() {
             assert.throws(() =>
-                ChunkedTransferCodec._deserialize(
+                CustomChunkedTransferCodec._deserialize(
                     Buffer.from([1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 9])))
         })
 
@@ -208,7 +209,7 @@ describe("ChunkedTransferCodec", function() {
                     "1,1,1," +
                     "1,1\n"
                 )
-                ChunkedTransferCodec._deserialize(data)
+                CustomChunkedTransferCodec._deserialize(data)
             }, (e: any) => {
                 expect(e.message).to.contain("version")
                 return true
@@ -223,7 +224,7 @@ describe("ChunkedTransferCodec", function() {
                     "content-type,application/json\n" +
                     "allow,\"GET,POST\"\n"
                 )
-                ChunkedTransferCodec._deserialize(data)
+                CustomChunkedTransferCodec._deserialize(data)
             }, (e: any) => {
                 expect(e.message).to.contain("invalid content length")
                 return true
@@ -238,7 +239,7 @@ describe("ChunkedTransferCodec", function() {
                     "content-type,application/json\n" +
                     "allow,\"GET,POST\"\n"
                 )
-                ChunkedTransferCodec._deserialize(data)
+                CustomChunkedTransferCodec._deserialize(data)
             }, (e: any) => {
                 expect(e.message).to.contain("invalid status code")
                 return true
@@ -270,7 +271,7 @@ describe("ChunkedTransferCodec", function() {
                         cb()
                     }
                 })
-                await new ChunkedTransferCodec().encodeSubsequentChunkV1Header(
+                await new CustomChunkedTransferCodec().encodeSubsequentChunkV1Header(
                     chunkDataLength, destStream)
                 assert.equalBytes(Buffer.concat(chunks), expected)
             })
@@ -307,12 +308,12 @@ describe("ChunkedTransferCodec", function() {
         ]
         testData.forEach(({srcData, maxChunkSize, expected}, i) => {
             it(`should pass with input ${i}`, async function() {
-                let actual = await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
+                let actual = await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
                     srcData, undefined, maxChunkSize)
                 assert.equal(actual, expected)
 
                 // should work indirectly with stream
-                actual = await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
+                actual = await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
                     null as any, Readable.from(srcData), maxChunkSize)
                 assert.equal(actual, expected)
             })
@@ -320,7 +321,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should fail with argument error (1)", async function() {
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
+                await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
                     null as any, undefined, 0)
             }, (e: any) => {
                 expect(e.message).to.contain("reader")
@@ -330,7 +331,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should fail with argument error (2)", async function() {
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
+                await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
                     Buffer.from([0, 0, 2, 1, 0]), undefined, true as any)
             }, (e: any) => {
                 expect(e.message).to.contain("invalid 32-bit")
@@ -355,7 +356,7 @@ describe("ChunkedTransferCodec", function() {
         testErrorData.forEach(({srcData, maxChunkSize}, i) => {
             it(`should fail with usage ${i}`, async function() {
                 await nativeAssert.rejects(async () => {
-                    await new ChunkedTransferCodec().decodeSubsequentChunkV1Header(
+                    await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
                         srcData, undefined, maxChunkSize)
                 })
             })
@@ -366,7 +367,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (1)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01
+                version: CustomChunkedTransferCodec.VERSION_01
             }
             const serializedLeadChunkSuffix = ByteUtils.stringToBytes(
                 "0,\"\",0,0,0,\"\",0,\"\",0,\"\"\n")
@@ -382,7 +383,7 @@ describe("ChunkedTransferCodec", function() {
             })
 
             // act
-            await new ChunkedTransferCodec().writeLeadChunk(destStream,
+            await new CustomChunkedTransferCodec().writeLeadChunk(destStream,
                 leadChunk)
 
             // assert
@@ -392,7 +393,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (2)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 5
             }
             const serializedLeadChunkSuffix = ByteUtils.stringToBytes(
@@ -409,7 +410,7 @@ describe("ChunkedTransferCodec", function() {
             })
 
             // act
-            await new ChunkedTransferCodec().writeLeadChunk(destStream,
+            await new CustomChunkedTransferCodec().writeLeadChunk(destStream,
                 leadChunk, "-1" as any)
 
             // assert
@@ -419,7 +420,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (3)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 3,
                 requestTarget: "/foo/bar",
                 statusCode: 201,
@@ -449,7 +450,7 @@ describe("ChunkedTransferCodec", function() {
             })
 
             // act
-            await new ChunkedTransferCodec().writeLeadChunk(
+            await new CustomChunkedTransferCodec().writeLeadChunk(
                 destStream, leadChunk, 100)
 
             // assert
@@ -459,7 +460,7 @@ describe("ChunkedTransferCodec", function() {
         it("should pass (4)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 0
             }
             leadChunk.headers = new Map<string, string[]>()
@@ -480,9 +481,9 @@ describe("ChunkedTransferCodec", function() {
             })
 
             // act
-            await new ChunkedTransferCodec().writeLeadChunk(
+            await new CustomChunkedTransferCodec().writeLeadChunk(
                 destStream, leadChunk,
-                ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
+                CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
 
             // assert
             assert.equalBytes(Buffer.concat(chunks), expectedStreamContents)
@@ -495,10 +496,10 @@ describe("ChunkedTransferCodec", function() {
                 },
             })
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01
+                version: CustomChunkedTransferCodec.VERSION_01
             }
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().writeLeadChunk(
+                await new CustomChunkedTransferCodec().writeLeadChunk(
                     writer, leadChunk, true as any)
             }, /invalid 32-bit/)
         })
@@ -506,7 +507,7 @@ describe("ChunkedTransferCodec", function() {
         it("should fail (1)", async function() {
             // arrange
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 3,
                 requestTarget: "/foo/bar",
                 statusCode: 201,
@@ -528,9 +529,10 @@ describe("ChunkedTransferCodec", function() {
 
             // act
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().writeLeadChunk(
+                await new CustomChunkedTransferCodec().writeLeadChunk(
                     destStream, leadChunk, 10)
             }, (e: any) => {
+                assert.instanceOf(e, ChunkEncodingError)
                 expect(e.message).to.contain("headers")
                 expect(e.message).to.contain("exceed")
                 expect(e.message).to.contain("chunk size")
@@ -540,7 +542,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should fail (2)", async function() {
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 1,
                 requestTarget: "1",
                 statusCode: 1,
@@ -563,9 +565,10 @@ describe("ChunkedTransferCodec", function() {
 
             // act
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().writeLeadChunk(
+                await new CustomChunkedTransferCodec().writeLeadChunk(
                     destStream, leadChunk, "" as any)
             }, (e: any) => {
+                assert.instanceOf(e, ChunkEncodingError)
                 expect(e.message).to.contain("headers")
                 expect(e.message).to.contain("exceed")
                 expect(e.message).to.contain("chunk size")
@@ -575,7 +578,7 @@ describe("ChunkedTransferCodec", function() {
 
         it("should fail (3)", async function() {
             const leadChunk: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 1,
                 requestTarget: "1",
                 statusCode: 1,
@@ -598,10 +601,11 @@ describe("ChunkedTransferCodec", function() {
 
             // act
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().writeLeadChunk(
+                await new CustomChunkedTransferCodec().writeLeadChunk(
                     destStream, leadChunk,
-                    1 + ChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
+                    1 + CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
             }, (e: any) => {
+                assert.instanceOf(e, ChunkEncodingError)
                 expect(e.message).to.contain("headers")
                 expect(e.message).to.contain("exceed")
                 expect(e.message).to.contain("chunk size")
@@ -619,14 +623,14 @@ describe("ChunkedTransferCodec", function() {
                 [Buffer.from([0, 0, 26, 1, 0]), serializedLeadChunkSuffix])
             const srcStream = Readable.from(srcStreamContents)
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 statusCode: 0,
                 contentLength: 0
             }
 
             // act
-            const actual = await new ChunkedTransferCodec().readLeadChunk(
+            const actual = await new CustomChunkedTransferCodec().readLeadChunk(
                 srcStream)
 
             // assert
@@ -641,14 +645,14 @@ describe("ChunkedTransferCodec", function() {
                 [Buffer.from([0, 0, 28, 1, 0]), serializedLeadChunkSuffix])
             const srcStream = Readable.from(srcStreamContents)
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 statusCode: 100,
                 contentLength: 1
             }
 
             // act
-            const actual = await new ChunkedTransferCodec().readLeadChunk(
+            const actual = await new CustomChunkedTransferCodec().readLeadChunk(
                 srcStream, -1)
 
             // assert
@@ -661,7 +665,7 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = "0" as any
 
             // act
-            const actual = await new ChunkedTransferCodec().readLeadChunk(
+            const actual = await new CustomChunkedTransferCodec().readLeadChunk(
                 srcStream, maxChunkSize)
 
             // assert
@@ -678,7 +682,7 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 10 // definitely less than actual serialized 
                                     // value but ok once it is less than 64K
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 0,
                 requestTarget: "/abcdefghijklmop",
                 statusCode: 0,
@@ -686,7 +690,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = await new ChunkedTransferCodec().readLeadChunk(
+            const actual = await new CustomChunkedTransferCodec().readLeadChunk(
                 srcStream, maxChunkSize)
 
             // assert
@@ -707,7 +711,7 @@ describe("ChunkedTransferCodec", function() {
             })())
             const maxChunkSize = 400_000
             const expected: LeadChunk = {
-                version: ChunkedTransferCodec.VERSION_01,
+                version: CustomChunkedTransferCodec.VERSION_01,
                 flags: 1,
                 requestTarget: "1",
                 statusCode: 1,
@@ -723,7 +727,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = await new ChunkedTransferCodec().readLeadChunk(
+            const actual = await new CustomChunkedTransferCodec().readLeadChunk(
                 srcStream, maxChunkSize)
 
             // assert
@@ -733,7 +737,7 @@ describe("ChunkedTransferCodec", function() {
         it("should fail due to argument errors", async function() {
             const srcStream = Readable.from(Buffer.alloc(6))
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().readLeadChunk(
+                await new CustomChunkedTransferCodec().readLeadChunk(
                     srcStream, true as any)
             }, /invalid 32-bit/)
         })
@@ -744,10 +748,11 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 40
  
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().readLeadChunk(srcStream,
+                await new CustomChunkedTransferCodec().readLeadChunk(srcStream,
                     maxChunkSize)
             }, (e: any) => {
-                expect(e.message).to.contain("headers")
+                assert.instanceOf(e, ChunkDecodingError)
+                expect(e.message).to.contain("quasi http headers")
                 assert.ok(e.cause)
                 expect(e.cause.message).to.contain("exceed")
                 expect(e.cause.message).to.contain("chunk size")
@@ -761,10 +766,11 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 400_000
  
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().readLeadChunk(srcStream,
+                await new CustomChunkedTransferCodec().readLeadChunk(srcStream,
                     maxChunkSize)
             }, (e: any) => {
-                expect(e.message).to.contain("headers")
+                assert.instanceOf(e, ChunkDecodingError)
+                expect(e.message).to.contain("quasi http headers")
                 assert.ok(e.cause)
                 expect(e.cause.message).to.contain("exceed")
                 expect(e.cause.message).to.contain("chunk size")
@@ -779,10 +785,11 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 40
  
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().readLeadChunk(srcStream,
+                await new CustomChunkedTransferCodec().readLeadChunk(srcStream,
                     maxChunkSize)
             }, (e: any) => {
-                expect(e.message).to.contain("headers")
+                assert.instanceOf(e, ChunkDecodingError)
+                expect(e.message).to.contain("quasi http headers")
                 assert.ok(e.cause)
                 expect(e.cause.message).to.contain("unexpected end of read")
                 return true
@@ -796,10 +803,11 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 40
  
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().readLeadChunk(srcStream,
+                await new CustomChunkedTransferCodec().readLeadChunk(srcStream,
                     maxChunkSize)
             }, (e: any) => {
-                expect(e.message).to.contain("headers")
+                assert.instanceOf(e, ChunkDecodingError)
+                expect(e.message).to.contain("quasi http headers")
                 assert.ok(e.cause)
                 expect(e.cause.message).to.contain("unexpected end of read")
                 return true
@@ -814,10 +822,11 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 100
  
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().readLeadChunk(srcStream,
+                await new CustomChunkedTransferCodec().readLeadChunk(srcStream,
                     maxChunkSize)
             }, (e: any) => {
-                expect(e.message).to.contain("headers")
+                assert.instanceOf(e, ChunkDecodingError)
+                expect(e.message).to.contain("quasi http headers")
                 expect(e.message).to.contain("invalid chunk")
                 assert.ok(e.cause)
                 expect(e.cause.message).to.contain("version")
@@ -832,10 +841,11 @@ describe("ChunkedTransferCodec", function() {
             const maxChunkSize = 100
  
             await nativeAssert.rejects(async () => {
-                await new ChunkedTransferCodec().readLeadChunk(srcStream,
+                await new CustomChunkedTransferCodec().readLeadChunk(srcStream,
                     maxChunkSize)
             }, (e: any) => {
-                expect(e.message).to.contain("headers")
+                assert.instanceOf(e, ChunkDecodingError)
+                expect(e.message).to.contain("quasi http headers")
                 assert.ok(e.cause)
                 expect(e.cause.message).to.contain("negative chunk size")
                 return true
@@ -858,7 +868,7 @@ describe("ChunkedTransferCodec", function() {
                 headers,
                 httpVersion: "1.0"
             }
-            ChunkedTransferCodec.updateRequest(request,
+            CustomChunkedTransferCodec.updateRequest(request,
                 leadChunk)
             assert.equal(request.method, "GET")
             assert.equal(request.target, "/")
@@ -883,7 +893,7 @@ describe("ChunkedTransferCodec", function() {
                 headers,
                 httpVersion: "1.1"
             }
-            ChunkedTransferCodec.updateResponse(response,
+            CustomChunkedTransferCodec.updateResponse(response,
                 leadChunk)
             assert.equal(response.statusCode, 202)
             assert.equal(response.httpStatusMessage, "No content")
@@ -911,7 +921,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = ChunkedTransferCodec.createFromRequest(
+            const actual = CustomChunkedTransferCodec.createFromRequest(
                 request)
             
             // assert
@@ -944,7 +954,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = ChunkedTransferCodec.createFromRequest(
+            const actual = CustomChunkedTransferCodec.createFromRequest(
                 request)
             
             // assert
@@ -977,7 +987,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = ChunkedTransferCodec.createFromRequest(
+            const actual = CustomChunkedTransferCodec.createFromRequest(
                 request)
 
             // assert
@@ -997,7 +1007,7 @@ describe("ChunkedTransferCodec", function() {
 
             // act
             assert.throws(() => {
-                ChunkedTransferCodec.createFromRequest(
+                CustomChunkedTransferCodec.createFromRequest(
                     request)
             }, /invalid 48-bit/)
         })
@@ -1023,7 +1033,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = ChunkedTransferCodec.createFromResponse(
+            const actual = CustomChunkedTransferCodec.createFromResponse(
                 response)
             
             // assert
@@ -1055,7 +1065,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = ChunkedTransferCodec.createFromResponse(
+            const actual = CustomChunkedTransferCodec.createFromResponse(
                 response)
             
             // assert
@@ -1088,7 +1098,7 @@ describe("ChunkedTransferCodec", function() {
             }
 
             // act
-            const actual = ChunkedTransferCodec.createFromResponse(
+            const actual = CustomChunkedTransferCodec.createFromResponse(
                 response)
 
             // assert
@@ -1106,7 +1116,7 @@ describe("ChunkedTransferCodec", function() {
 
             // act
             assert.throws(() => {
-                ChunkedTransferCodec.createFromResponse(
+                CustomChunkedTransferCodec.createFromResponse(
                     response)
             }, /invalid 32-bit/)
         })
@@ -1125,7 +1135,7 @@ describe("ChunkedTransferCodec", function() {
 
             // act
             assert.throws(() => {
-                ChunkedTransferCodec.createFromResponse(
+                CustomChunkedTransferCodec.createFromResponse(
                     response)
             }, /invalid 48-bit/)
         })

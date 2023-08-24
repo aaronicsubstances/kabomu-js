@@ -203,7 +203,7 @@ describe("ChunkDecodingCustomReader", function() {
         await nativeAssert.rejects(async function() {
             await IOUtils.copyBytes(instance, writer)
         }, (e: any) => {
-            expect(e.message).to.contain("subsequent chunk header")
+            expect(e.message).to.contain("quasi http body")
             return true
         })
     })
@@ -230,7 +230,7 @@ describe("ChunkDecodingCustomReader", function() {
         await nativeAssert.rejects(async function() {
             await IOUtils.copyBytes(instance, writer)
         }, (e: any) => {
-            expect(e.message).to.contain("subsequent chunk body")
+            expect(e.message).to.contain("quasi http body")
             return true
         })
     })
