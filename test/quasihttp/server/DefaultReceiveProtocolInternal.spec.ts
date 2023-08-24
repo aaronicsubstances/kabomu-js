@@ -4,8 +4,7 @@ import { Readable, Writable } from "stream";
 import {
     IQuasiHttpApplication,
     IQuasiHttpRequest,
-    IQuasiHttpResponse,
-    IQuasiHttpTransport
+    IQuasiHttpResponse
 } from "../../../src/quasihttp/types";
 import { ISelfWritable } from "../../../src/common/types";
 import * as IOUtils from "../../../src/common/IOUtils"
@@ -13,7 +12,6 @@ import { CustomChunkedTransferCodec } from "../../../src/quasihttp/chunkedtransf
 import { createChunkEncodingCustomWriter } from "../../../src/quasihttp/chunkedtransfer/ChunkEncodingCustomWriter"
 import { SequenceCustomWriter } from "../../shared/quasihttp/SequenceCustomWriter";
 import { createSequenceCustomReader } from "../../shared/quasihttp/SequenceCustomReader";
-import { test } from "mocha"
 import { MissingDependencyError } from "../../../src/common/errors";
 import { DefaultReceiveProtocolInternal } from "../../../src/quasihttp/server/DefaultReceiveProtocolInternal"
 import { DefaultQuasiHttpRequest } from "../../../src/quasihttp/DefaultQuasiHttpRequest";
@@ -118,7 +116,7 @@ async function createReqStream(
 }
 
 describe("DefaultReceiveProtocolInternal", function() {
-    test("receive for dependency errors", async function() {
+    it("test receive for dependency errors", async function() {
         await nativeAssert.rejects(async () => {
             const instance = new DefaultReceiveProtocolInternal({
                 transport: {} as any,
@@ -136,7 +134,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         }, MissingDependencyError)
     })
 
-    test("no reader for request headers error", async function() {
+    it("test no reader for request headers error", async function() {
         const connection = []
         const application: IQuasiHttpApplication = {
             async processRequest(request) {
@@ -165,7 +163,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         })
     })
 
-    test("no writer for response headers error", async function() {
+    it("test no writer for response headers error", async function() {
         const connection = []
         const request = new DefaultQuasiHttpRequest()
         const reqStream = await createReqStream(request,
@@ -193,7 +191,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         })
     })
 
-    test("receive for rejection of null responses", async function() {
+    it("test receive for rejection of null responses", async function() {
         const connection = "example"
         const request = new DefaultQuasiHttpRequest()
         const expectedResponse = undefined
@@ -236,7 +234,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         assert.equal(transport.releaseCallCount, 1)
     })
 
-    test("receive ensures release on non-null response", async function() {
+    it("test receive ensures release on non-null response", async function() {
         const connection = ["example"]
         const request = new DefaultQuasiHttpRequest()
         let responseReleaseCallCount = 0
@@ -304,7 +302,7 @@ describe("DefaultReceiveProtocolInternal", function() {
 
     describe("#receive", function() {
         const createTestReceiveData = function*() {
-            // all request bodies are specified with LambdaBasedQuasiHttpBody class
+            // NB: all request bodies are specified with LambdaBasedQuasiHttpBody class
             // through just the ContentLength property.
             // body will be created as an ISelfWritable from any reqBodyBytes
             // as long as ContentLength is not zero.
@@ -561,7 +559,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         }
     })
 
-    test("receive involving not sending response", async function() {
+    it("test receive involving not sending response", async function() {
         const connection = "fire and forget example";
         const request = new DefaultQuasiHttpRequest();
 
@@ -611,7 +609,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         assert.equal(transport.releaseCallCount, 1)
     })
 
-    test("request headers exceed max chunk size error", async function() {
+    it("test request headers exceed max chunk size error", async function() {
         const connection = []
         const request = new DefaultQuasiHttpRequest({
             target: "/fxn".padStart(70_000)
@@ -648,7 +646,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         })
     })
 
-    test("request body with chunks exceeding max chunk size error", async function() {
+    it("test request body with chunks exceeding max chunk size error", async function() {
         const connection = []
         const request = new DefaultQuasiHttpRequest()
         request.body = new StringBody("data".padStart(70_000))
@@ -687,7 +685,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         })
     })
 
-    test("response headers exceed max chunk size error", async function() {
+    it("test response headers exceed max chunk size error", async function() {
         const connection = []
         const request = new DefaultQuasiHttpRequest()
         const reqStream = await createReqStream(request,

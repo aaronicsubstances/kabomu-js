@@ -21,8 +21,8 @@ export function createDelayPromise(millis: number) {
 }
 
 export function compareLeadChunks(
-        actual: LeadChunk | null | undefined,
-        expected: LeadChunk | null | undefined) {
+        actual: LeadChunk | undefined,
+        expected: LeadChunk | undefined) {
     if (!actual || !expected) {
         assert.equal(actual, expected)
         return;
@@ -39,9 +39,9 @@ export function compareLeadChunks(
 }
 
 export async function compareRequests(
-        actual: IQuasiHttpRequest | null | undefined,
-        expected: IQuasiHttpRequest | null | undefined,
-        expectedReqBodyBytes?: Buffer | null) {
+        actual: IQuasiHttpRequest | undefined,
+        expected: IQuasiHttpRequest | undefined,
+        expectedReqBodyBytes: Buffer | undefined) {
     if (!expected || !actual) {
         assert.equal(actual, expected);
         return;
@@ -55,9 +55,9 @@ export async function compareRequests(
 }
 
 export async function compareResponses(
-        actual: IQuasiHttpResponse | null | undefined,
-        expected: IQuasiHttpResponse | null | undefined,
-        expectedResBodyBytes?: Buffer | null) {
+        actual: IQuasiHttpResponse | undefined,
+        expected: IQuasiHttpResponse | undefined,
+        expectedResBodyBytes: Buffer | undefined) {
     if (!expected || !actual) {
         assert.equal(actual, expected);
         return;
@@ -71,9 +71,9 @@ export async function compareResponses(
 }
 
 export async function compareBodies(
-        actual: IQuasiHttpBody | null | undefined,
-        expected: IQuasiHttpBody | null | undefined,
-        expectedBodyBytes?: Buffer | null) {
+        actual: IQuasiHttpBody | undefined,
+        expected: IQuasiHttpBody | undefined,
+        expectedBodyBytes: Buffer | undefined) {
     if (!actual || !expected || !expectedBodyBytes) {
         assert.equal(actual, expected)
         return;
@@ -85,9 +85,9 @@ export async function compareBodies(
 }
 
 export async function compareResponsesInvolvingUnknownSources(
-        actual: IQuasiHttpResponse | null | undefined,
-        expected: IQuasiHttpResponse | null | undefined,
-        expectedResBodyBytes?: Buffer | null) {
+        actual: IQuasiHttpResponse | undefined,
+        expected: IQuasiHttpResponse | undefined,
+        expectedResBodyBytes: Buffer | undefined) {
     if (!expected || !actual) {
         assert.equal(actual, expected);
         return;
@@ -101,9 +101,9 @@ export async function compareResponsesInvolvingUnknownSources(
 }
 
 export async function compareBodiesInvolvingUnknownSources(
-        actual: IQuasiHttpBody | null | undefined,
-        expected: IQuasiHttpBody | null | undefined,
-        expectedBodyBytes?: Buffer | null) {
+        actual: IQuasiHttpBody | undefined,
+        expected: IQuasiHttpBody | undefined,
+        expectedBodyBytes: Buffer | undefined) {
     if (!actual || !expected || !expectedBodyBytes) {
         assert.equal(actual, expected)
         return;
@@ -116,8 +116,8 @@ export async function compareBodiesInvolvingUnknownSources(
 }
 
 function compareHeaders(
-        actual: Map<string, Array<string>> | null | undefined,
-        expected: Map<string, Array<string>> | null | undefined) {
+        actual: Map<string, Array<string>> | undefined,
+        expected: Map<string, Array<string>> | undefined) {
     const actualExtraction = new Map<string, string[]>();
     if (actual) {
         for (const key of actual.keys()) {
