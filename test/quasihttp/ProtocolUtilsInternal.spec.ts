@@ -653,13 +653,7 @@ describe("ProtocolUtilsInternal", function() {
             const writer = new Writable({
                 write(chunk, encoding, cb) {
                     cb(new Error("should not be called"))
-                },
-                destroy(error, cb) {
-                    // without this test fails with
-                    // stack trace similar to unhandled
-                    // exception
-                    cb(null)
-                },
+                }
             })
 
             await ProtocolUtilsInternal.transferBodyToTransport(

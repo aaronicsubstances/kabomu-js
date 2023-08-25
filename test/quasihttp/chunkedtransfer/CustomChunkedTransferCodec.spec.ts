@@ -917,7 +917,8 @@ describe("CustomChunkedTransferCodec", function() {
                 method: undefined,
                 headers: undefined,
                 httpVersion: undefined,
-                contentLength: 0
+                contentLength: 0,
+                statusCode: 0
             }
 
             // act
@@ -950,7 +951,8 @@ describe("CustomChunkedTransferCodec", function() {
                 method: "POST",
                 headers,
                 httpVersion: "2",
-                contentLength: -13
+                contentLength: -13,
+                statusCode: 0
             }
 
             // act
@@ -983,7 +985,8 @@ describe("CustomChunkedTransferCodec", function() {
                 method: "",
                 headers,
                 httpVersion: "",
-                contentLength: 40
+                contentLength: 40,
+                statusCode: 0
             }
 
             // act

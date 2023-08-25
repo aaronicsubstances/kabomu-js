@@ -5,6 +5,7 @@ import { Readable, Writable } from "stream"
 import * as IOUtils from "../../src/common/IOUtils"
 import * as ByteUtils from "../../src/common/ByteUtils"
 import { createRandomizedReadSizeBufferReader } from "../shared/common/RandomizedReadSizeBufferReader";
+import { createPendingPromise } from "../../src/quasihttp/ProtocolUtilsInternal";
 
 describe("IOUtils", function() {
     describe("#readBytes", function() {
@@ -164,12 +165,6 @@ describe("IOUtils", function() {
                 const writer = new Writable({
                     write(chunk, encoding, cb) {
                         cb(new Error("write failure"))
-                    },
-                    destroy(error, cb) {
-                        // without this test fails with
-                        // stack trace similar to unhandled
-                        // exception
-                        cb(null)
                     }
                 })
                 await IOUtils.writeBytes(writer,
@@ -400,7 +395,7 @@ describe("IOUtils", function() {
 
                 // double the expectation and read half way,
                 // to test that remaining bytes are correctly copied
-                const reader = createRandomizedReadSizeBufferReader(
+                let reader = createRandomizedReadSizeBufferReader(
                     Buffer.concat([expected, expected]))
                 const temp = Buffer.alloc(expected.length)
                 await IOUtils.readBytesFully(reader, temp)
@@ -425,6 +420,136 @@ describe("IOUtils", function() {
                 // assert that reader has been exhausted.
                 const actual2 = await IOUtils.readBytes(reader, Buffer.alloc(1))
                 assert.equal(actual2, 0)
+            })
+        })
+        it("should pass with empty readable and problematic writer (1)", async function() {
+            const reader = Readable.from(Buffer.from([]))
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback()
+                },
+                destroy(error, callback) {
+                    callback(null)
+                },
+            })
+            writer.destroy(new Error("broken!"))
+
+            await IOUtils.copyBytes(reader, writer)
+        })
+        it("should pass with empty readable and problematic writer (2)", async function() {
+            const reader = Readable.from(Buffer.alloc(0))
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback(new Error("broken!"))
+                }
+            })
+
+            await IOUtils.copyBytes(reader, writer)
+        })
+        it("should fail correctly (1)", async function() {
+            const reader = Readable.from(Buffer.alloc(17))
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback(new Error("broken!"))
+                }
+            })
+
+            await nativeAssert.rejects(async () => {
+                await IOUtils.copyBytes(reader, writer)
+            }, {
+                message: "broken!"
+            })
+        })
+        it("should fail correctly (2)", async function() {
+            const reader = Readable.from(Buffer.alloc(17))
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback(new Error("broken!"))
+                },
+                destroy(error, callback) {
+                    callback(null)
+                }
+            })
+
+            await nativeAssert.rejects(async () => {
+                await IOUtils.copyBytes(reader, writer)
+            }, {
+                message: "broken!"
+            })
+        })
+        it("should fail correctly (3)", async function() {
+            const reader = Readable.from(Buffer.alloc(17))
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback()
+                },
+                // prevents writer.destroy() call from throwing error
+                // immediately rather than in rejects() call.
+                destroy(error, callback) {
+                    callback(null)
+                },
+            })
+            writer.destroy(new Error("killed before action"))
+
+            await nativeAssert.rejects(async () => {
+                await IOUtils.copyBytes(reader, writer)
+            }, {
+                message: "killed before action"
+            })
+        })
+        it("should fail correctly (4)", async function() {
+            const reader = Readable.from((async function*(){
+                yield Buffer.alloc(2000)
+                throw new Error("killed in action")
+            })())
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback()
+                }
+            })
+
+            await nativeAssert.rejects(async () => {
+                await IOUtils.copyBytes(reader, writer)
+            }, {
+                message: "killed in action"
+            })
+        })
+        it("should fail correctly (5)", async function() {
+            const reader = Readable.from((async function*(){
+                throw new Error("killed in action")
+            })())
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback()
+                },
+                // prevents writer.destroy() call from throwing error
+                // immediately rather than in rejects() call.
+                destroy(error, callback) {
+                    callback(null)
+                },
+            })
+            writer.destroy(new Error("killed before action"))
+
+            await nativeAssert.rejects(async () => {
+                await IOUtils.copyBytes(reader, writer)
+            }, {
+                message: "killed in action"
+            })
+        })
+        it("should fail correctly (6)", async function() {
+            const reader = Readable.from((async function*(){
+                throw new Error("killed in action")
+            })())
+            const writer = new Writable({
+                write(chunk, encoding, callback) {
+                    callback(new Error("broken!"))
+                }
+            })
+
+            await nativeAssert.rejects(async () => {
+                await IOUtils.copyBytes(reader, writer)
+            }, {
+                message: "killed in action"
             })
         })
     })
@@ -497,12 +622,6 @@ describe("IOUtils", function() {
             const writer = new Writable({
                 write(chunk, encoding, cb) {
                     cb(new Error("write problem!"))
-                },
-                destroy(e, cb) {
-                    // without this test fails with
-                    // stack trace similar to unhandled
-                    // exception
-                    cb(null)
                 }
             })
 

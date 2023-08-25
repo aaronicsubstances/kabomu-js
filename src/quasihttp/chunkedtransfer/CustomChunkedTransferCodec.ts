@@ -293,7 +293,9 @@ export class CustomChunkedTransferCodec {
             requestTarget: request.target,
             headers: request.headers,
             httpVersion: request.httpVersion,
-            contentLength: 0
+            contentLength: 0,
+            statusCode: 0 // not really needed except ease writing of test,
+                          // to prevent "expected 0 to equal undefined"
         };
         const requestBody = request.body;
         if (requestBody)

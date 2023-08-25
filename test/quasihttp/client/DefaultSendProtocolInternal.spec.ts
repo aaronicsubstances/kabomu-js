@@ -11,20 +11,21 @@ import { CustomChunkedTransferCodec } from "../../../src/quasihttp/chunkedtransf
 import { createChunkEncodingCustomWriter } from "../../../src/quasihttp/chunkedtransfer/ChunkEncodingCustomWriter"
 import { SequenceCustomWriter } from "../../shared/quasihttp/SequenceCustomWriter";
 import { createSequenceCustomReader } from "../../shared/quasihttp/SequenceCustomReader";
-import { ExpectationViolationError, MissingDependencyError } from "../../../src/common/errors";
+import { CustomIOError, ExpectationViolationError, MissingDependencyError } from "../../../src/common/errors";
 import { DefaultSendProtocolInternal } from "../../../src/quasihttp/client/DefaultSendProtocolInternal"
 import { DefaultQuasiHttpRequest } from "../../../src/quasihttp/DefaultQuasiHttpRequest";
 import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHttpResponse";
 import { ChunkDecodingError, ChunkEncodingError, QuasiHttpRequestProcessingError } from "../../../src/quasihttp/errors";
 import { DemoQuasiHttpTransport } from "../../shared/quasihttp/DemoQuasiHttpTransport";
 import { LambdaBasedQuasiHttpBody } from "../../../src/quasihttp/entitybody/LambdaBasedQuasiHttpBody";
-import { compareLeadChunks, compareResponses } from "../../shared/common/ComparisonUtils"
+import { compareLeadChunks, compareResponses, createDelayPromise } from "../../shared/common/ComparisonUtils"
 import { createChunkDecodingCustomReader } from "../../../src/quasihttp/chunkedtransfer/ChunkDecodingCustomReader";
 import { stringToBytes } from "../../../src/common/ByteUtils";
 import { ByteBufferBody } from "../../../src/quasihttp/entitybody/ByteBufferBody";
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody";
 import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
 import { getBodyReader } from "../../../src/quasihttp/entitybody/EntityBodyUtils";
+import { createPendingPromise } from "../../../src/quasihttp/ProtocolUtilsInternal";
 
 function setUpReceivingOfRequestToBeWritten(
         request: IQuasiHttpRequest,
@@ -197,10 +198,6 @@ describe("DefaultSendProtocolInternal", function() {
                     ["variant", ["sea", "drive"]]
                 ])
             })
-            let expectedReqBodyBytes: Buffer | undefined
-            /*expectedReqBodyBytes: Buffer | undefined = stringToBytes("this is our king")
-            expectedRequest.body = new LambdaBasedQuasiHttpBody()
-            expectedRequest.body.contentLength = expectedReqBodyBytes.length*/
 
             let response = new DefaultQuasiHttpResponse({
                 statusCode: 200,
@@ -216,7 +213,6 @@ describe("DefaultSendProtocolInternal", function() {
                 maxChunkSize,
                 responseBufferingEnabled,
                 expectedRequest,
-                expectedReqBodyBytes,
                 response,
                 resBodyBytes
             }
@@ -228,7 +224,6 @@ describe("DefaultSendProtocolInternal", function() {
             expectedRequest = new DefaultQuasiHttpRequest({
                 target: "/p"
             })
-            expectedReqBodyBytes = undefined
 
             response = new DefaultQuasiHttpResponse({
                 statusCode: 400,
@@ -240,7 +235,6 @@ describe("DefaultSendProtocolInternal", function() {
                 maxChunkSize,
                 responseBufferingEnabled,
                 expectedRequest,
-                expectedReqBodyBytes,
                 response,
                 resBodyBytes
             }
@@ -258,7 +252,6 @@ describe("DefaultSendProtocolInternal", function() {
                     ["ccc", ["C1", "C2", "C3"]]
                 ])
             })
-            expectedReqBodyBytes = undefined
 
             response = new DefaultQuasiHttpResponse({
                 statusCode: 500,
@@ -276,7 +269,6 @@ describe("DefaultSendProtocolInternal", function() {
                 maxChunkSize,
                 responseBufferingEnabled,
                 expectedRequest,
-                expectedReqBodyBytes,
                 response,
                 resBodyBytes
             }
@@ -287,7 +279,6 @@ describe("DefaultSendProtocolInternal", function() {
             maxChunkSize = 50;
             responseBufferingEnabled = false;
             expectedRequest = new DefaultQuasiHttpRequest();
-            expectedReqBodyBytes = Buffer.alloc(0)
             expectedRequest.body = new LambdaBasedQuasiHttpBody()
             expectedRequest.body.contentLength = 0
 
@@ -302,7 +293,6 @@ describe("DefaultSendProtocolInternal", function() {
                 maxChunkSize,
                 responseBufferingEnabled,
                 expectedRequest,
-                expectedReqBodyBytes,
                 response,
                 resBodyBytes
             }
@@ -312,7 +302,6 @@ describe("DefaultSendProtocolInternal", function() {
             maxChunkSize = 40;
             responseBufferingEnabled = false;
             expectedRequest = new DefaultQuasiHttpRequest();
-            expectedReqBodyBytes = undefined;
 
             response = new DefaultQuasiHttpResponse({
                 statusCode: 200,
@@ -326,7 +315,6 @@ describe("DefaultSendProtocolInternal", function() {
                 maxChunkSize,
                 responseBufferingEnabled,
                 expectedRequest,
-                expectedReqBodyBytes,
                 response,
                 resBodyBytes
             }
@@ -338,9 +326,6 @@ describe("DefaultSendProtocolInternal", function() {
             expectedRequest = new DefaultQuasiHttpRequest({
                 target: "/fxn".padStart(70_000)
             })
-            /*expectedReqBodyBytes = Buffer.alloc(80_000)
-            expectedRequest.body = new LambdaBasedQuasiHttpBody()
-            expectedRequest.body.contentLength = -1*/
 
             response = new DefaultQuasiHttpResponse({
                 httpStatusMessage: "ok".padStart(90_000)
@@ -353,7 +338,6 @@ describe("DefaultSendProtocolInternal", function() {
                 maxChunkSize,
                 responseBufferingEnabled,
                 expectedRequest,
-                expectedReqBodyBytes,
                 response,
                 resBodyBytes
             }
@@ -366,7 +350,6 @@ describe("DefaultSendProtocolInternal", function() {
                 maxChunkSize,
                 responseBufferingEnabled,
                 expectedRequest,
-                expectedReqBodyBytes,
                 response,
                 resBodyBytes
             } = testDataItem
@@ -390,16 +373,8 @@ describe("DefaultSendProtocolInternal", function() {
                         cb()
                     },
                 })
-                let bodyWritable: ISelfWritable | undefined
-                if (expectedReqBodyBytes) {
-                    bodyWritable = {
-                        async writeBytesTo(writer) {
-                            await IOUtils.writeBytes(writer, expectedReqBodyBytes)
-                        },
-                    } as ISelfWritable
-                }
                 const helpingWriter = setUpReceivingOfRequestToBeWritten(
-                    expectedRequest, bodyWritable,
+                    expectedRequest, undefined,
                     headerReceiver, bodyReceiver)
 
                 // set up instance
@@ -418,7 +393,6 @@ describe("DefaultSendProtocolInternal", function() {
                 // set up expected request headers
                 const expectedReqChunk = CustomChunkedTransferCodec
                     .createFromRequest(expectedRequest)
-                expectedReqChunk.statusCode = 0 // just to pass tests.
 
                 // act
                 const actualResponse = await instance.send()
@@ -453,12 +427,7 @@ describe("DefaultSendProtocolInternal", function() {
                         bodyReceiver, CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
                 }
                 const actualReqBodyBytes = await IOUtils.readAllBytes(bodyReceiver)
-                if (expectedRequest.body) {
-                    assert.equalBytes(actualReqBodyBytes, expectedReqBodyBytes)
-                }
-                else {
-                    assert.isEmpty(actualReqBodyBytes)
-                }
+                assert.isEmpty(actualReqBodyBytes)
 
                 // verify cancel expectations
                 await instance.cancel()
@@ -473,9 +442,360 @@ describe("DefaultSendProtocolInternal", function() {
         }
     })
 
-    /*it("test send for abort on request body read error", async function() {
+    it("test send for abort on request body read error", async function() {
         // arrange
         const connection = "drew"
-        let maxChunkSize = 80
-    })*/
+        const maxChunkSize = 80
+        const request = new DefaultQuasiHttpRequest()
+
+        // prepare response for reading.
+        const helpingReader = Readable.from((async function*(){
+            // wait forever
+            await createPendingPromise().promise
+        })())
+
+        // prepare to receive request to be written
+        const hChunks = new Array<Buffer>()
+        let headerReceiver: any = new Writable({
+            write(chunk, encoding, cb) {
+                hChunks.push(chunk)
+                cb()
+            },
+        })
+        const backingWriters = new Array<Writable>()
+        backingWriters.push(headerReceiver)
+        const bodyReceiver = new Writable({
+            write(chunk, encoding, cb) {
+                cb(new Error("NIE"))
+            }
+        })
+        backingWriters.push(bodyReceiver)
+        const helpingWriter = new SequenceCustomWriter(backingWriters)
+        const selfWritable: ISelfWritable = {
+            async writeBytesTo(writer) {
+                helpingWriter.switchOver()
+                await IOUtils.writeBytes(writer, Buffer.alloc(1))
+            },
+        }
+        request.body = new LambdaBasedQuasiHttpBody(undefined,
+            selfWritable)
+
+        // set up instance
+        const transport = new DemoQuasiHttpTransport(connection,
+            helpingReader, helpingWriter);
+        const instance = new DefaultSendProtocolInternal({
+            request,
+            transport,
+            connection,
+            maxChunkSize
+        });
+
+        // set up expected request headers
+        const expectedReqChunk = CustomChunkedTransferCodec.createFromRequest(
+            request);
+
+        // act.
+        await nativeAssert.rejects(async () => {
+            await instance.send()
+            assert.fail("should have thrown error")
+        }, (e: any) => {
+            assert.equal(e.message, "NIE")
+            return true
+        })
+
+        // assert written request.
+        headerReceiver = Readable.from(Buffer.concat(
+            hChunks))
+        const actualReqChunk = await new CustomChunkedTransferCodec()
+            .readLeadChunk(headerReceiver)
+        // verify all contents of headerReceiver was used
+        // before comparing lead chunks
+        assert.equal(await IOUtils.readBytes(headerReceiver,
+            Buffer.alloc(1)), 0)
+        compareLeadChunks(actualReqChunk, expectedReqChunk)
+
+        await instance.cancel()
+        assert.equal(transport.releaseCallCount, 1)
+    })
+
+    it("test send for abort on response body read error", async function() {
+        // arrange
+        const connection = "drew"
+        const maxChunkSize = 80
+        const request = new DefaultQuasiHttpRequest()
+        const responseBodyBytes = stringToBytes("dkd".padStart(50))
+        const response = new DefaultQuasiHttpResponse({
+            body: new ByteBufferBody(responseBodyBytes)
+        })
+
+        // prepare response for reading.
+        const helpingReader = await serializeResponseToBeRead(
+            response, responseBodyBytes)
+
+        // prepare to receive request to be written
+        const hChunks = new Array<Buffer>()
+        let headerReceiver: any = new Writable({
+            write(chunk, encoding, cb) {
+                hChunks.push(chunk)
+                cb()
+            },
+        })
+        const backingWriters = new Array<Writable>()
+        backingWriters.push(headerReceiver)
+        const helpingWriter = new SequenceCustomWriter(backingWriters)
+
+        // set up instance
+        const transport = new DemoQuasiHttpTransport(connection,
+            helpingReader, helpingWriter);
+        const instance = new DefaultSendProtocolInternal( {
+            request,
+            transport,
+            connection,
+            maxChunkSize,
+            responseBufferingEnabled: true,
+            responseBodyBufferingSizeLimit: 40
+        })
+
+        // set up expected request headers
+        const expectedReqChunk = CustomChunkedTransferCodec.createFromRequest(request);
+
+        // act
+        await nativeAssert.rejects(async () => {
+            await instance.send()
+        }, (err: any) => {
+            assert.instanceOf(err, CustomIOError)
+            expect(err.message).to.contain("limit of")
+            return true
+        })
+
+        // assert written request.
+        headerReceiver = Readable.from(Buffer.concat(
+            hChunks))
+        const actualReqChunk = await new CustomChunkedTransferCodec()
+            .readLeadChunk(headerReceiver)
+        // verify all contents of headerReceiver was used
+        // before comparing lead chunks
+        assert.equal(await IOUtils.readBytes(headerReceiver,
+            Buffer.alloc(1)), 0)
+        compareLeadChunks(actualReqChunk, expectedReqChunk)
+
+        await instance.cancel()
+        assert.equal(transport.releaseCallCount, 1)
+    })
+
+    it("test send for null response (1)", async function() {
+        // arrange
+        const connection = "127.pcid"
+        const maxChunkSize = 800
+        const request = new DefaultQuasiHttpRequest()
+
+        // prepare to receive request to be written
+        const hChunks = new Array<Buffer>()
+        let headerReceiver: any = new Writable({
+            write(chunk, encoding, cb) {
+                hChunks.push(chunk)
+                cb()
+            },
+        })
+        const backingWriters = new Array<Writable>()
+        backingWriters.push(headerReceiver)
+        const helpingWriter = new SequenceCustomWriter(backingWriters)
+
+        const helpingReader = createSequenceCustomReader();
+
+        // set up instance
+        const transport = new DemoQuasiHttpTransport(connection,
+            helpingReader, helpingWriter);
+        const instance = new DefaultSendProtocolInternal( {
+            request,
+            transport,
+            connection,
+            maxChunkSize,
+            responseBufferingEnabled: true,
+            responseBodyBufferingSizeLimit: 40,
+            ensureTruthyResponse: false
+        })
+
+        // set up expected request headers
+        const expectedReqChunk = CustomChunkedTransferCodec.createFromRequest(request);
+
+        // act
+        const actualResponse = await instance.send()
+
+        // assert
+        assert.isNotOk(actualResponse)
+
+        // assert written request.
+        headerReceiver = Readable.from(Buffer.concat(
+            hChunks))
+        const actualReqChunk = await new CustomChunkedTransferCodec()
+            .readLeadChunk(headerReceiver)
+        // verify all contents of headerReceiver was used
+        // before comparing lead chunks
+        assert.equal(await IOUtils.readBytes(headerReceiver,
+            Buffer.alloc(1)), 0)
+        compareLeadChunks(actualReqChunk, expectedReqChunk)
+
+        await instance.cancel()
+        assert.equal(transport.releaseCallCount, 1)
+    })
+
+    it("test send for null response (2)", async function() {
+        // arrange
+        const connection = "127.xct"
+        const maxChunkSize = 8000
+        const request = new DefaultQuasiHttpRequest()
+
+        // prepare to receive request to be written
+        const hChunks = new Array<Buffer>()
+        let headerReceiver: any = new Writable({
+            write(chunk, encoding, cb) {
+                hChunks.push(chunk)
+                cb()
+            },
+        })
+        const backingWriters = new Array<Writable>()
+        backingWriters.push(headerReceiver)
+        const helpingWriter = new SequenceCustomWriter(backingWriters)
+
+        const helpingReader = createSequenceCustomReader();
+
+        // set up instance
+        const transport = new DemoQuasiHttpTransport(connection,
+            helpingReader, helpingWriter);
+        const instance = new DefaultSendProtocolInternal( {
+            request,
+            transport,
+            connection,
+            maxChunkSize,
+            responseBufferingEnabled: true,
+            responseBodyBufferingSizeLimit: 40,
+            ensureTruthyResponse: true
+        })
+
+        // set up expected request headers
+        const expectedReqChunk = CustomChunkedTransferCodec.createFromRequest(request);
+
+        // act
+        await nativeAssert.rejects(async () => {
+            await instance.send()
+        }, (err: any) => {
+            assert.instanceOf(err, QuasiHttpRequestProcessingError)
+            expect(err.message).to.contain("no response")
+            return true
+        })
+
+        // assert written request.
+        headerReceiver = Readable.from(Buffer.concat(
+            hChunks))
+        const actualReqChunk = await new CustomChunkedTransferCodec()
+            .readLeadChunk(headerReceiver)
+        // verify all contents of headerReceiver was used
+        // before comparing lead chunks
+        assert.equal(await IOUtils.readBytes(headerReceiver,
+            Buffer.alloc(1)), 0)
+        compareLeadChunks(actualReqChunk, expectedReqChunk)
+
+        await instance.cancel()
+        assert.equal(transport.releaseCallCount, 1)
+    })
+
+    it("test send for request body transfer if response has no body", async function() {
+        const connection = "sth"
+        const maxChunkSize = 95
+        const responseBufferingEnabled = true
+        const request = new DefaultQuasiHttpRequest({
+            httpVersion: "1.1",
+            target: "/bread"
+        })
+        const reqBodyBytes = stringToBytes("<a>this is news</a>")
+        request.body = new LambdaBasedQuasiHttpBody()
+        request.body.contentLength = reqBodyBytes.length
+
+        const expectedResponse = new DefaultQuasiHttpResponse({
+            httpVersion: "1.0",
+            statusCode: 200,
+            httpStatusMessage: "ok"
+        })
+        // prepare response for reading.
+        let helpingReader = await serializeResponseToBeRead(
+            expectedResponse, undefined);
+        var tcs = createPendingPromise()
+        const dependentReader = Readable.from((async function*(){
+            await tcs.promise
+        })())
+        helpingReader = createSequenceCustomReader(
+            [dependentReader, helpingReader])
+
+        // prepare to receive request to be written
+        const hChunks = new Array<Buffer>()
+        let headerReceiver:any = new Writable({
+            write(chunk, encoding, cb) {
+                hChunks.push(chunk)
+                cb()
+            }
+        })
+        const bChunks = new Array<Buffer>()
+        const bodyReceiver = new Writable({
+            write(chunk, encoding, cb) {
+                bChunks.push(chunk)
+                cb()
+            },
+        })
+        const bodyWritable: ISelfWritable = {
+            async writeBytesTo(writer) {
+                await createDelayPromise(200)
+                try {
+                    await IOUtils.writeBytes(writer,
+                        reqBodyBytes)
+                }
+                finally {
+                    tcs.resolve(null)
+                }
+            },
+        }
+        const helpingWriter = setUpReceivingOfRequestToBeWritten(
+            request, bodyWritable, headerReceiver,
+            bodyReceiver);
+
+        // set up instance
+        const transport = new DemoQuasiHttpTransport(connection,
+            helpingReader, helpingWriter);
+        const instance = new DefaultSendProtocolInternal({
+            request,
+            transport,
+            connection,
+            maxChunkSize,
+            responseBufferingEnabled,
+            responseBodyBufferingSizeLimit: 100,
+            ensureTruthyResponse: true
+        });
+
+        // set up expected request headers
+        const expectedReqChunk = CustomChunkedTransferCodec.createFromRequest(request);
+
+        // act.
+        const actualResponse = await instance.send();
+
+        // begin assert.
+        assert.isOk(actualResponse);
+        assert.isOk(actualResponse?.response);
+        assert.equal(transport.releaseCallCount, 0);
+        assert.equal(actualResponse?.responseBufferingApplied,
+            responseBufferingEnabled);
+
+        // assert written request.
+        headerReceiver = Readable.from(Buffer.concat(
+            hChunks))
+        const actualReqChunk = await new CustomChunkedTransferCodec()
+            .readLeadChunk(headerReceiver)
+        // verify all contents of headerReceiver was used
+        // before comparing lead chunks
+        assert.equal(await IOUtils.readBytes(headerReceiver,
+            Buffer.alloc(1)), 0)
+        compareLeadChunks(actualReqChunk, expectedReqChunk)
+
+        await instance.cancel()
+        assert.equal(transport.releaseCallCount, 1)
+    })
 })
