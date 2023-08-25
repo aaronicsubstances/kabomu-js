@@ -76,19 +76,14 @@ export async function writeBytes(writer: Writable, data: Buffer) {
     writer.removeListener("error", ev);
 }
 
-/**
- * Performs reads on behalf of a readable stream
- * @param reader readable stream
- * @param data destination buffer
- * @returns a promise whose result will be the number of bytes actually read, which
- * depending of the kind of reader may be less than the destination buffer size.
- */
-export async function readBytes(reader: Readable, data: Buffer) {
+async function readSomeBytes(reader: Readable,
+        data: Buffer, readFully: boolean)
+        : Promise<number> {
     if (!reader) {
         throw new Error("reader argument is null");
     }
     // allow zero-byte reads to proceed to touch the
-    // stream, rather than just return 0.
+    // stream, rather than just return.
     const controller = new AbortController();
     const finishedOptions: FinishedOptions = {
         signal: controller.signal
@@ -110,29 +105,52 @@ export async function readBytes(reader: Readable, data: Buffer) {
             pendingReadCompletion.reject(err);
         }
         else {
+            if (readFully && data.length > 0) {
+                pendingReadCompletion.reject(
+                    new CustomIOError("unexpected end of read"))
+            }
             pendingReadCompletion.resolve(0);
         }
     });
+    let bytesWritten = 0
     const readableCb = function() {
-        const chunk = reader.read() as Buffer | null;
-        if (chunk === null) {
-            return;
+        let chunk: Buffer | null = null
+        while (true) {
+            chunk = reader.read()
+            if (chunk === null) {
+                return;
+            }
+
+            if (!Buffer.isBuffer(chunk)) {
+                reader.removeListener('readable', readableCb);
+                reader.destroy(createNonBufferChunkError(chunk))
+                return;
+            }
+
+            if (!readFully) {
+                break;
+            }
+
+            if (bytesWritten + chunk.length >= data.length) {
+                break;
+            }
+
+            chunk.copy(data, bytesWritten)
+            bytesWritten += chunk.length
+            continue;
         }
 
         // Remove the 'readable' listener before any unshifting.
         reader.removeListener('readable', readableCb);
-        if (!Buffer.isBuffer(chunk)) {
-            reader.destroy(createNonBufferChunkError(chunk))
-            return;
-        }
 
-        const bytesLeft = Math.min(data.length, chunk.length)
+        const bytesLeft = Math.min(data.length - bytesWritten,
+            chunk.length);
         if (bytesLeft < chunk.length) {
             reader.unshift(chunk.subarray(
                 bytesLeft, chunk.length));
         }
         if (bytesLeft) {
-            chunk.copy(data, 0, 0, bytesLeft);
+            chunk.copy(data, bytesWritten, 0, bytesLeft);
         }
 
         // free finished callback
@@ -153,6 +171,17 @@ export async function readBytes(reader: Readable, data: Buffer) {
 }
 
 /**
+ * Performs reads on behalf of a readable stream
+ * @param reader readable stream
+ * @param data destination buffer
+ * @returns a promise whose result will be the number of bytes actually read, which
+ * depending of the kind of reader may be less than the destination buffer size.
+ */
+export async function readBytes(reader: Readable, data: Buffer) {
+    return await readSomeBytes(reader, data, false);
+}
+
+/**
  * Reads in data from a readable stream in order to completely fill
  * a buffer. An error occurs if an insufficient amount of bytes exist in
  * stream to fill the buffer.
@@ -161,114 +190,7 @@ export async function readBytes(reader: Readable, data: Buffer) {
  */
 export async function readBytesFully(reader: Readable,
         data: Buffer): Promise<void> {
-    if (!reader) {
-        throw new Error("reader argument is null");
-    }
-    // allow zero-byte reads to proceed to touch the
-    // stream, rather than just return.
-    /*let offset = 0, length = data.length;
-    while (true) {
-        let bytesRead = 0;
-        if (offset > 0) {
-            bytesRead = await readBytes(reader,
-                data.subarray(offset, offset + length));
-        }
-        else {
-            bytesRead = await readBytes(reader, data)
-        }
-
-        if (bytesRead < length) {
-            if (bytesRead <= 0) {
-                throw new CustomIOError("unexpected end of read");
-            }
-            offset += bytesRead;
-            length -= bytesRead;
-        }
-        else {
-            break;
-        }
-    }*/
-    // NB: below implementation is copied from readBytes()
-    // in preference to above commented out implementation,
-    // to achieve better performance.
-    const controller = new AbortController();
-    const finishedOptions: FinishedOptions = {
-        signal: controller.signal
-    };
-    const pendingReadCompletion = createPendingPromise<void>()
-    // attach an error handler, without which
-    // an unhandled exception may occur.
-    const ev = (e: any) => {
-        pendingReadCompletion.reject(e)
-    }
-    reader.once("error", ev);
-    finished(reader, finishedOptions, err => {
-        // just in case readableCb is never called
-        reader.removeListener("readable", readableCb);
-        if (controller.signal.aborted) {
-            return;
-        }
-        if (err) {
-            pendingReadCompletion.reject(err);
-        }
-        else {
-            if (data.length > 0) {
-                pendingReadCompletion.reject(
-                    new CustomIOError("unexpected end of read"))
-            }
-            pendingReadCompletion.resolve();
-        }
-    });
-    let bytesWritten = 0
-    const readableCb = function() {
-        let chunk: Buffer | null = null
-        while (true) {
-            chunk = reader.read()
-            if (chunk === null) {
-                return;
-            }
-
-            if (!Buffer.isBuffer(chunk)) {
-                reader.removeListener('readable', readableCb);
-                reader.destroy(createNonBufferChunkError(chunk))
-                return;
-            }
-
-            if (bytesWritten + chunk.length >= data.length) {
-                break;
-            }
-
-            chunk.copy(data, bytesWritten)
-            bytesWritten += chunk.length
-            continue;
-        }
-
-        // Remove the 'readable' listener before any unshifting.
-        reader.removeListener('readable', readableCb);
-
-        const bytesLeft = data.length - bytesWritten;
-        if (bytesLeft < chunk.length) {
-            reader.unshift(chunk.subarray(
-                bytesLeft, chunk.length));
-        }
-        if (bytesLeft) {
-            chunk.copy(data, bytesWritten, 0, bytesLeft);
-        }
-
-        // free finished callback
-        controller.abort();
-
-        // give time for any incoming error event
-        // to take effect.
-        setImmediate(() => {
-            pendingReadCompletion.resolve()
-        });
-    };
-    reader.on("readable", readableCb);
-    const result = await pendingReadCompletion.promise;
-    // if successful, remove error listener;
-    // else leave it to prevent unhandled errors
-    reader.removeListener("error", ev);
+    await readSomeBytes(reader, data, true);
 }
 
 /**

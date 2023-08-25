@@ -569,7 +569,7 @@ describe("DefaultReceiveProtocolInternal", function() {
         let headerReceiver = new Writable({
             write(chunk, encoding, callback) {
                 chunks.push(chunk)
-                callback()   
+                callback()
             },
         })
 
