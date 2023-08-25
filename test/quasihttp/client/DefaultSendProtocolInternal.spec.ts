@@ -765,14 +765,15 @@ describe("DefaultSendProtocolInternal", function() {
         })
         const bodyWritable: ISelfWritable = {
             async writeBytesTo(writer) {
-                await createDelayPromise(200)
-                try {
-                    await IOUtils.writeBytes(writer,
-                        expectedReqBodyBytes)
-                }
-                finally {
+                await IOUtils.writeBytes(writer,
+                    expectedReqBodyBytes)
+                // wait for enough time for endWrites() call
+                // inside setUpReceivingOfRequestToBeWritten() to take effect.
+                // (didn't observe this problem in practice though, unlike in
+                // .NET version)
+                setTimeout(() => {
                     tcs.resolve(null)
-                }
+                }, 200)
             },
         }
         const helpingWriter = setUpReceivingOfRequestToBeWritten(
@@ -878,14 +879,15 @@ describe("DefaultSendProtocolInternal", function() {
         })
         const bodyWritable: ISelfWritable = {
             async writeBytesTo(writer) {
-                await createDelayPromise(200)
-                try {
-                    await IOUtils.writeBytes(writer,
-                        expectedReqBodyBytes)
-                }
-                finally {
+                await IOUtils.writeBytes(writer,
+                    expectedReqBodyBytes)
+                // wait for enough time for endWrites() call
+                // inside setUpReceivingOfRequestToBeWritten() to take effect.
+                // (didn't observe this problem in practice though, unlike in
+                // .NET version)
+                setTimeout(() => {
                     tcs.resolve(null)
-                }
+                }, 200)
             },
         }
         const helpingWriter = setUpReceivingOfRequestToBeWritten(
@@ -1104,14 +1106,15 @@ describe("DefaultSendProtocolInternal", function() {
                 })
                 const bodyWritable: ISelfWritable = {
                     async writeBytesTo(writer) {
-                        await createDelayPromise(200)
-                        try {
-                            await IOUtils.writeBytes(writer,
-                                expectedReqBodyBytes)
-                        }
-                        finally {
+                        await IOUtils.writeBytes(writer,
+                            expectedReqBodyBytes)
+                        // wait for enough time for endWrites() call
+                        // inside setUpReceivingOfRequestToBeWritten() to take effect.
+                        // (didn't observe this problem in practice though, unlike in
+                        // .NET version)
+                        setTimeout(() => {
                             tcs.resolve(null)
-                        }
+                        }, 200)
                     },
                 }
                 const helpingWriter = setUpReceivingOfRequestToBeWritten(

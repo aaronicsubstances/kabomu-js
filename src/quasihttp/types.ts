@@ -300,7 +300,7 @@ export interface QuasiHttpProcessingOptions {
  * IQuasiHttpAltTransport objects.
  */
 export interface QuasiHttpSendResponse {
-    responsePromise: Promise<IQuasiHttpResponse>
+    responsePromise: Promise<IQuasiHttpResponse | undefined>
     cancellationHandle?: any
 }
 
@@ -342,8 +342,8 @@ export interface IQuasiHttpAltTransport {
      * @returns an object containing a promise whose result will be the quasi http response
      * processed by the tranport instance.
      */
-    processSendRequest(remoteEndpoint: any, request: IQuasiHttpRequest,
-        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse
+    processSendRequest(remoteEndpoint: any, request: IQuasiHttpRequest | undefined,
+        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse | undefined
 
     /**
      * Makes a direct send request on behalf of an instance of
@@ -366,8 +366,8 @@ export interface IQuasiHttpAltTransport {
      * processed by the tranport instance.
      */
     processSendRequest2(remoteEndpoint: any,
-        requestFunc: (env: Map<string, any>) => Promise<IQuasiHttpRequest>,
-        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse
+        requestFunc: (env: Map<string, any>) => Promise<IQuasiHttpRequest | undefined>,
+        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse | undefined
     
     /**
      * Attempts to cancel an ongoing send request.
@@ -396,7 +396,7 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
      * stream of data for reading and writing
      */
     allocateConnection(remoteEndpoint: any, sendOptions: QuasiHttpSendOptions):
-        Promise<ConnectionAllocationResponse>
+        Promise<ConnectionAllocationResponse | undefined>
 }
 
 /**
