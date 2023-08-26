@@ -36,7 +36,7 @@ export class SendTransferInternal {
         return res;
     }
 
-    async abort(cancellationError: Error | undefined,
+    async abort(cancellationError: any,
             res: ProtocolSendResultInternal | undefined) {
         if (this.trySetAborted()) {
             this.timeoutId?.cancel();

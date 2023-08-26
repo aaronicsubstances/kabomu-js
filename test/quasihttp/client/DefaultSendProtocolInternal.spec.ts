@@ -471,7 +471,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         const helpingReader = Readable.from((async function*(){
             // wait forever
-            await createPendingPromise().promise
+            await createPendingPromise<void>().promise
         })())
 
         // prepare to receive request to be written
@@ -741,7 +741,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         let helpingReader = await serializeResponseToBeRead(
             response, expectedReqBodyBytes);
-        var tcs = createPendingPromise()
+        var tcs = createPendingPromise<void>()
         const dependentReader = Readable.from((async function*(){
             await tcs.promise
         })())
@@ -772,7 +772,7 @@ describe("DefaultSendProtocolInternal", function() {
                 // (didn't observe this problem in practice though, unlike in
                 // .NET version)
                 setTimeout(() => {
-                    tcs.resolve(null)
+                    tcs.resolve()
                 }, 200)
             },
         }
@@ -855,7 +855,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         let helpingReader = await serializeResponseToBeRead(
             response, resBodyBytes);
-        var tcs = createPendingPromise()
+        var tcs = createPendingPromise<void>()
         const dependentReader = Readable.from((async function*(){
             await tcs.promise
         })())
@@ -886,7 +886,7 @@ describe("DefaultSendProtocolInternal", function() {
                 // (didn't observe this problem in practice though, unlike in
                 // .NET version)
                 setTimeout(() => {
-                    tcs.resolve(null)
+                    tcs.resolve()
                 }, 200)
             },
         }
@@ -1082,7 +1082,7 @@ describe("DefaultSendProtocolInternal", function() {
                 expectedRequest.body.contentLength = -1
                 
                 // prepare response for reading.
-                var tcs = createPendingPromise()
+                var tcs = createPendingPromise<void>()
                 const dependentReader = Readable.from((async function*(){
                     await tcs.promise
                 })())
@@ -1113,7 +1113,7 @@ describe("DefaultSendProtocolInternal", function() {
                         // (didn't observe this problem in practice though, unlike in
                         // .NET version)
                         setTimeout(() => {
-                            tcs.resolve(null)
+                            tcs.resolve()
                         }, 200)
                     },
                 }

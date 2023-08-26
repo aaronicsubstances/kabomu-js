@@ -26,9 +26,9 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
         const that = this
         const writeAsync = async function(chunk: any, cb: any) {
             try {
-                const yieldPromise = createPendingPromise()
+                const yieldPromise = createPendingPromise<void>()
                 setImmediate(() => {
-                    yieldPromise.resolve(null)
+                    yieldPromise.resolve()
                 })
                 await yieldPromise.promise
                 await IOUtils.writeBytes(that._backingWriter, chunk)
@@ -53,9 +53,9 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
         }
         const that = this
         return Readable.from((async function*() {
-            const yieldPromise = createPendingPromise()
+            const yieldPromise = createPendingPromise<void>()
             setImmediate(() => {
-                yieldPromise.resolve(null)
+                yieldPromise.resolve()
             })
             await yieldPromise.promise
             for await (const chunk of that._backingReader) {
@@ -68,9 +68,9 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
             throw new Error("unexpected connection")
         }
         this.releaseCallCount++
-        const yieldPromise = createPendingPromise()
+        const yieldPromise = createPendingPromise<void>()
         setImmediate(() => {
-            yieldPromise.resolve(null)
+            yieldPromise.resolve()
         })
         await yieldPromise.promise
     }

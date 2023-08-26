@@ -343,7 +343,8 @@ export interface IQuasiHttpAltTransport {
      * processed by the tranport instance.
      */
     processSendRequest(remoteEndpoint: any, request: IQuasiHttpRequest | undefined,
-        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse | undefined
+        sendOptions?: QuasiHttpSendOptions)
+        : Promise<QuasiHttpSendResponse | undefined>
 
     /**
      * Makes a direct send request on behalf of an instance of
@@ -367,14 +368,16 @@ export interface IQuasiHttpAltTransport {
      */
     processSendRequest2(remoteEndpoint: any,
         requestFunc: (env: Map<string, any>) => Promise<IQuasiHttpRequest | undefined>,
-        sendOptions?: QuasiHttpSendOptions): QuasiHttpSendResponse | undefined
+        sendOptions?: QuasiHttpSendOptions)
+        : Promise<QuasiHttpSendResponse | undefined>
     
     /**
      * Attempts to cancel an ongoing send request.
      * @param sendCancellationHandle the cancellation handle that was 
-     * returned by processSendRequest() for the task to be cancelled.
+     * returned by processSendRequest() or processSendRequest2()
+     * methods for the task to be cancelled.
      */
-    cancelSendRequest(sendCancellationHandle: any): void
+    cancelSendRequest(sendCancellationHandle: any): Promise<void>
 }
 
 /**

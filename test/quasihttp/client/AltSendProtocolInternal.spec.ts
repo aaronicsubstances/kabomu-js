@@ -24,21 +24,21 @@ import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHtt
 class HelperQuasiHttpAltTransport implements IQuasiHttpAltTransport {
     actualCancellationHandle: any
 
-    processSendRequest(
+    async processSendRequest(
             remoteEndpoint: any,
             request: IQuasiHttpRequest,
             sendOptions?: QuasiHttpSendOptions | undefined)
-            : QuasiHttpSendResponse {
+            : Promise<QuasiHttpSendResponse> {
         throw new Error("Method not implemented.")
     }
-    processSendRequest2(
+    async processSendRequest2(
             remoteEndpoint: any,
             requestFunc: (env: Map<string, any>) => Promise<IQuasiHttpRequest>,
             sendOptions?: QuasiHttpSendOptions | undefined)
-            : QuasiHttpSendResponse {
+            : Promise<QuasiHttpSendResponse> {
         throw new Error("Method not implemented.")
     }
-    cancelSendRequest(sendCancellationHandle: any): void {
+    async cancelSendRequest(sendCancellationHandle: any) {
         this.actualCancellationHandle = sendCancellationHandle
     }
 }

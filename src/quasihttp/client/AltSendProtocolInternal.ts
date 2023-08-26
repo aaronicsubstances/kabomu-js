@@ -38,9 +38,9 @@ export class AltSendProtocolInternal implements ISendProtocolInternal {
     }
 
     async cancel(): Promise<void> {
-        if (this.sendCancellationHandle) {
-            // check for case in which transportBypass was incorrectly set to null.
-            this.transportBypass?.cancelSendRequest(this.sendCancellationHandle);
+        // check for case in which transportBypass was incorrectly set to null.
+        if (this.sendCancellationHandle && this.transportBypass) {
+            await this.transportBypass.cancelSendRequest(this.sendCancellationHandle);
         }
     }
 
