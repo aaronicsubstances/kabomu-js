@@ -13,7 +13,7 @@ import {
     getEnvVarAsBoolean,
     transferBodyToTransport
 } from "../ProtocolUtilsInternal";
-import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
+import * as QuasiHttpUtils from "../QuasiHttpUtils"
 
 export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal {
     application: IQuasiHttpApplication

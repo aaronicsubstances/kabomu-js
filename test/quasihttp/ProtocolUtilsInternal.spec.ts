@@ -3,9 +3,6 @@ const { expect, assert } = require("chai").use(require("chai-bytes"))
 
 import * as ProtocolUtilsInternal from "../../src/quasihttp/ProtocolUtilsInternal"
 import { QuasiHttpRequestProcessingError } from "../../src/quasihttp/errors"
-import {
-    createDelayPromise,
-} from "../shared/common/ComparisonUtils"
 import { ByteBufferBody } from "../../src/quasihttp/entitybody/ByteBufferBody"
 import { StringBody } from "../../src/quasihttp/entitybody/StringBody"
 import * as ComparisonUtils from "../shared/common/ComparisonUtils"
@@ -15,6 +12,7 @@ import * as IOUtils from "../../src/common/IOUtils"
 import { Readable, Writable } from "stream";
 import { LambdaBasedQuasiHttpBody } from "../../src/quasihttp/entitybody/LambdaBasedQuasiHttpBody";
 import { getBodyReader } from "../../src/quasihttp/entitybody/EntityBodyUtils";
+import { createDelayPromise } from "../../src/common/MiscUtilsInternal";
 
 describe("ProtocolUtilsInternal", function() {
     describe("#determineEffectiveNonZeroIntegerOption", function() {

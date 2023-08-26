@@ -1,7 +1,7 @@
 import { Readable, Writable } from "stream";
 import { IQuasiHttpTransport } from "../../../src/quasihttp/types";
-import { createPendingPromise } from "../../../src/quasihttp/ProtocolUtilsInternal";
 import * as IOUtils from "../../../src/common/IOUtils"
+import { createYieldPromise } from "../../../src/common/MiscUtilsInternal";
 
 export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
     private _expectedConnection: any;
@@ -26,11 +26,7 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
         const that = this
         const writeAsync = async function(chunk: any, cb: any) {
             try {
-                const yieldPromise = createPendingPromise<void>()
-                setImmediate(() => {
-                    yieldPromise.resolve()
-                })
-                await yieldPromise.promise
+                await createYieldPromise()
                 await IOUtils.writeBytes(that._backingWriter, chunk)
                 cb()
             }
@@ -53,11 +49,7 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
         }
         const that = this
         return Readable.from((async function*() {
-            const yieldPromise = createPendingPromise<void>()
-            setImmediate(() => {
-                yieldPromise.resolve()
-            })
-            await yieldPromise.promise
+            await createYieldPromise()
             for await (const chunk of that._backingReader) {
                 yield chunk
             }
@@ -68,10 +60,6 @@ export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
             throw new Error("unexpected connection")
         }
         this.releaseCallCount++
-        const yieldPromise = createPendingPromise<void>()
-        setImmediate(() => {
-            yieldPromise.resolve()
-        })
-        await yieldPromise.promise
+        await createYieldPromise()
     }
 }

@@ -489,9 +489,3 @@ export interface ICancellableTimeoutPromiseInternal {
     isCancellationRequested(): boolean
     cancel(): void
 }
-
-export interface IPendingPromiseInternal<T> {
-    promise: Promise<T>
-    resolve: (r: T) => void
-    reject: (r: Error) => void
-}

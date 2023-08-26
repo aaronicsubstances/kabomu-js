@@ -3,7 +3,6 @@ import { assert } from "chai"
 import { SendTransferInternal } from "../../../src/quasihttp/client/SendTransferInternal"
 import { DefaultQuasiHttpRequest } from "../../../src/quasihttp/DefaultQuasiHttpRequest"
 import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHttpResponse"
-import { createPendingPromise } from "../../../src/quasihttp/ProtocolUtilsInternal"
 import {
     ICancellableTimeoutPromiseInternal,
     IQuasiHttpRequest,
@@ -12,6 +11,7 @@ import {
     ProtocolSendResultInternal
 } from "../../../src/quasihttp/types"
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
+import { createPendingPromise } from "../../../src/common/MiscUtilsInternal"
 
 class HelperSendProtocol implements ISendProtocolInternal {
     cancelled = false

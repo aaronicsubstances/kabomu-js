@@ -5,7 +5,6 @@ import { Readable, Writable } from "stream"
 import * as IOUtils from "../../src/common/IOUtils"
 import * as ByteUtils from "../../src/common/ByteUtils"
 import { createRandomizedReadSizeBufferReader } from "../shared/common/RandomizedReadSizeBufferReader";
-import { createPendingPromise } from "../../src/quasihttp/ProtocolUtilsInternal";
 
 describe("IOUtils", function() {
     describe("#readBytes", function() {

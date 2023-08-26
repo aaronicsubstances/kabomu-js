@@ -11,7 +11,7 @@ import {
     ISendProtocolInternal,
     ProtocolSendResultInternal
 } from "../types";
-import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
+import * as QuasiHttpUtils from "../QuasiHttpUtils"
 
 export class AltSendProtocolInternal implements ISendProtocolInternal {
     sendCancellationHandle?: any

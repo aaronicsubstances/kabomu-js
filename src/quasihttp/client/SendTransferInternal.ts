@@ -1,6 +1,6 @@
+import { IPendingPromiseInternal } from "../../common/types";
 import {
     ICancellableTimeoutPromiseInternal,
-    IPendingPromiseInternal,
     IQuasiHttpRequest,
     ISendProtocolInternal,
     ProtocolSendResultInternal

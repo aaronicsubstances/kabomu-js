@@ -3,7 +3,7 @@ import {
     IQuasiHttpRequest,
     IQuasiHttpResponse,
     IReceiveProtocolInternal
-} from "../../../src/quasihttp/types"
+} from "../types"
 import {
     ExpectationViolationError,
     MissingDependencyError

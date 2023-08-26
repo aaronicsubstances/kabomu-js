@@ -6,7 +6,7 @@ import {
 } from "stream";
 
 import { CustomIOError } from "./errors";
-import { createPendingPromise } from "../quasihttp/ProtocolUtilsInternal";
+import { createPendingPromise } from "./MiscUtilsInternal";
 
 /**
  * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.

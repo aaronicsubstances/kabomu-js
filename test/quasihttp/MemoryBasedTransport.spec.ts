@@ -1,11 +1,11 @@
 import { assert } from "chai"
-import { getRndInteger } from "../shared/common/ComparisonUtils"
 import { appLogger } from "../shared/common/LogManager"
 import { MemoryBasedClientTransport } from "../shared/quasihttp/MemoryBasedClientTransport"
 import { MemoryBasedServerTransport } from "../shared/quasihttp/MemoryBasedServerTransport"
 import { IQuasiHttpTransport } from "../../src/quasihttp/types"
 import * as IOUtils from "../../src/common/IOUtils"
 import * as ByteUtils from "../../src/common/ByteUtils"
+import { getRndInteger } from "../../src/common/MiscUtilsInternal"
 
 const connectionHashCodes = new Array<any>()
 
@@ -65,8 +65,6 @@ describe("MemoryBasedTransport", function() {
 
 const logger = appLogger.child({label: "MemoryBasedTransport.spec"})
 
-const MAX_SIGNED_INT_32_VALUE = 2_147_483_647
-
 interface TestMessage {
     input: number,
     output?: boolean,
@@ -112,10 +110,9 @@ async function performProcessing(transport: IQuasiHttpTransport,
             }
         }
         if (ask) {
-            localPriority = getRndInteger(0,
-                MAX_SIGNED_INT_32_VALUE)
+            localPriority = getRndInteger()
             const outgoingQuestion: TestMessage = {
-                input: getRndInteger(0, MAX_SIGNED_INT_32_VALUE),
+                input: getRndInteger(),
                 priority: localPriority,
                 cannotAnswerQuestions: numOfQuestionsAnswered >= maxQuestionsToAnswer
             }
@@ -137,7 +134,7 @@ async function performProcessing(transport: IQuasiHttpTransport,
             peerCannotAnswerQuestions = incomingQuestion.cannotAnswerQuestions
             // answer question
             ++numOfQuestionsAnswered
-            localPriority = getRndInteger(0, MAX_SIGNED_INT_32_VALUE)
+            localPriority = getRndInteger()
             const outgoingAnswer: TestMessage = {
                 input: incomingQuestion.input,
                 output: incomingQuestion.input % 2 == localCalculationResult,

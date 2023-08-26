@@ -1,4 +1,3 @@
-import { createPendingPromise } from "../ProtocolUtilsInternal"
 import { QuasiHttpRequestProcessingError } from "../errors"
 import {
     IQuasiHttpAltTransport,
@@ -15,6 +14,7 @@ import * as QuasiHttpUtils from "../QuasiHttpUtils"
 import { AltSendProtocolInternal } from "./AltSendProtocolInternal"
 import { MissingDependencyError } from "../../common/errors"
 import { DefaultSendProtocolInternal } from "./DefaultSendProtocolInternal"
+import { createPendingPromise } from "../../common/MiscUtilsInternal"
 
 /**
  * The standard implementation of the client side of the quasi http protocol

@@ -18,14 +18,12 @@ import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHtt
 import { ChunkDecodingError, ChunkEncodingError, QuasiHttpRequestProcessingError } from "../../../src/quasihttp/errors";
 import { DemoQuasiHttpTransport } from "../../shared/quasihttp/DemoQuasiHttpTransport";
 import { LambdaBasedQuasiHttpBody } from "../../../src/quasihttp/entitybody/LambdaBasedQuasiHttpBody";
-import { compareLeadChunks, compareResponses, createDelayPromise } from "../../shared/common/ComparisonUtils"
+import { compareLeadChunks, compareResponses } from "../../shared/common/ComparisonUtils"
 import { createChunkDecodingCustomReader } from "../../../src/quasihttp/chunkedtransfer/ChunkDecodingCustomReader";
 import { stringToBytes } from "../../../src/common/ByteUtils";
 import { ByteBufferBody } from "../../../src/quasihttp/entitybody/ByteBufferBody";
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody";
-import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
-import { getBodyReader } from "../../../src/quasihttp/entitybody/EntityBodyUtils";
-import { createPendingPromise } from "../../../src/quasihttp/ProtocolUtilsInternal";
+import { createPendingPromise } from "../../../src/common/MiscUtilsInternal";
 
 function setUpReceivingOfRequestToBeWritten(
         request: IQuasiHttpRequest,

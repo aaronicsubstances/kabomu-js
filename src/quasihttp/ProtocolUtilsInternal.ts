@@ -1,9 +1,9 @@
 import { Readable, Writable } from "stream";
 
 import { QuasiHttpRequestProcessingError } from "./errors";
-import { ICancellableTimeoutPromiseInternal, IPendingPromiseInternal, IQuasiHttpBody } from "./types";
+import { ICancellableTimeoutPromiseInternal, IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
-import { whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
+import { createPendingPromise, whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
 import { createContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
 import { createChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
@@ -219,14 +219,4 @@ export function createCancellableTimeoutPromise(
         }
     }
     return cancellationHandle
-}
-
-export function createPendingPromise<T>() {
-    const pendingPromise = {
-    } as IPendingPromiseInternal<T>
-    pendingPromise.promise = new Promise<T>((resolve, reject) => {
-        pendingPromise.resolve = resolve
-        pendingPromise.reject = reject
-    })
-    return pendingPromise;
 }

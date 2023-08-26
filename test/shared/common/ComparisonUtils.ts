@@ -3,23 +3,6 @@ import * as IOUtils from "../../../src/common/IOUtils"
 import { IQuasiHttpBody, IQuasiHttpRequest, IQuasiHttpResponse, LeadChunk } from "../../../src/quasihttp/types"
 import { getBodyReader } from "../../../src/quasihttp/entitybody/EntityBodyUtils";
 
-/**
- * This JavaScript function always returns a random number between min (included) and max (excluded).
- * (copied from https://www.w3schools.com/js/js_random.asp).
- * @param min 
- * @param max 
- * @returns 
- */
-export function getRndInteger(min: number, max: number) {
-    return Math.floor(Math.random() * (max - min) ) + min;
-}
-
-export function createDelayPromise(millis: number) {
-    return new Promise<void>((resolve) => {
-        setTimeout(resolve, millis)
-    })
-}
-
 export function compareLeadChunks(
         actual: LeadChunk | undefined,
         expected: LeadChunk | undefined) {

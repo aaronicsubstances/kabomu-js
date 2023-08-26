@@ -10,8 +10,6 @@ import {
 import { createRandomizedReadSizeBufferReader } from "../shared/common/RandomizedReadSizeBufferReader"
 import {
     createDelayPromise,
-} from "../shared/common/ComparisonUtils"
-import {
     whenAnyPromiseSettles
 } from "../../src/common/MiscUtilsInternal"
 
