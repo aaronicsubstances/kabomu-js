@@ -1,5 +1,5 @@
 const net = require("net");
-const IOUtils = require("kabomu-js/dist/common/IOUtils")
+const { IOUtils } = require("kabomu-js/dist/common")
 const {
     createDelayPromise,
     createPendingPromise

@@ -1,12 +1,14 @@
-const fs = require('node:fs/promises')
-const { globIterate } = require('glob')
-const IOUtils = require("kabomu-js/dist/common/IOUtils")
-const { bytesToString } = require("kabomu-js/dist/common/ByteUtils")
-const { DefaultQuasiHttpRequest } = require("kabomu-js/dist/quasihttp/DefaultQuasiHttpRequest")
-const { LambdaBasedQuasiHttpBody } = require("kabomu-js/dist/quasihttp/entitybody/LambdaBasedQuasiHttpBody")
-const { getBodyReader } = require("kabomu-js/dist/quasihttp/entitybody/EntityBodyUtils")
-const QuasiHttpUtils = require("kabomu-js/dist/quasihttp/QuasiHttpUtils")
+const fs = require('node:fs')
 const util = require("node:util")
+const { globIterate } = require('glob')
+const { IOUtils } = require("kabomu-js/dist/common")
+const { bytesToString } = require("kabomu-js/dist/common/ByteUtils")
+const {
+    DefaultQuasiHttpRequest,
+    LambdaBasedQuasiHttpBody,
+    getBodyReader,
+    QuasiHttpUtils
+} = require("kabomu-js/dist/quasihttp")
 
 async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
     let count = 0
@@ -40,11 +42,15 @@ async function transferFile(instance, serverEndpoint, f) {
     request.headers = new Map([
         ["f", f.fullpath()]
     ])
-    const fd = await fs.open(f.fullpath())
+    const fd = await fs.promises.open(f.fullpath())
     const fileStream = fd.createReadStream()
     const fLen = Math.random() < 0.5 ? -1 : f.size
-    request.body = new LambdaBasedQuasiHttpBody(() => fileStream)
-    request.body.ContentLength = fLen
+    request.body = new LambdaBasedQuasiHttpBody(
+        () => fileStream)
+    request.body.contentLength = fLen
+    request.body.releaseFunc = async () => {
+        fileStream.close()
+    }
     let res
     try {
         res = await instance.send(serverEndpoint, request)

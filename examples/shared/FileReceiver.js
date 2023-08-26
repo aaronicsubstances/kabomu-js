@@ -1,9 +1,11 @@
 const fs = require('fs')
 const path = require('path')
-const IOUtils = require("kabomu-js/dist/common/IOUtils")
-const { DefaultQuasiHttpResponse } = require("kabomu-js/dist/quasihttp/DefaultQuasiHttpResponse")
-const { getBodyReader } = require("kabomu-js/dist/quasihttp/entitybody/EntityBodyUtils")
-const QuasiHttpUtils = require("kabomu-js/dist/quasihttp/QuasiHttpUtils")
+const { IOUtils } = require("kabomu-js/dist/common")
+const {
+    DefaultQuasiHttpResponse,
+    getBodyReader,
+    QuasiHttpUtils
+} = require("kabomu-js/dist/quasihttp")
 
 exports.create = function(remoteEndpoint, downloadDirPath) {
     return {
@@ -36,14 +38,13 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
         transferError = e
     }
 
-    const suffix = !transferError ? "successfully" : "with error:"
-    console.info(`File ${fileName} received ${suffix}`, transferError || '')
-
     const response = new DefaultQuasiHttpResponse()
     if (!transferError) {
+        console.info(`File ${fileName} received successfully`)
         response.statusCode = QuasiHttpUtils.STATUS_CODE_OK
     }
     else {
+        console.info(`File ${fileName} received with error:`, transferError)
         response.statusCode = QuasiHttpUtils.STATUS_CODE_SERVER_ERROR
         response.httpStatusMessage = transferError.message
     }

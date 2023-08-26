@@ -16,7 +16,7 @@ import { AltReceiveProtocolInternal } from "./AltReceiveProtocolInternal";
  * The standard implementation of the server side of the quasi http protocol
  * defined by the Kabomu library.
  * 
- * This clas provides the server facing side of networking for end users.
+ * This class provides the server facing side of networking for end users.
  * It is the complement to the StandardQuasiHttpClient class for providing
  * HTTP semantics for web application frameworks whiles enabling underlying
  * transport options beyond TCP.
@@ -67,7 +67,7 @@ export class StandardQuasiHttpServer {
      */
     async acceptConnection(
             connectionAllocationResponse: ConnectionAllocationResponse) {
-        if (!connectionAllocationResponse) {
+        if (!connectionAllocationResponse?.connection) {
             throw new Error("connectionAllocationResponse argument is null")
         }
         const transfer = new ReceiveTransferInternal(null as any)
