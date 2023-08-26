@@ -9,6 +9,7 @@
   "author": "Aaron Baffour-Awuah",
   "license": "MIT",
   "dependencies": {
-    "glob": "^10.3.3"
+    "glob": "^10.3.3",
+    "kabomu-js": "^1.0.0"
   }
 }
