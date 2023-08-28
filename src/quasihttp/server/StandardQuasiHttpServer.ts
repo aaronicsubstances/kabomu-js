@@ -71,23 +71,8 @@ export class StandardQuasiHttpServer {
             throw new Error("connectionAllocationResponse argument is null")
         }
         const transfer = new ReceiveTransferInternal(null as any)
-        try {
-            await this._processAcceptConnection(transfer,
-                connectionAllocationResponse)
-        }
-        catch (e) {
-            await transfer.abort(undefined)
-            if (e instanceof QuasiHttpRequestProcessingError) {
-                throw e;
-            }
-            else {
-                const abortError = new QuasiHttpRequestProcessingError(
-                    "encountered error during receive request processing",
-                    QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
-                    { cause: e })
-                throw abortError;
-            }
-        }
+        await this._processAcceptConnection(transfer,
+            connectionAllocationResponse)
     }
 
     private async _processAcceptConnection(
@@ -115,9 +100,23 @@ export class StandardQuasiHttpServer {
             connection: connectionResponse.connection,
             requestEnvironment: connectionResponse.environment
         })
-        const workPromise = transfer.startProtocol()
-        await ProtocolUtilsInternal.completeRequestProcessing(
-            workPromise, transfer.timeoutId?.promise, undefined)
+
+        try {
+            const workPromise = transfer.startProtocol()
+            await ProtocolUtilsInternal.completeRequestProcessing(
+                workPromise, transfer.timeoutId?.promise, undefined)
+        }
+        catch (e) {
+            await transfer.abort(undefined)
+            if (e instanceof QuasiHttpRequestProcessingError) {
+                throw e;
+            }
+            const abortError = new QuasiHttpRequestProcessingError(
+                "encountered error during receive request processing",
+                QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+                { cause: e })
+            throw abortError;
+        }
     }
 
     /**
@@ -142,31 +141,15 @@ export class StandardQuasiHttpServer {
             throw new Error("request argument is null")
         }
         const transfer = new ReceiveTransferInternal(null as any)
-        transfer.request = request
-        let res: IQuasiHttpResponse | undefined
-        try {
-            res = await this._processAcceptRequest(transfer, options)
-        }
-        catch (e) {
-            await transfer.abort(res)
-            if (e instanceof QuasiHttpRequestProcessingError) {
-                throw e;
-            }
-            else {
-                const abortError = new QuasiHttpRequestProcessingError(
-                    "encountered error during receive request processing",
-                    QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
-                    { cause: e })
-                throw abortError
-            }
-        }
-        return res!;
+        return await this._processAcceptRequest(
+            request, options, transfer)
     }
 
     private async _processAcceptRequest(
-            transfer: ReceiveTransferInternal,
-            options: QuasiHttpProcessingOptions | undefined)
-            : Promise<IQuasiHttpResponse | undefined> {
+            request: IQuasiHttpRequest,
+            options: QuasiHttpProcessingOptions | undefined,
+            transfer: ReceiveTransferInternal)
+            : Promise<IQuasiHttpResponse> {
         const timeoutMillis =
             ProtocolUtilsInternal.determineEffectiveNonZeroIntegerOption(
                 options?.timeoutMillis,
@@ -178,9 +161,24 @@ export class StandardQuasiHttpServer {
         
         transfer.protocol = new AltReceiveProtocolInternal(
             this.application as any,
-            transfer.request as any)
-        const workPromise = transfer.startProtocol();
-        return await ProtocolUtilsInternal.completeRequestProcessing(
-            workPromise, transfer.timeoutId?.promise, undefined);
+            request)
+
+        try {
+            const workPromise = transfer.startProtocol();
+            const res = await ProtocolUtilsInternal.completeRequestProcessing(
+                workPromise, transfer.timeoutId?.promise, undefined);
+            return res!
+        }
+        catch (e) {
+            await transfer.abort(undefined)
+            if (e instanceof QuasiHttpRequestProcessingError) {
+                throw e;
+            }
+            const abortError = new QuasiHttpRequestProcessingError(
+                "encountered error during receive request processing",
+                QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+                { cause: e })
+            throw abortError
+        }
     }
 }

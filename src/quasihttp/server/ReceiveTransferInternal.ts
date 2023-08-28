@@ -1,6 +1,5 @@
 import {
     ICancellableTimeoutPromiseInternal,
-    IQuasiHttpRequest,
     IQuasiHttpResponse,
     IReceiveProtocolInternal
 } from "../types";
@@ -9,7 +8,6 @@ export class ReceiveTransferInternal {
     private _abortCalled = false
     protocol: IReceiveProtocolInternal
     timeoutId?: ICancellableTimeoutPromiseInternal
-    request?: IQuasiHttpRequest
 
     constructor(protocol: IReceiveProtocolInternal) {
         this.protocol = protocol
@@ -42,12 +40,6 @@ export class ReceiveTransferInternal {
                 await this.protocol.cancel()
             }
             catch { } // ignore
-
-            // dispose request received for direct send to application
-            try {
-                await this.request?.release();
-            }
-            catch { }
         }
         else {
             // dispose off response

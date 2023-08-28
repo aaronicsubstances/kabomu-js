@@ -109,8 +109,7 @@ export class StandardQuasiHttpClient {
             throw new Error("request argument is null")
         }
         const transfer = new SendTransferInternal(null as any)
-        transfer.request = request
-        return await this._sendInternal(remoteEndpoint, undefined,
+        return await this._sendInternal(remoteEndpoint, request, undefined,
             options, transfer)
     }
 
@@ -139,7 +138,7 @@ export class StandardQuasiHttpClient {
 
         const transfer = new SendTransferInternal(null as any)
         transfer.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
-        const sendPromise = this._sendInternal(remoteEndpoint,
+        const sendPromise = this._sendInternal(remoteEndpoint, undefined,
             requestFunc, options, transfer)
         const result: QuasiHttpSendResponse = {
             responsePromise: sendPromise,
@@ -150,36 +149,31 @@ export class StandardQuasiHttpClient {
 
     private async _sendInternal(
             remoteEndpoint: any,
+            request: IQuasiHttpRequest | undefined,
             requestFunc: any,
             options: QuasiHttpSendOptions | undefined,
             transfer: SendTransferInternal)
             : Promise<IQuasiHttpResponse | undefined> {
-        let result: ProtocolSendResultInternal | undefined
-        let response: IQuasiHttpResponse | undefined
         try {
             options = this._prepareSend(options, transfer);
-            var workTask = this._processSend(remoteEndpoint,
-                requestFunc, options, transfer);
-            result = await ProtocolUtilsInternal.completeRequestProcessing(
-                workTask,
+            const workPromise = this._processSend(remoteEndpoint,
+                request, requestFunc, options, transfer);
+            const result = await ProtocolUtilsInternal.completeRequestProcessing(
+                workPromise,
                 transfer.timeoutId?.promise,
                 transfer.cancellationTcs?.promise);
-            response = result?.response
+            return result?.response
         }
         catch (e) {
-            await transfer.abort(e, result)
             if (e instanceof QuasiHttpRequestProcessingError) {
                 throw e;
             }
-            else {
-                const abortError = new QuasiHttpRequestProcessingError(
-                    "encountered error during send request processing",
-                    QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
-                    { cause: e });
-                throw abortError;
-            }
+            const abortError = new QuasiHttpRequestProcessingError(
+                "encountered error during send request processing",
+                QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+                { cause: e });
+            throw abortError;
         }
-        return response
     }
 
     private _prepareSend(
@@ -245,6 +239,7 @@ export class StandardQuasiHttpClient {
     }
 
     private async _processSend(remoteEndpoint: any,
+            request: IQuasiHttpRequest | undefined,
             requestFunc: any,
             mergedSendOptions: QuasiHttpSendOptions,
             transfer: SendTransferInternal) {
@@ -255,18 +250,37 @@ export class StandardQuasiHttpClient {
 
         if (transportBypass) {
             await StandardQuasiHttpClient._initiateDirectSend(
-                remoteEndpoint, requestFunc,
+                remoteEndpoint, request, requestFunc,
                 mergedSendOptions, transfer, transportBypass);
         }
         else {
             await StandardQuasiHttpClient._allocateConnection(
-                remoteEndpoint, requestFunc,
+                remoteEndpoint, request, requestFunc,
                 mergedSendOptions, transfer, this.transport);
         }
-        return await transfer.startProtocol();
+
+        try {
+            const workPromise = transfer.startProtocol()
+            return await ProtocolUtilsInternal.completeRequestProcessing(
+                workPromise,
+                transfer.timeoutId?.promise,
+                transfer.cancellationTcs?.promise);
+        }
+        catch (e) {
+            await transfer.abort(e, undefined)
+            if (e instanceof QuasiHttpRequestProcessingError) {
+                throw e;
+            }
+            const abortError = new QuasiHttpRequestProcessingError(
+                "encountered error during send request processing",
+                QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+                { cause: e });
+            throw abortError;
+        }
     }
 
     private static async _initiateDirectSend(remoteEndpoint: any,
+            request: IQuasiHttpRequest | undefined,    
             requestFunc: any,
             mergedSendOptions: QuasiHttpSendOptions,
             transfer: SendTransferInternal,
@@ -278,7 +292,7 @@ export class StandardQuasiHttpClient {
         }
         else {
             response = await transportBypass.processSendRequest(remoteEndpoint,
-                transfer.request, mergedSendOptions)
+                request, mergedSendOptions)
         }
         transfer.protocol = new AltSendProtocolInternal({
             transportBypass,
@@ -292,6 +306,7 @@ export class StandardQuasiHttpClient {
     
     private static async _allocateConnection(
             remoteEndpoint: any,
+            request: IQuasiHttpRequest | undefined,
             requestFunc: any,
             mergedSendOptions: QuasiHttpSendOptions,
             transfer: SendTransferInternal,
@@ -307,16 +322,15 @@ export class StandardQuasiHttpClient {
             throw new QuasiHttpRequestProcessingError("no connection");
         }
 
-        if (!transfer.request) {
-            const request = await requestFunc(connectionResponse.environment)
+        if (!request) {
+            request = await requestFunc(connectionResponse.environment)
             if (!request) {
                 throw new QuasiHttpRequestProcessingError("no request")
             }
-            transfer.request = request
         }
 
         transfer.protocol = new DefaultSendProtocolInternal({
-            request: transfer.request as any,
+            request,
             transport,
             connection,
             responseBufferingEnabled: mergedSendOptions.responseBufferingEnabled,

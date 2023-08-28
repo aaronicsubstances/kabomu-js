@@ -1,11 +1,9 @@
 import nativeAssert from "assert/strict"
 import { assert } from "chai"
 import { ReceiveTransferInternal } from "../../../src/quasihttp/server/ReceiveTransferInternal"
-import { DefaultQuasiHttpRequest } from "../../../src/quasihttp/DefaultQuasiHttpRequest"
 import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHttpResponse"
 import {
     ICancellableTimeoutPromiseInternal,
-    IQuasiHttpRequest,
     IQuasiHttpResponse,
     IReceiveProtocolInternal
 } from "../../../src/quasihttp/types"
@@ -87,15 +85,8 @@ describe("ReceiveTransferInternal", function() {
 
     describe("#abort", function() {
         it("should pass (1)", async function() {
-            let requestReleaseCallCount = 0;
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                },
-            }
             const protocol = new HelperReceiveProtocol({})
             const instance = new ReceiveTransferInternal(protocol)
-            instance.request = request
             let responseReleaseCallCount = 0
             const res: IQuasiHttpResponse = {
                 async release() {
@@ -107,7 +98,6 @@ describe("ReceiveTransferInternal", function() {
             await instance.abort(res)
 
             // assert
-            assert.equal(requestReleaseCallCount, 1)
             assert.equal(responseReleaseCallCount, 0)
             assert.isOk(protocol.cancelled)
         })
@@ -133,17 +123,9 @@ describe("ReceiveTransferInternal", function() {
         })
         it("should pass (4)", async function() {
             // arrange
-            let requestReleaseCallCount = 0
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                    throw new Error("should be ignored");
-                },
-            }
             const protocol = new HelperReceiveProtocol({})
             const instance = new ReceiveTransferInternal(
                 protocol)
-            instance.request = request
             let cancelled = false
             instance.timeoutId = {
                 isCancellationRequested() {
@@ -167,21 +149,13 @@ describe("ReceiveTransferInternal", function() {
             // assert
             assert.isOk(protocol.cancelled)
             assert.isOk(instance.timeoutId?.isCancellationRequested())
-            assert.equal(requestReleaseCallCount, 1)
             assert.equal(responseReleaseCallCount, 0)
         })
         it("should pass (5)", async function() {
             // arrange
-            let requestReleaseCallCount = 0
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                },
-            }
             const protocol = new HelperReceiveProtocol({})
             const instance = new ReceiveTransferInternal(
                 protocol)
-            instance.request = request
             let cancelled = false
             instance.timeoutId = {
                 isCancellationRequested() {
@@ -207,17 +181,14 @@ describe("ReceiveTransferInternal", function() {
             // assert
             assert.isNotOk(protocol.cancelled)
             assert.isNotOk(instance.timeoutId?.isCancellationRequested())
-            assert.equal(requestReleaseCallCount, 0)
             assert.equal(responseReleaseCallCount, 1)
         })
         it("should pass (6)", async function() {
             // arrange
-            const request = new DefaultQuasiHttpRequest()
             const protocol = new HelperReceiveProtocol({
                 expectedCancelError: new Error("IOE")
             })
             const instance = new ReceiveTransferInternal(protocol)
-            instance.request = request
             let cancelled = false
             instance.timeoutId = {
                 isCancellationRequested() {

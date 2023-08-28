@@ -1,7 +1,6 @@
 import { IBlankChequePromise } from "../../common/types";
 import {
     ICancellableTimeoutPromiseInternal,
-    IQuasiHttpRequest,
     ISendProtocolInternal,
     ProtocolSendResultInternal
 } from "../types";
@@ -11,7 +10,6 @@ export class SendTransferInternal {
     protocol: ISendProtocolInternal
     timeoutId?: ICancellableTimeoutPromiseInternal
     cancellationTcs?: IBlankChequePromise<ProtocolSendResultInternal | undefined>
-    request?: IQuasiHttpRequest
 
     constructor(protocol: ISendProtocolInternal) {
         this.protocol = protocol
@@ -55,12 +53,6 @@ export class SendTransferInternal {
                 }
                 catch { } // ignore
             }
-
-            // dispose request
-            try {
-                await this.request?.release();
-            }
-            catch { }
         }
         else {
             // dispose off response

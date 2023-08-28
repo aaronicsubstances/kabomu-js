@@ -1,11 +1,9 @@
 import nativeAssert from "assert/strict"
 import { assert } from "chai"
 import { SendTransferInternal } from "../../../src/quasihttp/client/SendTransferInternal"
-import { DefaultQuasiHttpRequest } from "../../../src/quasihttp/DefaultQuasiHttpRequest"
 import { DefaultQuasiHttpResponse } from "../../../src/quasihttp/DefaultQuasiHttpResponse"
 import {
     ICancellableTimeoutPromiseInternal,
-    IQuasiHttpRequest,
     IQuasiHttpResponse,
     ISendProtocolInternal,
     ProtocolSendResultInternal
@@ -118,15 +116,8 @@ describe("SendTransferInternal", function() {
     describe("#abort", function() {
         it("should pass (1)", async function() {
             // arrange
-            let requestReleaseCallCount = 0
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                },
-            }
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
-            instance.request = request
             const cancellationError = undefined
             let responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
@@ -143,7 +134,6 @@ describe("SendTransferInternal", function() {
             await instance.abort(cancellationError, res)
 
             // assert
-            assert.equal(requestReleaseCallCount, 1)
             assert.equal(responseReleaseCallCount, 0)
             assert.isOk(protocol.cancelled)
         })
@@ -175,15 +165,8 @@ describe("SendTransferInternal", function() {
         })
         it("should pass (4)", async function() {
             // arrange
-            let requestReleaseCallCount = 0
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                },
-            }
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
-            instance.request = request
             instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             const cancellationError = new Error("IOE")
             const res: ProtocolSendResultInternal = {}
@@ -193,7 +176,6 @@ describe("SendTransferInternal", function() {
 
             // assert
             assert.isOk(protocol.cancelled)
-            assert.equal(requestReleaseCallCount, 1)
             await nativeAssert.rejects(async () => {
                 await instance.cancellationTcs?.promise
             }, {
@@ -202,13 +184,6 @@ describe("SendTransferInternal", function() {
         })
         it("should pass (5)", async function() {
             // arrange
-            let requestReleaseCallCount = 0
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                    throw new Error("should be ignored");
-                },
-            }
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
             let cancelled = false
@@ -220,7 +195,6 @@ describe("SendTransferInternal", function() {
                     cancelled = true
                 },
             } as ICancellableTimeoutPromiseInternal
-            instance.request = request
             instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             const cancellationError = undefined
             var responseReleaseCallCount = 0;
@@ -240,20 +214,12 @@ describe("SendTransferInternal", function() {
             // assert
             assert.isNotOk(protocol.cancelled)
             assert.isOk(instance.timeoutId?.isCancellationRequested())
-            assert.equal(requestReleaseCallCount, 1)
             assert.equal(responseReleaseCallCount, 0)
             assert.isOk(instance.cancellationTcs)
             assert.isNotOk(await instance.cancellationTcs!.promise)
         })
         it("should pass (6)", async function() {
             // arrange
-            let requestReleaseCallCount = 0
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                    throw new Error("should be ignored");
-                },
-            }
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
             let cancelled = false
@@ -284,14 +250,11 @@ describe("SendTransferInternal", function() {
             // assert
             assert.isNotOk(protocol.cancelled)
             assert.isNotOk(instance.timeoutId?.isCancellationRequested())
-            assert.equal(requestReleaseCallCount, 0)
             assert.equal(responseReleaseCallCount, 1)
         })
         it("should pass (7)", async function() {
             // arrange
-            const request = new DefaultQuasiHttpRequest()
             const instance = new SendTransferInternal(null as any)
-            instance.request = request
             const cancellationError = undefined
             const res: ProtocolSendResultInternal = {
                 responseBufferingApplied: false,
@@ -306,9 +269,7 @@ describe("SendTransferInternal", function() {
         })
         it("should pass (8)", async function() {
             // arrange
-            const request = new DefaultQuasiHttpRequest()
             const instance = new SendTransferInternal(null as any)
-            instance.request = request
             let cancelled = false
             instance.timeoutId = {
                 isCancellationRequested() {
@@ -334,12 +295,6 @@ describe("SendTransferInternal", function() {
         })
         it("should pass (9)", async function() {
             // arrange
-            let requestReleaseCallCount = 0
-            const request: IQuasiHttpRequest = {
-                async release() {
-                    requestReleaseCallCount++
-                },
-            }
             const protocol  = new HelperSendProtocol({
                 expectedCancelError: new Error("IOE")
             })
@@ -353,7 +308,6 @@ describe("SendTransferInternal", function() {
                     cancelled = true
                 },
             } as ICancellableTimeoutPromiseInternal
-            instance.request = request
             instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             var responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
@@ -370,7 +324,6 @@ describe("SendTransferInternal", function() {
             await instance.abort(cancellationError, res)
 
             // assert
-            assert.equal(requestReleaseCallCount, 1)
             assert.isOk(instance.timeoutId?.isCancellationRequested())
             assert.isOk(protocol.cancelled)
             assert.equal(responseReleaseCallCount, 0)
