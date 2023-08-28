@@ -2,7 +2,7 @@ import { Writable } from "stream";
 
 import * as IOUtils from "../../common/IOUtils";
 import { CustomChunkedTransferCodec } from "./CustomChunkedTransferCodec";
-import { parseInt32 } from "../../common/ByteUtils";
+import { parseInt32 } from "../../common/MiscUtils";
 
 /**
  * Constructs an instance of the standard chunk encoder of byte streams in the Kabomu library. Receives a writer

@@ -1,4 +1,4 @@
-import { whenAnyPromiseSettles } from "./MiscUtilsInternal";
+import { whenAnyPromiseSettles } from "./MiscUtils";
 
 /**
  * Generic solution for wrapping function argument to NodeJS setInterval,

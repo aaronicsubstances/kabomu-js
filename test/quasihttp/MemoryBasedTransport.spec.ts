@@ -5,7 +5,7 @@ import { MemoryBasedServerTransport } from "../shared/quasihttp/MemoryBasedServe
 import { IQuasiHttpTransport } from "../../src/quasihttp/types"
 import * as IOUtils from "../../src/common/IOUtils"
 import * as ByteUtils from "../../src/common/ByteUtils"
-import { getRndInteger } from "../../src/common/MiscUtilsInternal"
+import { getRndInteger } from "../../src/common/MiscUtils"
 
 const connectionHashCodes = new Array<any>()
 

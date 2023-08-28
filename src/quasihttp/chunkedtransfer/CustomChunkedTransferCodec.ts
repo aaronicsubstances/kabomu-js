@@ -2,6 +2,7 @@ import { Readable, Writable } from "stream";
 import * as ByteUtils from "../../common/ByteUtils";
 import * as CsvUtils from "../../common/CsvUtils";
 import * as IOUtils from "../../common/IOUtils";
+import * as MiscUtils from "../../common/MiscUtils";
 import { ChunkDecodingError, ChunkEncodingError } from "../errors";
 import {
     LeadChunk,
@@ -104,7 +105,7 @@ export class CustomChunkedTransferCodec {
             maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
         }
         else {
-            maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
+            maxChunkSize = MiscUtils.parseInt32(maxChunkSize);
             if (maxChunkSize < CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT) {
                 maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
             }
@@ -160,7 +161,7 @@ export class CustomChunkedTransferCodec {
             maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
         }
         else {
-            maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
+            maxChunkSize = MiscUtils.parseInt32(maxChunkSize);
             if (maxChunkSize < CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT) {
                 maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
             }
@@ -224,7 +225,7 @@ export class CustomChunkedTransferCodec {
             maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
         }
         else {
-            maxChunkSize = ByteUtils.parseInt32(maxChunkSize);
+            maxChunkSize = MiscUtils.parseInt32(maxChunkSize);
             if (maxChunkSize <= 0 ||
                     maxChunkSize > CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT) {
                 maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE;
@@ -270,7 +271,7 @@ export class CustomChunkedTransferCodec {
      */
     static updateResponse(response: IQuasiHttpResponse,
             chunk: LeadChunk) {
-        response.statusCode = ByteUtils.parseInt32(
+        response.statusCode = MiscUtils.parseInt32(
             chunk.statusCode || 0);
         response.httpStatusMessage = chunk.httpStatusMessage;
         response.headers = chunk.headers;
@@ -300,7 +301,7 @@ export class CustomChunkedTransferCodec {
         const requestBody = request.body;
         if (requestBody)
         {
-            chunk.contentLength = ByteUtils.parseInt48(
+            chunk.contentLength = MiscUtils.parseInt48(
                 requestBody.contentLength || 0);
         }
         return chunk;
@@ -323,11 +324,11 @@ export class CustomChunkedTransferCodec {
             httpVersion: response.httpVersion,
             contentLength: 0
         };
-        chunk.statusCode = ByteUtils.parseInt32(
+        chunk.statusCode = MiscUtils.parseInt32(
             response.statusCode || 0);
         const responseBody = response.body;
         if (responseBody) {
-            chunk.contentLength = ByteUtils.parseInt48(
+            chunk.contentLength = MiscUtils.parseInt48(
                 responseBody.contentLength || 0);
         }
         return chunk;
@@ -456,13 +457,13 @@ export class CustomChunkedTransferCodec {
             instance.requestTarget = specialHeader[1];
         }
         try {
-            instance.statusCode = ByteUtils.parseInt32(specialHeader[2]);
+            instance.statusCode = MiscUtils.parseInt32(specialHeader[2]);
         }
         catch {
             throw new Error("invalid status code");
         }
         try {
-            instance.contentLength = ByteUtils.parseInt48(specialHeader[3]);
+            instance.contentLength = MiscUtils.parseInt48(specialHeader[3]);
         }
         catch {
             throw new Error("invalid content length");

@@ -11,7 +11,7 @@ import {
     ProtocolSendResultInternal
 } from "../../../src/quasihttp/types"
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
-import { createPendingPromise } from "../../../src/common/MiscUtilsInternal"
+import { createBlankChequePromise } from "../../../src/common/MiscUtils"
 
 class HelperSendProtocol implements ISendProtocolInternal {
     cancelled = false
@@ -184,7 +184,7 @@ describe("SendTransferInternal", function() {
             const protocol  = new HelperSendProtocol({})
             const instance = new SendTransferInternal(protocol)
             instance.request = request
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
+            instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             const cancellationError = new Error("IOE")
             const res: ProtocolSendResultInternal = {}
 
@@ -221,7 +221,7 @@ describe("SendTransferInternal", function() {
                 },
             } as ICancellableTimeoutPromiseInternal
             instance.request = request
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
+            instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             const cancellationError = undefined
             var responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
@@ -318,7 +318,7 @@ describe("SendTransferInternal", function() {
                     cancelled = true
                 },
             } as ICancellableTimeoutPromiseInternal
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
+            instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             const cancellationError = undefined
             const res: ProtocolSendResultInternal = {
                 responseBufferingApplied: true
@@ -354,7 +354,7 @@ describe("SendTransferInternal", function() {
                 },
             } as ICancellableTimeoutPromiseInternal
             instance.request = request
-            instance.cancellationTcs = createPendingPromise<ProtocolSendResultInternal | undefined>()
+            instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             var responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 response: {

@@ -1,7 +1,7 @@
 import { Readable } from "stream";
 
 import { CustomIOError } from "./errors";
-import * as ByteUtils from "./ByteUtils";
+import { parseInt48 } from "./MiscUtils";
 
 const generate = async function*(wrappedReader: Readable, expectedLength: number) {
     let bytesLeftToRead = expectedLength;
@@ -53,5 +53,5 @@ export function createContentLengthEnforcingCustomReader(
         throw new Error("wrappedReader argument is null");
     }
     return Readable.from(generate(wrappedReader, 
-        ByteUtils.parseInt48(expectedLength)));
+        parseInt48(expectedLength)));
 }

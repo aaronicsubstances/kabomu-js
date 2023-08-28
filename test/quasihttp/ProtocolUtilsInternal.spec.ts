@@ -12,7 +12,7 @@ import * as IOUtils from "../../src/common/IOUtils"
 import { Readable, Writable } from "stream";
 import { LambdaBasedQuasiHttpBody } from "../../src/quasihttp/entitybody/LambdaBasedQuasiHttpBody";
 import { getBodyReader } from "../../src/quasihttp/entitybody/EntityBodyUtils";
-import { createDelayPromise } from "../../src/common/MiscUtilsInternal";
+import { createDelayPromise } from "../../src/common/MiscUtils";
 
 describe("ProtocolUtilsInternal", function() {
     describe("#determineEffectiveNonZeroIntegerOption", function() {

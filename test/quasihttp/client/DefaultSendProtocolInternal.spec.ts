@@ -23,7 +23,7 @@ import { createChunkDecodingCustomReader } from "../../../src/quasihttp/chunkedt
 import { stringToBytes } from "../../../src/common/ByteUtils";
 import { ByteBufferBody } from "../../../src/quasihttp/entitybody/ByteBufferBody";
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody";
-import { createPendingPromise } from "../../../src/common/MiscUtilsInternal";
+import { createBlankChequePromise } from "../../../src/common/MiscUtils";
 
 function setUpReceivingOfRequestToBeWritten(
         request: IQuasiHttpRequest,
@@ -469,7 +469,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         const helpingReader = Readable.from((async function*(){
             // wait forever
-            await createPendingPromise<void>().promise
+            await createBlankChequePromise<void>().promise
         })())
 
         // prepare to receive request to be written
@@ -739,7 +739,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         let helpingReader = await serializeResponseToBeRead(
             response, expectedReqBodyBytes);
-        var tcs = createPendingPromise<void>()
+        var tcs = createBlankChequePromise<void>()
         const dependentReader = Readable.from((async function*(){
             await tcs.promise
         })())
@@ -853,7 +853,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         let helpingReader = await serializeResponseToBeRead(
             response, resBodyBytes);
-        var tcs = createPendingPromise<void>()
+        var tcs = createBlankChequePromise<void>()
         const dependentReader = Readable.from((async function*(){
             await tcs.promise
         })())
@@ -1080,7 +1080,7 @@ describe("DefaultSendProtocolInternal", function() {
                 expectedRequest.body.contentLength = -1
                 
                 // prepare response for reading.
-                var tcs = createPendingPromise<void>()
+                var tcs = createBlankChequePromise<void>()
                 const dependentReader = Readable.from((async function*(){
                     await tcs.promise
                 })())

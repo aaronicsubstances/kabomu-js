@@ -3,13 +3,16 @@ import { Readable, Writable } from "stream";
 import { QuasiHttpRequestProcessingError } from "./errors";
 import { ICancellableTimeoutPromiseInternal, IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
-import { createPendingPromise, whenAnyPromiseSettles } from "../common/MiscUtilsInternal";
+import {
+    createBlankChequePromise,
+    parseInt32,
+    whenAnyPromiseSettles
+} from "../common/MiscUtils";
 import { createChunkDecodingCustomReader } from "./chunkedtransfer/ChunkDecodingCustomReader";
 import { createContentLengthEnforcingCustomReader } from "../common/ContentLengthEnforcingCustomReader";
 import { createChunkEncodingCustomWriter } from "./chunkedtransfer/ChunkEncodingCustomWriter";
 import { ByteBufferBody } from "./entitybody/ByteBufferBody";
 import { LambdaBasedQuasiHttpBody } from "./entitybody/LambdaBasedQuasiHttpBody";
-import { parseInt32 } from "../common/ByteUtils";
 import { getBodyReader } from "./entitybody/EntityBodyUtils";
 
 export function determineEffectiveNonZeroIntegerOption(
@@ -199,22 +202,22 @@ export function createCancellableTimeoutPromise(
             },
         } as ICancellableTimeoutPromiseInternal
     }
-    const pendingPromise = createPendingPromise<void>()
+    const blankChequePromise = createBlankChequePromise<void>()
     const timeoutId = setTimeout(() => {
         const timeoutError = new QuasiHttpRequestProcessingError(
             timeoutMsg,
             QuasiHttpRequestProcessingError.REASON_CODE_TIMEOUT);
-        pendingPromise.reject(timeoutError);
+        blankChequePromise.reject(timeoutError);
     }, timeoutMillis);
     let cancelled = false;
     const cancellationHandle: ICancellableTimeoutPromiseInternal = {
-        promise: pendingPromise.promise,
+        promise: blankChequePromise.promise,
         isCancellationRequested() {
             return cancelled
         },
         cancel() {
             clearTimeout(timeoutId);
-            pendingPromise.resolve();
+            blankChequePromise.resolve();
             cancelled = true;
         }
     }

@@ -5,7 +5,7 @@ const {
     DefaultQuasiHttpResponse,
     getBodyReader,
     QuasiHttpUtils
-} = require("kabomu-js/quasihttp")
+} = require("kabomu-js")
 
 exports.create = function(remoteEndpoint, downloadDirPath) {
     return {

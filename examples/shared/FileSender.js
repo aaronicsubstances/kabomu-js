@@ -2,13 +2,12 @@ const fs = require('node:fs')
 const util = require("node:util")
 const { globIterate } = require('glob')
 const { IOUtils } = require("kabomu-js/common")
-const { bytesToString } = require("kabomu-js/common/ByteUtils")
 const {
     DefaultQuasiHttpRequest,
     LambdaBasedQuasiHttpBody,
     getBodyReader,
     QuasiHttpUtils
-} = require("kabomu-js/quasihttp")
+} = require("kabomu-js")
 
 async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
     let count = 0
@@ -71,7 +70,7 @@ async function transferFile(instance, serverEndpoint, f) {
         if (res.body) {
             try {
                 const responseMsgBytes = await IOUtils.readAllBytes(getBodyReader(res.body))
-                responseMsg = bytesToString(responseMsgBytes)
+                responseMsg = responseMsgBytes.toString()
             }
             catch {
                 // ignore.

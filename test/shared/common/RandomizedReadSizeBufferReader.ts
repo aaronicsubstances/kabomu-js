@@ -1,5 +1,5 @@
 import { Readable } from "stream";
-import { createYieldPromise, getRndInteger } from "../../../src/common/MiscUtilsInternal";
+import { createYieldPromise, getRndInteger } from "../../../src/common/MiscUtils";
 
 export function createRandomizedReadSizeBufferReader(b: Buffer) {
     return Readable.from((async function*() {

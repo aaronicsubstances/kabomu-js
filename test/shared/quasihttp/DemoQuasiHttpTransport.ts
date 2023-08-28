@@ -1,7 +1,7 @@
 import { Readable, Writable } from "stream";
 import { IQuasiHttpTransport } from "../../../src/quasihttp/types";
 import * as IOUtils from "../../../src/common/IOUtils"
-import { createYieldPromise } from "../../../src/common/MiscUtilsInternal";
+import { createYieldPromise } from "../../../src/common/MiscUtils";
 
 export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
     private _expectedConnection: any;

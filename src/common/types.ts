@@ -28,7 +28,7 @@ export interface ISelfWritable {
     writeBytesTo(writer: Writable): Promise<void>
 }
 
-export interface IPendingPromiseInternal<T> {
+export interface IBlankChequePromise<T> {
     promise: Promise<T>
     resolve: (r: T) => void
     reject: (r: Error) => void

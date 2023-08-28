@@ -6,7 +6,7 @@ import {
 } from "stream";
 
 import { CustomIOError } from "./errors";
-import { createPendingPromise } from "./MiscUtilsInternal";
+import { createBlankChequePromise } from "./MiscUtils";
 
 /**
  * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
@@ -40,7 +40,7 @@ export async function writeBytes(writer: Writable, data: Buffer) {
     const finishedOptions: FinishedOptions = {
         signal: controller.signal
     };
-    const pendingWriteCompletion = createPendingPromise<void>()
+    const pendingWriteCompletion = createBlankChequePromise<void>()
     // attach an error handler, without which
     // an unhandled exception may occur.
     const ev = (e: any) => {
@@ -88,7 +88,7 @@ async function readSomeBytes(reader: Readable,
     const finishedOptions: FinishedOptions = {
         signal: controller.signal
     };
-    const pendingReadCompletion = createPendingPromise<number>()
+    const pendingReadCompletion = createBlankChequePromise<number>()
     // attach an error handler, without which
     // an unhandled exception may occur.
     const ev = (e: any) => {
@@ -290,7 +290,7 @@ export async function copyBytes(reader: Readable, writer: Writable) {
  * @param writer writable stream
  */
 export async function endWrites(writer: Writable) {
-    const pending = createPendingPromise<void>()
+    const pending = createBlankChequePromise<void>()
     finished(writer, err => {
         if (err) {
             pending.reject(err)

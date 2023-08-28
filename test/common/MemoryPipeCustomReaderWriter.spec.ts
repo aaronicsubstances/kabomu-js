@@ -11,7 +11,7 @@ import { createRandomizedReadSizeBufferReader } from "../shared/common/Randomize
 import {
     createDelayPromise,
     whenAnyPromiseSettles
-} from "../../src/common/MiscUtilsInternal"
+} from "../../src/common/MiscUtils"
 
 describe("MemoryPipeCustomReaderWriter", function() {
     const testData = [

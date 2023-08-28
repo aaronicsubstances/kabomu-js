@@ -2,8 +2,8 @@
   "name": "kabomu-js",
   "version": "1.0.0",
   "description": "Kabomu library for NodeJS",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/quasihttp/index.js",
+  "types": "dist/quasihttp/.d.ts",
   "files": [
     "dist"
   ],
@@ -11,7 +11,7 @@
     "generate-types": "tsc --declaration --emitDeclarationOnly",
     "compile": "tsc --noEmit && babel src --out-dir dist --extensions .ts",
     "test": "mocha",
-    "build": "npm run generate-types && npm test && npm run compile"
+    "build": "rimraf dist && npm run generate-types && npm test && npm run compile"
   },
   "repository": {
     "type": "git",
@@ -41,6 +41,7 @@
     "chai": "^4.3.7",
     "chai-bytes": "^0.1.2",
     "mocha": "^10.2.0",
+    "rimraf": "^5.0.1",
     "typescript": "^5.1.6",
     "winston": "^3.10.0",
     "winston-daily-rotate-file": "^4.7.1"

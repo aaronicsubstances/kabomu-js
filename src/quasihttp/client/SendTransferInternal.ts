@@ -1,4 +1,4 @@
-import { IPendingPromiseInternal } from "../../common/types";
+import { IBlankChequePromise } from "../../common/types";
 import {
     ICancellableTimeoutPromiseInternal,
     IQuasiHttpRequest,
@@ -10,7 +10,7 @@ export class SendTransferInternal {
     private _abortCalled = false
     protocol: ISendProtocolInternal
     timeoutId?: ICancellableTimeoutPromiseInternal
-    cancellationTcs?: IPendingPromiseInternal<ProtocolSendResultInternal | undefined>
+    cancellationTcs?: IBlankChequePromise<ProtocolSendResultInternal | undefined>
     request?: IQuasiHttpRequest
 
     constructor(protocol: ISendProtocolInternal) {

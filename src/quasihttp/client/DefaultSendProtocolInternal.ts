@@ -1,4 +1,4 @@
-import { whenAnyPromiseSettles } from "../../common/MiscUtilsInternal";
+import { whenAnyPromiseSettles } from "../../common/MiscUtils";
 import {
     ExpectationViolationError,
     MissingDependencyError
