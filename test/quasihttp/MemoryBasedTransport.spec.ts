@@ -9,7 +9,7 @@ import { getRndInteger } from "../../src/common/MiscUtils"
 
 const connectionHashCodes = new Array<any>()
 
-describe("MemoryBasedTransport", function() {    
+describe("MemoryBasedTransport", function() {
     it("test operations", async function() {
         let latestConnectionAtAccra: any
         let latestConnectionAtKumasi: any
@@ -147,6 +147,7 @@ async function performProcessing(transport: IQuasiHttpTransport,
             await writeMsg(transportWriter, outgoingAnswer)
         }
     }
+    await transport.releaseConnection(connection);
     logMsg(describeRelease(connection, isClient, isAtAccra));
 }
 

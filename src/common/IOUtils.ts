@@ -255,8 +255,8 @@ export async function copyBytes(reader: Readable, writer: Writable) {
     // used in the library.
     // also, was not able to avoid errors with troublesome
     // writers even if reader is empty
-    /*const p = createPendingPromise<void>()
-    finished(reader, e => {
+    /*const p = createBlankChequePromise<void>()
+    finished(reader, { readable: false, writable: false, }, e => {
         if (e) {
             p.reject(e)
         }
@@ -291,7 +291,14 @@ export async function copyBytes(reader: Readable, writer: Writable) {
  */
 export async function endWrites(writer: Writable) {
     const pending = createBlankChequePromise<void>()
-    finished(writer, err => {
+    // passing these options fixed bug with
+    // MemoryBasedTransportConnectionInternal's
+    // release() method hanging forever sometimes
+    const options: FinishedOptions = {
+        readable: false,
+        writable: false
+    };
+    finished(writer, options, err => {
         if (err) {
             pending.reject(err)
         }

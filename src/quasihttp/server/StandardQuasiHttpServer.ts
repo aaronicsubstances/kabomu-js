@@ -51,9 +51,9 @@ export class StandardQuasiHttpServer {
      * on the instance.
      */
     constructor(options?: {
-            defaultProcessingOptions: QuasiHttpProcessingOptions
-            application: IQuasiHttpApplication
-            transport: IQuasiHttpServerTransport
+            defaultProcessingOptions?: QuasiHttpProcessingOptions
+            application?: IQuasiHttpApplication
+            transport?: IQuasiHttpServerTransport
         }) {
         this.defaultProcessingOptions = options?.defaultProcessingOptions
         this.application = options?.application
