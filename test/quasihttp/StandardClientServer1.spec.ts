@@ -1,5 +1,6 @@
 import nativeAssert from "assert/strict"
 const { assert } = require("chai").use(require("chai-bytes"))
+import util from "node:util"
 import { StandardQuasiHttpClient } from "../../src/quasihttp/client/StandardQuasiHttpClient"
 import { StandardQuasiHttpServer } from "../../src/quasihttp/server/StandardQuasiHttpServer"
 import { ConnectionAllocationResponse, IQuasiHttpAltTransport, IQuasiHttpRequest, IQuasiHttpResponse, QuasiHttpSendOptions } from "../../src/quasihttp/types";
@@ -10,13 +11,12 @@ import { MemoryBasedServerTransport } from "../shared/quasihttp/MemoryBasedServe
 import { MemoryBasedClientTransport } from "../shared/quasihttp/MemoryBasedClientTransport"
 import { DefaultQuasiHttpRequest } from "../../src/quasihttp/DefaultQuasiHttpRequest";
 import * as ComparisonUtils from "../shared/common/ComparisonUtils"
-import { appLogger } from "../shared/common/LogManager"
 import { bytesToString, stringToBytes } from "../../src/common/ByteUtils";
 import { ByteBufferBody } from "../../src/quasihttp/entitybody/ByteBufferBody";
 import { StringBody } from "../../src/quasihttp/entitybody/StringBody";
 import { getBodyReader } from "../../src/quasihttp/entitybody/EntityBodyUtils";
 import * as IOUtils from "../../src/common/IOUtils"
-import util from "node:util"
+import { appLogger } from "../shared/common/LogManager"
 
 const keyStatusMessageOK = "Ok";
 const keyStatusMessageBadRequest = "Bad Request";

@@ -1,5 +1,4 @@
 import { assert } from "chai"
-import { appLogger } from "../shared/common/LogManager"
 import { MemoryBasedClientTransport } from "../shared/quasihttp/MemoryBasedClientTransport"
 import { MemoryBasedServerTransport } from "../shared/quasihttp/MemoryBasedServerTransport"
 import { IQuasiHttpTransport } from "../../src/quasihttp/types"
@@ -62,8 +61,6 @@ describe("MemoryBasedTransport", function() {
         await Promise.allSettled(promises)
     })
 })
-
-const logger = appLogger.child({label: "MemoryBasedTransport.spec"})
 
 interface TestMessage {
     input: number,
@@ -152,7 +149,6 @@ async function performProcessing(transport: IQuasiHttpTransport,
 }
 
 function logMsg(msg: string) {
-    logger.info(msg)
 }
 
 function describeMaxQuestionsToAnswer(connection: any,
