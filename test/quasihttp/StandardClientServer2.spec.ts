@@ -237,8 +237,8 @@ describe("StandardClientServer2", function() {
             actualReqEnv = reqEnv
             return expectedRequest
         }
-        const result = client.send2(remoteEndpoint, requestFunc)
-        const actualResponse = await result.responsePromise
+        const interimResult = client.send2(remoteEndpoint, requestFunc)
+        const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
@@ -307,9 +307,9 @@ describe("StandardClientServer2", function() {
             return expectedRequest
         }
         const sendOptions = {}
-        const result = client.send2(remoteEndpoint,
+        const interimResult = client.send2(remoteEndpoint,
             requestFunc, sendOptions)
-        const actualResponse = await result.responsePromise
+        const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
@@ -372,9 +372,9 @@ describe("StandardClientServer2", function() {
             await createDelayPromise(1_000)
             return expectedRequest
         }
-        const result = client.send2(remoteEndpoint,
+        const interimResult = client.send2(remoteEndpoint,
             requestFunc, undefined)
-        const actualResponse = await result.responsePromise
+        const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
@@ -424,9 +424,9 @@ describe("StandardClientServer2", function() {
         const sendOptions: QuasiHttpSendOptions = {
             timeoutMillis: 700
         }
-        const result = client.send2(remoteEndpoint,
+        const interimResult = client.send2(remoteEndpoint,
             requestFunc, sendOptions)
-        const actualResponse = await result.responsePromise
+        const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
@@ -474,12 +474,12 @@ describe("StandardClientServer2", function() {
             responseBufferingEnabled: false,
             ensureTruthyResponse: true
         }
-        const result = client.send2(remoteEndpoint,
+        const interimResult = client.send2(remoteEndpoint,
             requestFunc, sendOptions)
         await createDelayPromise(1_000)
-        client.cancelSend(result.cancellationHandle)
+        client.cancelSend(interimResult.cancellationHandle)
         await nativeAssert.rejects(async () => {
-            await result.responsePromise
+            await interimResult.responsePromise
         }, (e: any) => {
             logger.info("actual error from test cancellation\n" +
                 util.format(e));
@@ -490,9 +490,9 @@ describe("StandardClientServer2", function() {
         })
 
         // test that a second cancellation does nothing.
-        client.cancelSend(result.cancellationHandle)
+        client.cancelSend(interimResult.cancellationHandle)
         await nativeAssert.rejects(async () => {
-            await result.responsePromise
+            await interimResult.responsePromise
         }, (e: any) => {
             assert.instanceOf(e, QuasiHttpRequestProcessingError)
             assert.equal(QuasiHttpRequestProcessingError.REASON_CODE_CANCELLED,
@@ -548,12 +548,12 @@ describe("StandardClientServer2", function() {
             return new DefaultQuasiHttpRequest()
         }
         const sendOptions: QuasiHttpSendOptions = {}
-        const result = client.send2(remoteEndpoint,
+        const interimResult = client.send2(remoteEndpoint,
             requestFunc, sendOptions)
         await createDelayPromise(1_000)
-        client.cancelSend(result.cancellationHandle)
+        client.cancelSend(interimResult.cancellationHandle)
         await nativeAssert.rejects(async () => {
-            await result.responsePromise
+            await interimResult.responsePromise
         }, (e: any) => {
             logger.info("actual error from " +
                 "test no timeout due to cancellation\n" +
@@ -601,10 +601,10 @@ describe("StandardClientServer2", function() {
             return new DefaultQuasiHttpRequest()
         }
         const sendOptions: QuasiHttpSendOptions = {}
-        const result = client.send2(remoteEndpoint,
+        const interimResult = client.send2(remoteEndpoint,
             requestFunc, sendOptions)
         await nativeAssert.rejects(async () => {
-            await result.responsePromise
+            await interimResult.responsePromise
         }, (e: any) => {
             logger.info("actual error from " +
                 "test timeout (1)\n" +

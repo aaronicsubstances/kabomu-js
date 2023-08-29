@@ -739,7 +739,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         let helpingReader = await serializeResponseToBeRead(
             response, expectedReqBodyBytes);
-        var tcs = createBlankChequePromise<void>()
+        const tcs = createBlankChequePromise<void>()
         const dependentReader = Readable.from((async function*(){
             await tcs.promise
         })())
@@ -853,7 +853,7 @@ describe("DefaultSendProtocolInternal", function() {
         // prepare response for reading.
         let helpingReader = await serializeResponseToBeRead(
             response, resBodyBytes);
-        var tcs = createBlankChequePromise<void>()
+        const tcs = createBlankChequePromise<void>()
         const dependentReader = Readable.from((async function*(){
             await tcs.promise
         })())
@@ -1080,7 +1080,7 @@ describe("DefaultSendProtocolInternal", function() {
                 expectedRequest.body.contentLength = -1
                 
                 // prepare response for reading.
-                var tcs = createBlankChequePromise<void>()
+                const tcs = createBlankChequePromise<void>()
                 const dependentReader = Readable.from((async function*(){
                     await tcs.promise
                 })())

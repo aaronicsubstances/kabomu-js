@@ -107,7 +107,7 @@ export class StandardQuasiHttpServer {
                 workPromise, transfer.timeoutId?.promise, undefined)
         }
         catch (e) {
-            await transfer.abort(undefined)
+            await transfer.abort()
             if (e instanceof QuasiHttpRequestProcessingError) {
                 throw e;
             }
@@ -170,7 +170,7 @@ export class StandardQuasiHttpServer {
             return res!
         }
         catch (e) {
-            await transfer.abort(undefined)
+            await transfer.abort()
             if (e instanceof QuasiHttpRequestProcessingError) {
                 throw e;
             }

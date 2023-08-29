@@ -1,6 +1,5 @@
 import {
     ICancellableTimeoutPromiseInternal,
-    IQuasiHttpResponse,
     IReceiveProtocolInternal
 } from "../types";
 
@@ -28,11 +27,11 @@ export class ReceiveTransferInternal {
     async startProtocol()
     {
         const res = await this.protocol.receive();
-        await this.abort(res);
+        await this.abort();
         return res;
     }
 
-    async abort(res: IQuasiHttpResponse | undefined) {
+    async abort() {
         if (this.trySetAborted()) {
             this.timeoutId?.cancel();
 
@@ -40,13 +39,6 @@ export class ReceiveTransferInternal {
                 await this.protocol.cancel()
             }
             catch { } // ignore
-        }
-        else {
-            // dispose off response
-            try {
-                await res?.release();
-            }
-            catch { } // ignore.
         }
     }
 }

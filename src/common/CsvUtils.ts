@@ -302,7 +302,7 @@ export function unescapeValue(escaped: string) {
     if (escaped.length < 2 || !escaped.startsWith("\"") || !escaped.endsWith("\"")) {
         throw new Error("missing enclosing double quotes around csv value: " + escaped)
     }
-    var unescaped = new Array<string>()
+    const unescaped = new Array<string>()
     for (let i = 1; i < escaped.length - 1; i++) {
         const c = escaped[i];
         unescaped.push(c);

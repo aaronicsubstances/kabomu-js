@@ -87,29 +87,21 @@ describe("ReceiveTransferInternal", function() {
         it("should pass (1)", async function() {
             const protocol = new HelperReceiveProtocol({})
             const instance = new ReceiveTransferInternal(protocol)
-            let responseReleaseCallCount = 0
-            const res: IQuasiHttpResponse = {
-                async release() {
-                    responseReleaseCallCount++
-                },
-            }
 
             // act
-            await instance.abort(res)
+            await instance.abort()
 
             // assert
-            assert.equal(responseReleaseCallCount, 0)
             assert.isOk(protocol.cancelled)
         })
         it("should pass (2)", async function() {
             // arrange
             const instance = new ReceiveTransferInternal(
                 null as any)
-            const res = new DefaultQuasiHttpResponse()
 
             // act to verify no errors are raised with
             // the missing props
-            await instance.abort(res);
+            await instance.abort();
         })
         it("should pass (3)", async function() {
             // arrange
@@ -119,7 +111,7 @@ describe("ReceiveTransferInternal", function() {
 
             // act to verify no errors are raised with
             // the missing props
-            await instance.abort(undefined);
+            await instance.abort();
         })
         it("should pass (4)", async function() {
             // arrange
@@ -135,21 +127,13 @@ describe("ReceiveTransferInternal", function() {
                     cancelled = true
                 },
             } as ICancellableTimeoutPromiseInternal;
-            let responseReleaseCallCount = 0
-            const response: IQuasiHttpResponse = {
-                body: new StringBody("unbuffered"),
-                async release() {
-                    responseReleaseCallCount++
-                },
-            }
 
             // act
-            await instance.abort(response);
+            await instance.abort();
 
             // assert
             assert.isOk(protocol.cancelled)
             assert.isOk(instance.timeoutId?.isCancellationRequested())
-            assert.equal(responseReleaseCallCount, 0)
         })
         it("should pass (5)", async function() {
             // arrange
@@ -166,22 +150,13 @@ describe("ReceiveTransferInternal", function() {
                 },
             } as ICancellableTimeoutPromiseInternal;
             instance.trySetAborted()
-            let responseReleaseCallCount = 0
-            const response: IQuasiHttpResponse = {
-                body: new StringBody("unbuffered"),
-                async release() {
-                    responseReleaseCallCount++
-                    throw new Error("should be ignored");
-                },
-            }
 
             // act
-            await instance.abort(response);
+            await instance.abort();
 
             // assert
             assert.isNotOk(protocol.cancelled)
             assert.isNotOk(instance.timeoutId?.isCancellationRequested())
-            assert.equal(responseReleaseCallCount, 1)
         })
         it("should pass (6)", async function() {
             // arrange
@@ -198,12 +173,9 @@ describe("ReceiveTransferInternal", function() {
                     cancelled = true
                 },
             } as ICancellableTimeoutPromiseInternal;
-            const res = new DefaultQuasiHttpResponse({
-                body: new StringBody("deal")
-            })
 
             // act
-            await instance.abort(res)
+            await instance.abort()
 
             // assert
             assert.isOk(instance.timeoutId?.isCancellationRequested())

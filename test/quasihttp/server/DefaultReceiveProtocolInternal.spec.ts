@@ -599,7 +599,7 @@ describe("DefaultReceiveProtocolInternal", function() {
             connection
         })
 
-        var recvResult = await instance.receive()
+        const recvResult = await instance.receive()
         assert.isNotOk(recvResult)
         assert.equal(responseReleaseCallCount, 1)
         assert.equal(transport.releaseCallCount, 0)

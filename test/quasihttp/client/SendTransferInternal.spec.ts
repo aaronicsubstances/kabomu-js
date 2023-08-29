@@ -197,7 +197,7 @@ describe("SendTransferInternal", function() {
             } as ICancellableTimeoutPromiseInternal
             instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
             const cancellationError = undefined
-            var responseReleaseCallCount = 0;
+            let responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 response: {
                     body: new StringBody("unbuffered"),
@@ -233,7 +233,7 @@ describe("SendTransferInternal", function() {
             } as ICancellableTimeoutPromiseInternal
             instance.trySetAborted()
             const cancellationError = undefined
-            var responseReleaseCallCount = 0;
+            let responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 response: {
                     body: new StringBody("unbuffered"),
@@ -309,7 +309,7 @@ describe("SendTransferInternal", function() {
                 },
             } as ICancellableTimeoutPromiseInternal
             instance.cancellationTcs = createBlankChequePromise<ProtocolSendResultInternal | undefined>()
-            var responseReleaseCallCount = 0;
+            let responseReleaseCallCount = 0;
             const res: ProtocolSendResultInternal = {
                 response: {
                     body: new StringBody("deal"),

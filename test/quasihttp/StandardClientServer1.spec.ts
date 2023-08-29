@@ -126,6 +126,11 @@ describe("StandardClientServer1", function() {
     it("test success", async function() {
         this.timeout(5_000)
         const testData = createTest1Data()
+
+        // NB: ensure timeouts on quasi http servers and
+        // clients, so that if an error occurs it won't
+        // cause any client or server task to hang when
+        // we are awaiting them to log errors for debugging.
         const servers = new Map<any, MemoryBasedServerTransport>()
         const serverPromises = new Array<any>()
         createServer1(servers, serverPromises)
@@ -152,20 +157,26 @@ describe("StandardClientServer1", function() {
         for (const promise of clientPromises) {
             try {
                 await promise
+                logger.info(`test success - done waiting for ` +
+                    `client task#${i}`)
             }
             catch (e) {
-                logger.error(`error occured in test success with ` +
+                logger.error(`test success - error occured with ` +
                     `client task#${i}\n${util.format(e)}`)
             }
             i++
         }
         // record any server errors.
+        i = 0
         for (const promise of serverPromises) {
+            i++
             try {
                 await promise
+                logger.info(`test success - done waiting for ` +
+                    `a server task (${serverPromises.length - i} more left)`)
             }
             catch (e) {
-                logger.error(`error occured in test success with ` +
+                logger.error(`test success - error occured with ` +
                     `a server task\n${util.format(e)}`)
             }
         }
@@ -176,11 +187,19 @@ describe("StandardClientServer1", function() {
     })
 })
 
+interface Test1Data {
+    remoteEndpoint: string
+    sendOptions: QuasiHttpSendOptions | undefined
+    request: IQuasiHttpRequest
+    expectedResponse: IQuasiHttpResponse
+    expectedResponseBodyBytes: Buffer | undefined
+}
+
 async function runTestDataItem(
         client: StandardQuasiHttpClient,
         index: number,
         testDataItem: Test1Data) {
-    logger.info(`Starting test success with data#${index}...`)
+    logger.debug(`Starting test success with data#${index}...`)
     const actualResponse = await client.send(
         testDataItem.remoteEndpoint,
         testDataItem.request,
@@ -245,7 +264,7 @@ function* createTest1Data() {
     expectedResponseBodyBytes = stringToBytes("HELLO")
     expectedResponse = new DefaultQuasiHttpResponse({
         statusCode: 0,
-        httpStatusMessage: undefined,
+        httpStatusMessage: "/returjn/dude",
         httpVersion: undefined,
         body: new ByteBufferBody(expectedResponseBodyBytes)
     })
@@ -345,6 +364,35 @@ function* createTest1Data() {
         expectedResponse,
         expectedResponseBodyBytes
     }
+
+    // next...
+    remoteEndpoint = endpointLang
+    sendOptions = {
+        maxChunkSize: 200_000,
+        responseBufferingEnabled: false
+    }
+    request = new DefaultQuasiHttpRequest({
+        method: "GET",
+        target: "really long".padEnd(280_00),
+        httpVersion: keyHttpVersion1_0,
+        body: new StringBody('long indeed'.padEnd(400_00))
+    })
+    expectedResponseBodyBytes = stringToBytes(
+        "LONG INDEED".padEnd(400_00))
+    expectedResponse = new DefaultQuasiHttpResponse({
+        statusCode: 0,
+        httpStatusMessage: "really long".padEnd(280_00),
+        httpVersion: undefined,
+        body: new ByteBufferBody(expectedResponseBodyBytes)
+    })
+    expectedResponse.body!.contentLength = -1
+    yield {
+        remoteEndpoint,
+        sendOptions,
+        request,
+        expectedResponse,
+        expectedResponseBodyBytes
+    }
 }
 
 function createServer1(
@@ -355,7 +403,7 @@ function createServer1(
             processRequest: echoApplicationServer
         },
         defaultProcessingOptions: {
-            timeoutMillis: 4_000
+            timeoutMillis: 3_000
         }
     })
     const serverTransport = new MemoryBasedServerTransport({
@@ -374,6 +422,10 @@ function createServer2(
     const server = new StandardQuasiHttpServer({
         application: {
             processRequest: capitalizationApplicationServer
+        },
+        defaultProcessingOptions: {
+            timeoutMillis: 3_500,
+            maxChunkSize: 300_000
         }
     })
     const serverTransport = new MemoryBasedServerTransport({
@@ -447,6 +499,7 @@ async function capitalizationApplicationServer(
         await IOUtils.readAllBytes(getBodyReader(request.body)))
     bodyAsString = bodyAsString.toUpperCase()
     const res = new DefaultQuasiHttpResponse({
+        httpStatusMessage: request.target,
         body: new StringBody(bodyAsString)
     })
     res.body!.contentLength = -1
@@ -493,12 +546,4 @@ async function processAcceptConnection(
         await createDelayPromise(delay)
     }
     await server.acceptConnection(c)
-}
-
-interface Test1Data {
-    remoteEndpoint: string
-    sendOptions: QuasiHttpSendOptions | undefined
-    request: IQuasiHttpRequest
-    expectedResponse: IQuasiHttpResponse
-    expectedResponseBodyBytes: Buffer | undefined
 }
