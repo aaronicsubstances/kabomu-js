@@ -49,7 +49,12 @@ export class SendTransferInternal {
             if (cancellationError || !res?.response?.body ||
                     res?.responseBufferingApplied === true) {
                 try {
-                    await this.protocol.cancel()
+                    if (!cancellationError) {
+                        await this.protocol.cancel()
+                    }
+                    else {
+                        this.protocol.cancel()
+                    }
                 }
                 catch { } // ignore
             }
@@ -57,7 +62,10 @@ export class SendTransferInternal {
         else {
             // dispose off response
             try {
-                await res?.response?.release();
+                const p = res?.response?.release();
+                if (!cancellationError) {
+                    await p;
+                }
             }
             catch { } // ignore.
         }

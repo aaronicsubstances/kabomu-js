@@ -256,17 +256,14 @@ export async function copyBytes(reader: Readable, writer: Writable) {
     // also, was not able to avoid errors with troublesome
     // writers even if reader is empty
     /*const p = createBlankChequePromise<void>()
-    finished(reader, { readable: false, writable: false, }, e => {
+    pump(reader, writer, e => {
         if (e) {
             p.reject(e)
         }
-        else {
-            p.resolve()
-        }
+        p.resolve()
     })
-    reader.pipe(writer)
-    return await p.promise*/
-
+    await p
+    return*/
     while (true) {
         // NB: cannot allocate buffer once outside loop
         // because it may be stored by writer.

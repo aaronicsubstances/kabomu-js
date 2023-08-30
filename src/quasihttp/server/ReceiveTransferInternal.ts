@@ -27,16 +27,21 @@ export class ReceiveTransferInternal {
     async startProtocol()
     {
         const res = await this.protocol.receive();
-        await this.abort();
+        await this.abort(false);
         return res;
     }
 
-    async abort() {
+    async abort(errorOccured: boolean) {
         if (this.trySetAborted()) {
             this.timeoutId?.cancel();
 
             try {
-                await this.protocol.cancel()
+                if (!errorOccured) {
+                    await this.protocol.cancel()
+                }
+                else {
+                    this.protocol.cancel()
+                }
             }
             catch { } // ignore
         }
