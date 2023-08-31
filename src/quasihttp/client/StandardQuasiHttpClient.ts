@@ -204,10 +204,10 @@ export class StandardQuasiHttpClient {
                 defaultSendOptions?.responseBufferingEnabled,
                 true);
 
-        mergedSendOptions.maxChunkSize =
+        mergedSendOptions.maxHeadersSize =
             ProtocolUtilsInternal.determineEffectivePositiveIntegerOption(
-                options?.maxChunkSize,
-                defaultSendOptions?.maxChunkSize,
+                options?.maxHeadersSize,
+                defaultSendOptions?.maxHeadersSize,
                 0);
 
         mergedSendOptions.responseBodyBufferingSizeLimit =
@@ -335,7 +335,7 @@ export class StandardQuasiHttpClient {
             connection,
             responseBufferingEnabled: mergedSendOptions.responseBufferingEnabled,
             responseBodyBufferingSizeLimit: mergedSendOptions.responseBodyBufferingSizeLimit,
-            maxChunkSize: mergedSendOptions.maxChunkSize,
+            maxChunkSize: mergedSendOptions.maxHeadersSize,
             ensureTruthyResponse: mergedSendOptions.ensureTruthyResponse
         })
     }

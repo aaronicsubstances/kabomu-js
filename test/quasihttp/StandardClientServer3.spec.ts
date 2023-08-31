@@ -56,7 +56,7 @@ describe("StandardClientServer3", function() {
                 ["2", "2,2"]
             ]),
             timeoutMillis: 0,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: false,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -108,7 +108,7 @@ describe("StandardClientServer3", function() {
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: 0,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: false,
             responseBodyBufferingSizeLimit: 2,
             ensureTruthyResponse: false
@@ -156,7 +156,7 @@ describe("StandardClientServer3", function() {
         }
         const sendOptions: QuasiHttpSendOptions = {
             timeoutMillis: 3_000,
-            maxChunkSize: 20,
+            maxHeadersSize: 20,
             extraConnectivityParams: new Map([
                 ["1", "one"],
                 ["2", "two"]
@@ -168,7 +168,7 @@ describe("StandardClientServer3", function() {
                 ["2", "two"]
             ]),
             timeoutMillis: 3_000,
-            maxChunkSize: 20,
+            maxHeadersSize: 20,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -230,7 +230,7 @@ describe("StandardClientServer3", function() {
                 ["3", "3,3,3"]
             ]),
             timeoutMillis: 3_000,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -291,7 +291,7 @@ describe("StandardClientServer3", function() {
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: -1,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: false,
             responseBodyBufferingSizeLimit: 500,
             ensureTruthyResponse: false
@@ -355,7 +355,7 @@ describe("StandardClientServer3", function() {
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: -1,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: false,
             responseBodyBufferingSizeLimit: 500,
             ensureTruthyResponse: false
@@ -425,7 +425,7 @@ describe("StandardClientServer3", function() {
                 ]
             ]),
             timeoutMillis: 3_000,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -498,7 +498,7 @@ describe("StandardClientServer3", function() {
                 ]
             ]),
             timeoutMillis: 3_000,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: false
@@ -535,7 +535,7 @@ describe("StandardClientServer3", function() {
             transportBypass,
             defaultSendOptions: {
                 timeoutMillis: 3_100,
-                maxChunkSize: 4_000,
+                maxHeadersSize: 4_000,
                 responseBufferingEnabled: false,
                 extraConnectivityParams: new Map([
                     ["1", "1"],
@@ -550,7 +550,7 @@ describe("StandardClientServer3", function() {
                 ["12", "twelve"],
                 ["4", 'four']
             ]),
-            maxChunkSize: 1500
+            maxHeadersSize: 1500
         }
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map<string, any>([
@@ -562,7 +562,7 @@ describe("StandardClientServer3", function() {
                 ["12", "twelve"]
             ]),
             timeoutMillis: 3_100,
-            maxChunkSize: 1500,
+            maxHeadersSize: 1500,
             responseBufferingEnabled: false,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -629,7 +629,7 @@ describe("StandardClientServer3", function() {
                 ["4", 'four']
             ]),
             timeoutMillis: 3_200,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 700,
             ensureTruthyResponse: false
@@ -667,7 +667,7 @@ describe("StandardClientServer3", function() {
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: 300,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -715,7 +715,7 @@ describe("StandardClientServer3", function() {
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: 300,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: false,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -761,7 +761,7 @@ describe("StandardClientServer3", function() {
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: -1,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true
@@ -826,7 +826,7 @@ describe("StandardClientServer3", function() {
         const expectedConnectivityParams: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: 4_000,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBufferingEnabled: true,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: false

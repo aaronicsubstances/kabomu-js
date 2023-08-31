@@ -1,4 +1,4 @@
-import { Readable, Writable } from "stream";
+import { Readable } from "stream";
 import {
     ConnectionAllocationResponse,
     IQuasiHttpServerTransport
@@ -17,7 +17,7 @@ export class MemoryBasedServerTransport implements IQuasiHttpServerTransport {
         return connection.getReader(true)
     }
 
-    getWriter(connection: any): Writable | undefined {
+    getWriter(connection: any): any {
         return connection.getWriter(true)
     }
 

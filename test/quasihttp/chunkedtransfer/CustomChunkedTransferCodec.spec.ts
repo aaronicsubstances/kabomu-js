@@ -282,39 +282,29 @@ describe("CustomChunkedTransferCodec", function() {
         const testData = [
             {
                 srcData: Buffer.from([0, 0, 2, 1, 0]),
-                maxChunkSize: 40,
                 expected: 0,
             },
             {
                 srcData: Buffer.from([0, 0xea, 0x62, 1, 0]),
-                maxChunkSize: "-1" as any,
                 expected: 60_000,
             },
             {
                 srcData: Buffer.from([0, 0, 3, 1, 0]),
-                maxChunkSize: 0,
                 expected: 1,
             },
             {
                 srcData: Buffer.from([0, 2, 0x2d, 1, 0]),
-                maxChunkSize: 400,  // ok because it is below hard limit
                 expected: 555,
             },
             {
                 srcData: Buffer.from([7, 0xce, 0xb3, 1, 0]),
-                maxChunkSize: 600_000,
                 expected: 511_665,
             },
         ]
-        testData.forEach(({srcData, maxChunkSize, expected}, i) => {
+        testData.forEach(({srcData, expected}, i) => {
             it(`should pass with input ${i}`, async function() {
                 let actual = await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    srcData, undefined, maxChunkSize)
-                assert.equal(actual, expected)
-
-                // should work indirectly with stream
-                actual = await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    null as any, Readable.from(srcData), maxChunkSize)
+                    Readable.from(srcData))
                 assert.equal(actual, expected)
             })
         })
@@ -322,42 +312,27 @@ describe("CustomChunkedTransferCodec", function() {
         it("should fail with argument error (1)", async function() {
             await nativeAssert.rejects(async () => {
                 await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    null as any, undefined, 0)
+                    undefined)
             }, (e: any) => {
                 expect(e.message).to.contain("reader")
                 return true
             })
         })
 
-        it("should fail with argument error (2)", async function() {
-            await nativeAssert.rejects(async () => {
-                await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                    Buffer.from([0, 0, 2, 1, 0]), undefined, true as any)
-            }, (e: any) => {
-                expect(e.message).to.contain("invalid 32-bit")
-                return true
-            })
-        })
-
         const testErrorData = [
             {
-                srcData: Buffer.from([7, 0xce, 0xb3, 1, 0]), // 511,665
-                maxChunkSize: 65_536
-            },
-            {
                 srcData: Buffer.from([0xf7, 2, 9, 1, 0]), // negative
-                maxChunkSize: 30_000
             },
             {
                 srcData: Buffer.from([0, 2, 9, 0, 0]),  // version not set
-                maxChunkSize: 15_437
             }
         ]
-        testErrorData.forEach(({srcData, maxChunkSize}, i) => {
+        testErrorData.forEach(({srcData}, i) => {
+            const reader = Readable.from(srcData)
             it(`should fail with usage ${i}`, async function() {
                 await nativeAssert.rejects(async () => {
                     await new CustomChunkedTransferCodec().decodeSubsequentChunkV1Header(
-                        srcData, undefined, maxChunkSize)
+                        reader)
                 })
             })
         })

@@ -1,4 +1,3 @@
-import { Readable, Writable } from "stream";
 import {
     createMemoryPipeCustomReaderWriter,
     endWritesOnMemoryPipe
@@ -15,7 +14,7 @@ import { IQuasiHttpBody } from "../types";
  * @returns a stream which can be used to read bytes from the body
  */
 export function getBodyReader(
-        body: IQuasiHttpBody | undefined): Readable {
+        body: IQuasiHttpBody | undefined): any {
     if (!body) {
         throw new Error("received null body argument");
     }
@@ -31,7 +30,7 @@ export function getBodyReader(
 }
 
 async function exhaustWritable(writable: ISelfWritable,
-        memoryPipe: Writable) {
+        memoryPipe: any) {
     try {
         await writable.writeBytesTo(memoryPipe);
         await endWritesOnMemoryPipe(memoryPipe);

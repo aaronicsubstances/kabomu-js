@@ -40,24 +40,6 @@ describe("CsvUtils", function() {
         })
     })
 
-    describe("#escapeValueTo", function() {
-        testData.forEach(({raw, expected}, i) => {
-            it(`should pass with input ${i}`, async function() {
-                const chunks = new Array<Buffer>()
-                const writer = new Writable({
-                    write(chunk, encoding, cb) {
-                        chunks.push(chunk)
-                        cb()
-                    }
-                })
-                await CsvUtils.escapeValueTo(raw, writer)
-                const actual = ByteUtils.bytesToString(
-                    Buffer.concat(chunks))
-                assert.equal(actual, expected)
-            })
-        })
-    })
-
     describe("#unescapeValue", function() {
         const testData = [
             {
@@ -152,23 +134,6 @@ describe("CsvUtils", function() {
         testSerializeData.forEach(({rows, expected}, i) => {
             it(`should pass with input ${i}`, function() {
                 const actual = CsvUtils.serialize(rows)
-                assert.equal(actual, expected)
-            })
-        })
-    })
-    describe("#serializeTo", function() {
-        testSerializeData.forEach(({rows, expected}, i) => {
-            it(`should pass with input ${i}`, async function() {
-                const chunks = new Array<Buffer>()
-                const writer = new Writable({
-                    write(chunk, encoding, cb) {
-                        chunks.push(chunk)
-                        cb()
-                    }
-                })
-                await CsvUtils.serializeTo(rows, writer)
-                const actual = ByteUtils.bytesToString(
-                    Buffer.concat(chunks))
                 assert.equal(actual, expected)
             })
         })

@@ -30,9 +30,13 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
         })
         const p = path.resolve(directory, fileName)
         const fileStream = fs.createWriteStream(p)
-        const reader = getBodyReader(request.body)
-        await IOUtils.copyBytes(reader, fileStream)
-        await IOUtils.endWrites(fileStream)
+        try {
+            const reader = getBodyReader(request.body)
+            await IOUtils.copyBytes(reader, fileStream)
+        }
+        finally {
+            fileStream.close()
+        }
     }
     catch (e) {
         transferError = e

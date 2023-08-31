@@ -1,5 +1,3 @@
-import { Readable, Writable } from "stream";
-
 import { QuasiHttpRequestProcessingError } from "./errors";
 import { ICancellableTimeoutPromiseInternal, IQuasiHttpBody } from "./types";
 import * as IOUtils from "../common/IOUtils";
@@ -107,18 +105,17 @@ export async function createEquivalentOfUnknownBodyInMemory(
 }
 
 export async function transferBodyToTransport(
-        writer: Writable,
-        maxChunkSize: number | undefined,
+        writer: any,
         body: IQuasiHttpBody,
         contentLength: number | undefined) {
     if (!contentLength) {
         return;
     }
     if (contentLength < 0) {
-        const chunkWriter = createChunkEncodingCustomWriter(writer, maxChunkSize);
+        const chunkWriter = createChunkEncodingCustomWriter(writer);
         await body.writeBytesTo(chunkWriter);
         // important for chunked transfer to write out final empty chunk
-        await IOUtils.endWrites(chunkWriter);
+        await chunkWriter.endWrites()
     }
     else {
         await body.writeBytesTo(writer);
@@ -126,10 +123,9 @@ export async function transferBodyToTransport(
 }
 
 export async function createBodyFromTransport(
-        reader: Readable,
+        reader: any,
         contentLength: number | undefined,
         releaseFunc: (() => Promise<void>) | undefined,
-        maxChunkSize: number | undefined,
         bufferingEnabled: boolean | undefined,
         bodyBufferingSizeLimit: number | undefined)
         : Promise<IQuasiHttpBody | undefined> {
@@ -138,8 +134,7 @@ export async function createBodyFromTransport(
     }
 
     if (contentLength < 0) {
-        reader = createChunkDecodingCustomReader(reader,
-            maxChunkSize);
+        reader = createChunkDecodingCustomReader(reader);
     }
     else {
         reader = createContentLengthEnforcingCustomReader(reader,

@@ -13,7 +13,7 @@ import {
 } from "../../../src/quasihttp/types"
 import { ByteBufferBody } from "../../../src/quasihttp/entitybody/ByteBufferBody"
 import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
-import { Readable, Writable } from "stream"
+import { Readable } from "stream"
 import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
 import * as ByteUtils from "../../../src/common/ByteUtils"
 import {
@@ -53,7 +53,7 @@ class ErrorQuasiHttpBody implements IQuasiHttpBody {
     release(): Promise<void> {
         throw new Error("Method not implemented.")
     }
-    writeBytesTo(writer: Writable): Promise<void> {
+    writeBytesTo(writer: any): Promise<void> {
         throw new Error("Method not implemented.")
     }
 

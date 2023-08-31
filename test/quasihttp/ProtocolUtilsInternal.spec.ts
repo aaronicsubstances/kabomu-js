@@ -538,7 +538,6 @@ describe("ProtocolUtilsInternal", function() {
 
     describe("#transferBodyToTransport", function() {
         it("should pass (1)", async function() {
-            const maxChunkSize = 6
             const srcData = "data bits and bytes"
             const chunks = new Array<Buffer>()
             const writer = new Writable({
@@ -548,24 +547,17 @@ describe("ProtocolUtilsInternal", function() {
                 },
             })
             const expected = Buffer.concat([
-                Buffer.from([0, 0, 8, 1, 0]),
-                ByteUtils.stringToBytes("data b"),
-                Buffer.from([0, 0, 8, 1, 0]),
-                ByteUtils.stringToBytes("its an"),
-                Buffer.from([0, 0, 8, 1, 0]),
-                ByteUtils.stringToBytes("d byte"),
-                Buffer.from([0, 0, 3, 1, 0]),
-                ByteUtils.stringToBytes("s"),
+                Buffer.from([0, 0, 21, 1, 0]),
+                ByteUtils.stringToBytes("data bits and bytes"),
                 Buffer.from([0, 0, 2, 1, 0])
             ])
             const body = new StringBody(srcData)
             await ProtocolUtilsInternal.transferBodyToTransport(
-                writer, maxChunkSize, body, -1)
+                writer, body, -1)
 
             assert.equalBytes(Buffer.concat(chunks), expected)
         })
         it("should pass (2)", async function() {
-            const maxChunkSize = 14
             const chunks = new Array<Buffer>()
             const writer = new Writable({
                 write(chunk, encoding, callback) {
@@ -576,7 +568,7 @@ describe("ProtocolUtilsInternal", function() {
             const expected = "camouflage"
             const body = new StringBody(expected)
             await ProtocolUtilsInternal.transferBodyToTransport(
-                writer, maxChunkSize, body, body.contentLength)
+                writer, body, body.contentLength)
 
             const actual = ByteUtils.bytesToString(
                 Buffer.concat(chunks))
@@ -587,7 +579,6 @@ describe("ProtocolUtilsInternal", function() {
         // be processed,
         // and check that release is not called on body.
         it("should pass (3)", async function() {
-            const maxChunkSize = 6
             const chunks = new Array<Buffer>()
             const writer = new Writable({
                 write(chunk, encoding, cb) {
@@ -611,7 +602,7 @@ describe("ProtocolUtilsInternal", function() {
                 return reader;
             }
             await ProtocolUtilsInternal.transferBodyToTransport(
-                writer, maxChunkSize, body, 0)
+                writer, body, 0)
 
             assert.equalBytes(Buffer.concat(chunks), Buffer.alloc(0))
 
@@ -623,7 +614,6 @@ describe("ProtocolUtilsInternal", function() {
 
         // Assert that positive content length is not enforced
         it("should pass (4)", async function() {
-            const maxChunkSize = -1
             const chunks = new Array<Buffer>()
             const writer = new Writable({
                 write(chunk, encoding, callback) {
@@ -637,7 +627,7 @@ describe("ProtocolUtilsInternal", function() {
             const body = new LambdaBasedQuasiHttpBody(
                 () => reader)
             await ProtocolUtilsInternal.transferBodyToTransport(
-                writer, maxChunkSize, body, 456)
+                writer, body, 456)
 
             const actual = ByteUtils.bytesToString(
                 Buffer.concat(chunks))
@@ -647,7 +637,6 @@ describe("ProtocolUtilsInternal", function() {
         // Assert that no error occurs with null body due to
         // falsy content length.
         it("should pass (5)", async function() {
-            const maxChunkSize = 8
             const writer = new Writable({
                 write(chunk, encoding, cb) {
                     cb(new Error("should not be called"))
@@ -655,7 +644,7 @@ describe("ProtocolUtilsInternal", function() {
             })
 
             await ProtocolUtilsInternal.transferBodyToTransport(
-                writer, maxChunkSize, null as any, "" as any)
+                writer, null as any, "" as any)
         })
     })
 
@@ -667,14 +656,13 @@ describe("ProtocolUtilsInternal", function() {
             const reader = Readable.from(expectedData)
             const contentLength = srcData.length
             const releaseFunc = undefined
-            const maxChunkSize = 6
             const bufferingEnabled = false
             const bodyBufferingSizeLimit = 2
             const expected = new ByteBufferBody(expectedData)
 
             // act
             const actual = await ProtocolUtilsInternal.createBodyFromTransport(
-                reader, contentLength, releaseFunc, maxChunkSize,
+                reader, contentLength, releaseFunc,
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
@@ -700,14 +688,13 @@ describe("ProtocolUtilsInternal", function() {
             const releaseFunc = async () => {
                 releaseCallCount++
             }
-            const maxChunkSize = 15
             const bufferingEnabled = true
             const bodyBufferingSizeLimit = 4
             const expected = new ByteBufferBody(expectedData)
 
             // act
             const actual = await ProtocolUtilsInternal.createBodyFromTransport(
-                reader, contentLength, releaseFunc, maxChunkSize,
+                reader, contentLength, releaseFunc,
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
@@ -737,8 +724,6 @@ describe("ProtocolUtilsInternal", function() {
             })())
             const contentLength = -1
             const releaseFunc = undefined
-            const maxChunkSize = 2  // should have no effect since it is
-                                    // less than hard limit
             const bufferingEnabled = true 
             const bodyBufferingSizeLimit = 30
             const expected = new ByteBufferBody(expectedData)
@@ -746,7 +731,7 @@ describe("ProtocolUtilsInternal", function() {
 
             // act
             const actual = await ProtocolUtilsInternal.createBodyFromTransport(
-                reader, contentLength, releaseFunc, maxChunkSize,
+                reader, contentLength, releaseFunc,
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
@@ -771,7 +756,6 @@ describe("ProtocolUtilsInternal", function() {
             const releaseFunc = async () => {
                 releaseCallCount++
             }
-            const maxChunkSize = 50
             const bufferingEnabled = false 
             const bodyBufferingSizeLimit = 3
             const expected = new ByteBufferBody(expectedData)
@@ -779,7 +763,7 @@ describe("ProtocolUtilsInternal", function() {
 
             // act
             const actual = await ProtocolUtilsInternal.createBodyFromTransport(
-                reader, contentLength, releaseFunc, maxChunkSize,
+                reader, contentLength, releaseFunc,
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
@@ -799,13 +783,12 @@ describe("ProtocolUtilsInternal", function() {
             const reader = Readable.from(expectedData)
             const contentLength = "" as any
             const releaseFunc = undefined
-            const maxChunkSize = 0
             const bufferingEnabled = false
             const bodyBufferingSizeLimit = 0
 
             // act
             const actual = await ProtocolUtilsInternal.createBodyFromTransport(
-                reader, contentLength, releaseFunc, maxChunkSize,
+                reader, contentLength, releaseFunc,
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
@@ -821,13 +804,12 @@ describe("ProtocolUtilsInternal", function() {
             const releaseFunc = async () => {
                 releaseCallCount++
             }
-            const maxChunkSize = 10
             const bufferingEnabled = true
             const bodyBufferingSizeLimit = 4
 
             // act
             const actual = await ProtocolUtilsInternal.createBodyFromTransport(
-                reader, contentLength, releaseFunc, maxChunkSize,
+                reader, contentLength, releaseFunc,
                 bufferingEnabled, bodyBufferingSizeLimit)
 
             // assert
@@ -845,18 +827,16 @@ describe("ProtocolUtilsInternal", function() {
                 ByteUtils.stringToBytes("bits and bytes"),
                 Buffer.from([0, 0, 2, 1, 0])
             ])
-            const expectedData = ByteUtils.stringToBytes("bits and bytes")
             const reader = Readable.from(srcData)
             const contentLength = -3
             const releaseFunc = undefined
-            const maxChunkSize = 60
             const bufferingEnabled = true 
             const bodyBufferingSizeLimit = 3
 
             // act
             await nativeAssert.rejects(async () => {
                 await ProtocolUtilsInternal.createBodyFromTransport(
-                    reader, contentLength, releaseFunc, maxChunkSize,
+                    reader, contentLength, releaseFunc,
                     bufferingEnabled, bodyBufferingSizeLimit)
             }, (err: any) => {
                 expect(err.message).to.contain(`limit of ${bodyBufferingSizeLimit}`)
@@ -873,14 +853,13 @@ describe("ProtocolUtilsInternal", function() {
             const releaseFunc = async () => {
                 releaseCallCount++
             }
-            const maxChunkSize = 6
             const bufferingEnabled = true 
             const bodyBufferingSizeLimit = 4
 
             // act
             await nativeAssert.rejects(async () => {
                 await ProtocolUtilsInternal.createBodyFromTransport(
-                    reader, contentLength, releaseFunc, maxChunkSize,
+                    reader, contentLength, releaseFunc,
                     bufferingEnabled, bodyBufferingSizeLimit)
             }, (err: any) => {
                 expect(err.message).to.contain(`length of ${contentLength}`)

@@ -69,6 +69,7 @@ describe("StandardClientServer1", function() {
     })
 
     it("test fire and forget", async function() {
+        this.timeout(3_000)
         let serverPromise: Promise<void> | undefined;
         let actualRequestClone: IQuasiHttpRequest | undefined
         const server = new StandardQuasiHttpServer({
@@ -124,7 +125,7 @@ describe("StandardClientServer1", function() {
     })
 
     it("test success", async function() {
-        this.timeout(5_000)
+        this.timeout(10_000)
         const testData = createTest1Data()
 
         // NB: ensure timeouts on quasi http servers and
@@ -204,11 +205,20 @@ async function runTestDataItem(
         testDataItem.remoteEndpoint,
         testDataItem.request,
         testDataItem.sendOptions)
-    await ComparisonUtils.compareResponses(
-        testDataItem.expectedResponse,
-        actualResponse,
-        testDataItem.expectedResponseBodyBytes)
-    logger.info(`Sucessfully tested test success with data#${index}`)
+    try {
+        await ComparisonUtils.compareResponses(
+            actualResponse,
+            testDataItem.expectedResponse,
+            testDataItem.expectedResponseBodyBytes)
+        logger.info(`Sucessfully tested test success with data#${index}`)
+    }
+    finally {
+        // this is not needed when there are no erors
+        // however when debugging, bodies which were not
+        // bufferred can cause server connections to hang,
+        // this thus is meant to at least expose any such problems.
+        await actualResponse?.release()
+    }
 }
 
 function* createTest1Data() {
@@ -252,7 +262,7 @@ function* createTest1Data() {
     // next...
     remoteEndpoint = endpointLang
     sendOptions = {
-        maxChunkSize: 200,
+        maxHeadersSize: 200,
         responseBufferingEnabled: false
     }
     request = new DefaultQuasiHttpRequest({
@@ -368,20 +378,20 @@ function* createTest1Data() {
     // next...
     remoteEndpoint = endpointLang
     sendOptions = {
-        maxChunkSize: 200_000,
-        responseBufferingEnabled: false
+        maxHeadersSize: 30_000,
+        responseBufferingEnabled: true
     }
     request = new DefaultQuasiHttpRequest({
         method: "GET",
-        target: "really long".padEnd(280_00),
+        target: "really long".padEnd(28_000),
         httpVersion: keyHttpVersion1_0,
-        body: new StringBody('long indeed'.padEnd(400_00))
+        body: new StringBody('long indeed'.padEnd(400_000))
     })
     expectedResponseBodyBytes = stringToBytes(
-        "LONG INDEED".padEnd(400_00))
+        "LONG INDEED".padEnd(400_000))
     expectedResponse = new DefaultQuasiHttpResponse({
         statusCode: 0,
-        httpStatusMessage: "really long".padEnd(280_00),
+        httpStatusMessage: "really long".padEnd(28_000),
         httpVersion: undefined,
         body: new ByteBufferBody(expectedResponseBodyBytes)
     })
@@ -403,7 +413,7 @@ function createServer1(
             processRequest: echoApplicationServer
         },
         defaultProcessingOptions: {
-            timeoutMillis: 3_000
+            timeoutMillis: 3000
         }
     })
     const serverTransport = new MemoryBasedServerTransport({
@@ -425,7 +435,7 @@ function createServer2(
         },
         defaultProcessingOptions: {
             timeoutMillis: 3_500,
-            maxChunkSize: 300_000
+            maxHeadersSize: 40_000
         }
     })
     const serverTransport = new MemoryBasedServerTransport({
@@ -446,8 +456,8 @@ function createServer3(
             processRequest: arithmeticApplicationServer
         },
         defaultProcessingOptions: {
-            maxChunkSize: 100,
-            timeoutMillis: 2_000
+            maxHeadersSize: 100,
+            timeoutMillis: 2000
         }
     })
     const serverTransport = new MemoryBasedServerTransport({
@@ -498,6 +508,7 @@ async function capitalizationApplicationServer(
     let bodyAsString = bytesToString(
         await IOUtils.readAllBytes(getBodyReader(request.body)))
     bodyAsString = bodyAsString.toUpperCase()
+
     const res = new DefaultQuasiHttpResponse({
         httpStatusMessage: request.target,
         body: new StringBody(bodyAsString)

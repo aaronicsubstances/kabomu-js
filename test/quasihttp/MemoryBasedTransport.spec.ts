@@ -208,8 +208,7 @@ function describeMsg(connection: any, msg: TestMessage,
 }
 
 async function readMsg(reader: any) {
-    const msgBytes = Buffer.alloc(10)
-    await IOUtils.readBytesFully(reader, msgBytes)
+    const msgBytes = await IOUtils.readBytesFully(reader, 10)
     const msg: TestMessage = {
         input: 0,
         priority: 0,

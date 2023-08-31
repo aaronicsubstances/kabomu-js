@@ -1,29 +1,18 @@
-import { Writable } from "stream";
 import * as IOUtils from "../../../src/common/IOUtils"
+import { ICustomWriter, customWriterSymbol } from "../../../src/common/types"
 
-export class SequenceCustomWriter extends Writable {
+export class SequenceCustomWriter implements ICustomWriter {
     _writerIndex = 0
-    writers: Array<Writable>
+    writers: Array<any>
 
-    constructor(writers: Array<Writable>) {
-        super({})
+    constructor(writers: Array<any>) {
         this.writers = writers
     }
 
-    _write(chunk: any, encoding: BufferEncoding, cb: any) {
-        this.writeAsync(chunk, cb)
-    }
-
-    async writeAsync(chunk: any, cb: any) {
-        try {
-            if (this.writers) {
-                const currentWriter = this.writers[this._writerIndex]
-                await IOUtils.writeBytes(currentWriter, chunk)
-            }
-            cb()
-        }
-        catch (e) {
-            cb(e)
+    async [customWriterSymbol](chunk: any) {
+        if (this.writers) {
+            const currentWriter = this.writers[this._writerIndex]
+            await IOUtils.writeBytes(currentWriter, chunk)
         }
     }
 

@@ -1,4 +1,3 @@
-import { Readable, Writable } from "stream"
 import { ICustomDisposable, ISelfWritable } from "../common/types"
 
 /**
@@ -88,10 +87,11 @@ export interface IQuasiHttpBody extends ICustomDisposable, ISelfWritable {
     contentLength: number
 
     /**
-     * Returns a readable stream for reading byte representation of the instance.
+     * Returns a readable object acceptable by IOUtils.readBytes(),
+     * for reading byte representation of the instance.
      * Can also return undefined indicate that direct reading is not supported.
      */
-    getReader(): Readable | undefined
+    getReader(): any
 }
 
 /**
@@ -227,14 +227,15 @@ export interface QuasiHttpSendOptions {
     timeoutMillis?: number
 
     /**
-     * Imposes a maximum size on the headers and chunks which will be generated during
-     * a send request, in accordance with the chunked transfer protocol.
+     * Imposes a maximum size on the headers of requests and
+     * responses which will be encountered during sending out requests and
+     * receipt of responses.
      * 
      * Note that falsy and negative values will be interpreted as unspecified,
      * and in the absence of any overriding options
      * a client-specific default value will be used.
      */
-    maxChunkSize?: number
+    maxHeadersSize?: number
 
     /**
      * Indicates whether response buffering is enabled or not.
@@ -284,14 +285,15 @@ export interface QuasiHttpProcessingOptions {
     timeoutMillis?: number
 
     /**
-     * Imposes a maximum size on the headers and chunks which will be generated during
-     * the processing of a request, in accordance with the chunked transfer protocol.
+     * Imposes a maximum size on the headers of requests and
+     * responses which will be encountered during receiving requests and send out
+     * responses.
      * 
      * Note that falsy and negative values will be interpreted as unspecified,
      * and in the absence of any overriding options
      * a client-specific default value will be used.
      */
-    maxChunkSize?: number
+    maxHeadersSize?: number
 }
 
 /**
@@ -421,20 +423,22 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
 export interface IQuasiHttpTransport {
 
     /**
-     * Gets a writable stream which can be used to write data to a connection of
-     * a quasi http transport instance.
-     * @param connection the connection associated with the writer
-     * @returns a stream which can be used to write bytes to the connection argument
-     */
-    getReader(connection: any): Readable | undefined
-
-    /**
-     * Gets a reader which can be used to read data from a connection of
+     * Gets a reader acceptable by IOUtils.readBytes(),
+     * which can be used to read data from a connection of
      * a quasi http transport instance.
      * @param connection the connection associated with the reader
      * @returns a stream which can be used to read bytes from the connection argument
      */
-    getWriter(connection: any): Writable | undefined
+    getReader(connection: any): any
+
+    /**
+     * Gets a writer acceptable by IOUtils.writeBytes(),
+     * which can be used to write data to a connection of
+     * a quasi http transport instance.
+     * @param connection the connection associated with the writer
+     * @returns a stream which can be used to write bytes to the connection argument
+     */    
+    getWriter(connection: any): any
 
     /**
      * Releases resources held by a connection of a quasi http transport instance.

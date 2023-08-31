@@ -1,51 +1,45 @@
-import { Readable, Writable } from "stream";
+import { Readable } from "stream";
 import { IQuasiHttpTransport } from "../../../src/quasihttp/types";
 import * as IOUtils from "../../../src/common/IOUtils"
 import { createYieldPromise } from "../../../src/common/MiscUtils";
+import { customWriterSymbol } from "../../../src/common/types";
 
 export class DemoQuasiHttpTransport implements IQuasiHttpTransport {
     private _expectedConnection: any;
     private _backingReader: Readable;
-    private _backingWriter: Writable;
+    private _backingWriter: any;
     releaseCallCount = 0;
 
     constructor(expectedConnection: any,
             backingReader: Readable,
-            backingWriter: Writable) {
+            backingWriter: any) {
         this._expectedConnection = expectedConnection;
         this._backingReader = backingReader;
         this._backingWriter = backingWriter;
     }
-    getWriter(connection: any): Writable {
+
+    getWriter(connection: any) {
         if (connection !== this._expectedConnection) {
             throw new Error("unexpected connection")
         }
         if (!this._backingWriter) {
-            return null as any
+            return undefined
         }
         const that = this
-        const writeAsync = async function(chunk: any, cb: any) {
-            try {
+        return {
+            async [customWriterSymbol](chunk: Buffer) {
                 await createYieldPromise()
                 await IOUtils.writeBytes(that._backingWriter, chunk)
-                cb()
-            }
-            catch (e) {
-                cb(e)
             }
         }
-        return new Writable({
-            write(chunk, encoding, cb) {
-                writeAsync(chunk, cb)
-            }
-        })
     }
-    getReader(connection: any): Readable {
+
+    getReader(connection: any): Readable | undefined {
         if (connection !== this._expectedConnection) {
             throw new Error("unexpected connection")
         }
         if (!this._backingReader) {
-            return null as any
+            return undefined
         }
         const that = this
         return Readable.from((async function*() {

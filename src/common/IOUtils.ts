@@ -5,8 +5,9 @@ import {
     finished
 } from "stream";
 
-import { CustomIOError } from "./errors";
-import { createBlankChequePromise } from "./MiscUtils";
+import { CustomIOError, ExpectationViolationError } from "./errors";
+import { createBlankChequePromise, parseInt32 } from "./MiscUtils";
+import { customReaderSymbol, customWriterSymbol } from "./types";
 
 /**
  * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
@@ -18,7 +19,7 @@ export const DEFAULT_DATA_BUFFER_LIMIT = 134_217_728;
  */
 export const DEFAULT_READ_BUFFER_SIZE = 8192;
 
-function createNonBufferChunkError(chunk: any) {
+export function createNonBufferChunkError(chunk: any) {
     const chunkType = typeof chunk;
     return new CustomIOError(
         "expected Buffer chunks but got chunk of type " +
@@ -26,16 +27,29 @@ function createNonBufferChunkError(chunk: any) {
 }
 
 /**
- * Performs writes on behalf of a writable stream
- * @param writer writable stream
+ * Performs writes on behalf of a writable stream or an
+ * object which supports the customWriterSymbol.
+ * @param writer instance of stream.Writable or
+ * an object which supports the customWriterSymbol.
  * @param data source buffer
  */
-export async function writeBytes(writer: Writable, data: Buffer) {
+export async function writeBytes(writer: any, data: Buffer) {
     if (!writer) {
         throw new Error("writer argument is null");
     }
     // allow zero-byte writes to proceed to the
     // stream, rather than just return.
+    if (writer instanceof Writable) {
+        // proceed
+    }
+    else if (writer[customWriterSymbol]) {
+        return await writer[customWriterSymbol](data)
+    }
+    else {
+        throw new Error("writer argument does not support the " +
+            "customWriterSymbol")
+    }
+    const writable = writer as Writable;
     const controller = new AbortController();
     const finishedOptions: FinishedOptions = {
         signal: controller.signal
@@ -46,8 +60,8 @@ export async function writeBytes(writer: Writable, data: Buffer) {
     const ev = (e: any) => {
         // do nothing.
     }
-    writer.once("error", ev);
-    finished(writer, finishedOptions, err => {
+    writable.once("error", ev);
+    finished(writable, finishedOptions, err => {
         if (controller.signal.aborted) {
             return;
         }
@@ -59,7 +73,7 @@ export async function writeBytes(writer: Writable, data: Buffer) {
                 new CustomIOError("end of write"));
         }
     });
-    writer.write(data, err => {
+    writable.write(data, err => {
         if (err) {
             pendingWriteCompletion.reject(err)
         }
@@ -73,22 +87,66 @@ export async function writeBytes(writer: Writable, data: Buffer) {
     await pendingWriteCompletion.promise;
     // only here can we really remove error
     // listener to prevent unhandled errors
-    writer.removeListener("error", ev);
+    writable.removeListener("error", ev);
 }
 
-async function readSomeBytes(reader: Readable,
-        data: Buffer, readFully: boolean)
-        : Promise<number> {
+async function readSomeBytes(reader: any, 
+        count: number, readFully: boolean)
+        : Promise<Buffer | undefined> {
     if (!reader) {
         throw new Error("reader argument is null");
     }
     // allow zero-byte reads to proceed to touch the
     // stream, rather than just return.
+    if (reader instanceof Readable) {
+        // proceed
+    }
+    else if (reader[customReaderSymbol]) {
+        if (readFully) {
+            let bytesLeft = count
+            const chunks = new Array<Buffer>()
+            while (true) {
+                const chunk = await reader[customReaderSymbol](bytesLeft)
+                if (!chunk || !chunk.length) {
+                    if (bytesLeft > 0) {
+                        throw new CustomIOError("unexpected end of read");
+                    }
+                }
+                if (chunk.length > bytesLeft) {
+                    throw new ExpectationViolationError(
+                        "received chunk greater than maximum length: " +
+                        `(${chunk.length} > ${bytesLeft})`)
+                }
+                chunks.push(chunk)
+                bytesLeft -= chunk.length
+                if (!bytesLeft) {
+                    break
+                }
+            }
+            return Buffer.concat(chunks)
+        }
+        else {
+            const result = await reader[customReaderSymbol](count)
+            if (result && result.length > 0) {
+                if (result.length > count) {
+                    throw new ExpectationViolationError(
+                        "received chunk greater than maximum length: " +
+                        `(${result.length} > ${count})`)
+                }
+                return result;
+            }
+            return undefined;
+        }
+    }
+    else {
+        throw new Error("reader argument does not support the " +
+            "customReaderSymbol")
+    }
     const controller = new AbortController();
     const finishedOptions: FinishedOptions = {
         signal: controller.signal
     };
-    const pendingReadCompletion = createBlankChequePromise<number>()
+    const pendingReadCompletion = createBlankChequePromise<Buffer | undefined>()
     // attach an error handler, without which
     // an unhandled exception may occur.
     const ev = (e: any) => {
@@ -105,14 +163,19 @@ async function readSomeBytes(reader: Readable,
             pendingReadCompletion.reject(err);
         }
         else {
-            if (readFully && data.length > 0) {
+            if (readFully && count > 0) {
                 pendingReadCompletion.reject(
                     new CustomIOError("unexpected end of read"))
             }
-            pendingReadCompletion.resolve(0);
+            pendingReadCompletion.resolve(readFully ?
+                Buffer.alloc(0) : undefined);
         }
     });
     let bytesWritten = 0
+    let dataToReturn: Buffer | undefined
+    if (readFully) {
+        dataToReturn = Buffer.allocUnsafeSlow(count)
+    }
     const readableCb = function() {
         let chunk: Buffer | null = null
         while (true) {
@@ -131,11 +194,11 @@ async function readSomeBytes(reader: Readable,
                 break;
             }
 
-            if (bytesWritten + chunk.length >= data.length) {
+            if (bytesWritten + chunk.length >= count) {
                 break;
             }
 
-            chunk.copy(data, bytesWritten)
+            chunk.copy(dataToReturn!, bytesWritten)
             bytesWritten += chunk.length
             continue;
         }
@@ -143,14 +206,22 @@ async function readSomeBytes(reader: Readable,
         // Remove the 'readable' listener before any unshifting.
         reader.removeListener('readable', readableCb);
 
-        const bytesLeft = Math.min(data.length - bytesWritten,
+        const bytesLeft = Math.min(count - bytesWritten,
             chunk.length);
         if (bytesLeft < chunk.length) {
             reader.unshift(chunk.subarray(
                 bytesLeft, chunk.length));
         }
         if (bytesLeft) {
-            chunk.copy(data, bytesWritten, 0, bytesLeft);
+            if (readFully) {
+                chunk.copy(dataToReturn!, bytesWritten, 0, bytesLeft);
+            }
+            else {
+                dataToReturn = chunk
+                if (bytesLeft < chunk.length) {
+                    dataToReturn = chunk.subarray(0, bytesLeft)
+                }
+            }
         }
 
         // free finished callback
@@ -159,7 +230,7 @@ async function readSomeBytes(reader: Readable,
         // give time for any incoming error event
         // to take effect.
         setImmediate(() => {
-            pendingReadCompletion.resolve(bytesLeft)
+            pendingReadCompletion.resolve(dataToReturn)
         });
     };
     reader.on("readable", readableCb);
@@ -172,25 +243,35 @@ async function readSomeBytes(reader: Readable,
 
 /**
  * Performs reads on behalf of a readable stream
- * @param reader readable stream
- * @param data destination buffer
+ * @param reader instance of stream.Readable or
+ * an object which supports the customReaderSymbol.
+ * @param count number of bytes to read
  * @returns a promise whose result will be the number of bytes actually read, which
- * depending of the kind of reader may be less than the destination buffer size.
+ * depending of the kind of reader may be less than the size requested.
  */
-export async function readBytes(reader: Readable, data: Buffer) {
-    return await readSomeBytes(reader, data, false);
+export async function readBytes(reader: any, count: number) {
+    count = parseInt32(count)
+    if (count < 0) {
+        throw new Error("count argument cannot be negative: " + count)
+    }
+    return await readSomeBytes(reader, count, false);
 }
 
 /**
- * Reads in data from a readable stream in order to completely fill
- * a buffer. An error occurs if an insufficient amount of bytes exist in
- * stream to fill the buffer.
- * @param reader source of bytes to read
- * @param data destination buffer to fill
+ * Reads in data from a readable stream in order to completely reach
+ * a certain count. An error occurs if an insufficient amount of bytes exist.
+ * @param reader source of bytes to read. Must be acceptable by
+ * the readBytes() function of this module.
+ * @param count exact number of bytes to read.
  */
-export async function readBytesFully(reader: Readable,
-        data: Buffer): Promise<void> {
-    await readSomeBytes(reader, data, true);
+export async function readBytesFully(reader: any,
+        count: number): Promise<Buffer> {
+    count = parseInt32(count)
+    if (count < 0) {
+        throw new Error("count argument cannot be negative: " + count)
+    }
+    const result = await readSomeBytes(reader, count, true);
+    return result!
 }
 
 /**
@@ -199,7 +280,8 @@ export async function readBytesFully(reader: Readable,
  * 
  * One can specify a maximum size beyond which an error will be
  * thrown if there is more data after that limit.
- * @param reader the source of data to read 
+ * @param reader the source of data to read. Must be acceptable
+ * by the readBytes() function of this module
  * @param bufferingLimit indicates the maximum size in bytes of the
  * resulting in-memory buffer. Can pass zero to use a default value.
  * Can also pass a negative value which will ignore imposing a maximum
@@ -207,7 +289,7 @@ export async function readBytesFully(reader: Readable,
  * @returns A promise whose result is an in-memory buffer which has
  * all of the remaining data in the stream argument.
  */
-export async function readAllBytes(reader: Readable,
+export async function readAllBytes(reader: any,
         bufferingLimit = 0): Promise<Buffer> {
     if (!bufferingLimit) {
         bufferingLimit = DEFAULT_DATA_BUFFER_LIMIT;
@@ -224,85 +306,70 @@ export async function readAllBytes(reader: Readable,
     }
     
     let totalBytesRead = 0;
-    for await (const chunk of reader) {
-        if (bufferingLimit >= 0) {
-            totalBytesRead += chunk.length;
-            if (totalBytesRead > bufferingLimit) {
-                throw CustomIOError.createDataBufferLimitExceededError(
-                    bufferingLimit);
+
+    if (reader instanceof Readable) {
+        for await (const chunk of reader) {
+            if (bufferingLimit >= 0) {
+                totalBytesRead += chunk.length;
+                if (totalBytesRead > bufferingLimit) {
+                    throw CustomIOError.createDataBufferLimitExceededError(
+                        bufferingLimit);
+                }
+            }
+            chunks.push(chunk);
+        }
+    }
+    else {
+        while (true) {
+            let bytesToRead = Math.min(DEFAULT_READ_BUFFER_SIZE,
+                bufferingLimit - totalBytesRead);
+            // force a read of 1 byte if there are no more bytes to read into memory stream buffer
+            // but still remember that no bytes was expected.
+            let expectedEndOfRead = false;
+            if (bytesToRead === 0) {
+                bytesToRead = 1;
+                expectedEndOfRead = true;
+            }
+            const chunk = await readBytes(reader, bytesToRead);
+            if (chunk) {
+                if (expectedEndOfRead) {
+                    throw CustomIOError.createDataBufferLimitExceededError(
+                        bufferingLimit);
+                }
+                chunks.push(chunk);
+                totalBytesRead += chunk.length;
+            }
+            else {
+                break;
             }
         }
-        chunks.push(chunk);
     }
+
     return Buffer.concat(chunks);
 }
 
 /**
  * Copies all bytes from a stream into another stream
- * @param reader source of data being transferred
+ * @param reader source of data being transferred. Must be
+ * acceptable by the readBytes() function of this module.
  * @param writer destination of data being transferred
+ * which is acceptable by writeBytes() function.
  */
-export async function copyBytes(reader: Readable, writer: Writable) {
+export async function copyBytes(reader: any, writer: any) {
     if (!reader) {
         throw new Error("reader argument is null")
     }
     if (!writer) {
         throw new Error("writer argument is null")
     }
-    // use of reader.pipe(writer) didn't work for us
-    // since we were unable to determine the end of
-    // writing for some of the custom writables
-    // used in the library.
-    // also, was not able to avoid errors with troublesome
-    // writers even if reader is empty
-    /*const p = createBlankChequePromise<void>()
-    pump(reader, writer, e => {
-        if (e) {
-            p.reject(e)
-        }
-        p.resolve()
-    })
-    await p
-    return*/
     while (true) {
-        // NB: cannot allocate buffer once outside loop
-        // because it may be stored by writer.
-        const readBuffer = Buffer.alloc(DEFAULT_READ_BUFFER_SIZE)
-        const bytesRead = await readBytes(
-            reader, readBuffer)
-        if (bytesRead > 0) {
-            await writeBytes(writer,
-                readBuffer.subarray(0, bytesRead))
+        const bytesRead = await readBytes(reader,
+            DEFAULT_READ_BUFFER_SIZE)
+        if (bytesRead && bytesRead.length > 0) {
+            await writeBytes(writer, bytesRead)
         }
         else {
             break
         }
     }
-}
-
-/**
- * Calls end() on a writable stream and waits for it
- * to take effect or throws an error if the stream is
- * in an error state (e.g. has been destroyed with error).
- * @param writer writable stream
- */
-export async function endWrites(writer: Writable) {
-    const pending = createBlankChequePromise<void>()
-    // passing these options fixed bug with
-    // MemoryBasedTransportConnectionInternal's
-    // release() method hanging forever sometimes
-    const options: FinishedOptions = {
-        readable: false,
-        writable: false
-    };
-    finished(writer, options, err => {
-        if (err) {
-            pending.reject(err)
-        }
-        else {
-            pending.resolve()
-        }
-    });
-    writer.end();
-    await pending.promise;
 }

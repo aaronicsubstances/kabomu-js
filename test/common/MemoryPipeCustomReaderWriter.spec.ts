@@ -42,19 +42,15 @@ describe("MemoryPipeCustomReaderWriter", function() {
     })
 
     it("should pass internals test (1)", async function() {
-        // NB: test depends on highWaterMark values in the range
-        // of [1, 2]
-        const instance = createMemoryPipeCustomReaderWriter(1)
-        const readBuffer = Buffer.alloc(3)
-        let readPromise = IOUtils.readBytes(instance, readBuffer)
+        const instance = createMemoryPipeCustomReaderWriter()
+        let readPromise = IOUtils.readBytes(instance, 3)
 
         await IOUtils.writeBytes(instance, Buffer.from([4, 5, 6]))
-        let readLen = await readPromise;
-        assert.equal(readLen, 3)
+        let readBuffer = await readPromise;
+        assert.equal(readBuffer?.length, 3)
         assert.equalBytes(readBuffer, Buffer.from([4, 5, 6]))
 
-        readPromise = IOUtils.readBytes(instance,
-            readBuffer.subarray(0, 0))
+        readPromise = IOUtils.readBytes(instance, 0)
 
         await IOUtils.writeBytes(instance, Buffer.alloc(0))
 
@@ -63,29 +59,17 @@ describe("MemoryPipeCustomReaderWriter", function() {
             1)
 
         let writePromise = IOUtils.writeBytes(instance,
-            Buffer.from([2, 4, 6]))
-        delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
-            0)
-        writePromise = IOUtils.writeBytes(instance,
-            Buffer.from([8]))
-        delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
-            1)
-        readLen = await readPromise
-        assert.equal(readLen, 0)
+            Buffer.from([2, 4, 6, 8]))
+        readBuffer = await readPromise
+        assert.isNotOk(readBuffer)
 
-        readLen = await IOUtils.readBytes(instance,
-            readBuffer.subarray(0, 3))
-        assert.equal(readLen, 3)
-        assert.equalBytes(readBuffer.subarray(0, readLen),
-            Buffer.from([2, 4, 6]))
+        readBuffer = await IOUtils.readBytes(instance, 3)
+        assert.equal(readBuffer?.length, 3)
+        assert.equalBytes(readBuffer, Buffer.from([2, 4, 6]))
 
-        readLen = await IOUtils.readBytes(instance,
-            readBuffer.subarray(1, 3))
-        assert.equal(readLen, 1)
-        assert.equalBytes(readBuffer.subarray(1, 1 + readLen),
-            Buffer.from([8]))
+        readBuffer = await IOUtils.readBytes(instance, 2)
+        assert.equal(readBuffer?.length, 1)
+        assert.equalBytes(readBuffer, Buffer.from([8]))
 
         await writePromise
 
@@ -102,8 +86,7 @@ describe("MemoryPipeCustomReaderWriter", function() {
             message: "NIE"
         })
         await nativeAssert.rejects(async () => {
-            await IOUtils.readBytes(instance,
-                readBuffer.subarray(0, 1))
+            await IOUtils.readBytes(instance, 1)
         }, {
             message: "NIE"
         })
@@ -115,19 +98,15 @@ describe("MemoryPipeCustomReaderWriter", function() {
     })
 
     it("should pass internals test (2)", async function() {
-        // NB: test depends on highWaterMark values in the range
-        // of [1, 4]
-        const instance = createMemoryPipeCustomReaderWriter(2)
-        const readBuffer = Buffer.alloc(3)
-        let readPromise = IOUtils.readBytes(instance, readBuffer)
+        const instance = createMemoryPipeCustomReaderWriter()
+        let readPromise = IOUtils.readBytes(instance, 3)
 
         await IOUtils.writeBytes(instance, Buffer.from([4, 5, 6]))
-        let readLen = await readPromise;
-        assert.equal(readLen, 3)
+        let readBuffer = await readPromise;
+        assert.equal(readBuffer?.length, 3)
         assert.equalBytes(readBuffer, Buffer.from([4, 5, 6]))
 
-        readPromise = IOUtils.readBytes(instance,
-            readBuffer.subarray(0, 0))
+        readPromise = IOUtils.readBytes(instance, 0)
 
         await IOUtils.writeBytes(instance, Buffer.alloc(0))
 
@@ -136,35 +115,22 @@ describe("MemoryPipeCustomReaderWriter", function() {
             1)
 
         let writePromise = IOUtils.writeBytes(instance,
-            Buffer.from([2, 4, 6]))
-        delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
-            0)
-        writePromise = IOUtils.writeBytes(instance,
-            Buffer.from([8]))
-        delayPromise = createDelayPromise(200)
-        assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
-            1)
-        readLen = await readPromise
-        assert.equal(readLen, 0)
+            Buffer.from([2, 4, 6, 8]))
+        readBuffer = await readPromise
+        assert.isNotOk(readBuffer)
 
-        readLen = await IOUtils.readBytes(instance,
-            readBuffer.subarray(0, 3))
-        assert.equal(readLen, 3)
-        assert.equalBytes(readBuffer.subarray(0, readLen),
-            Buffer.from([2, 4, 6]))
+        readBuffer = await IOUtils.readBytes(instance, 3)
+        assert.equal(readBuffer?.length, 3)
+        assert.equalBytes(readBuffer, Buffer.from([2, 4, 6]))
 
-        readLen = await IOUtils.readBytes(instance,
-            readBuffer.subarray(1, 3))
-        assert.equal(readLen, 1)
-        assert.equalBytes(readBuffer.subarray(1, 1 + readLen),
-            Buffer.from([8]))
+        readBuffer = await IOUtils.readBytes(instance, 2)
+        assert.equal(readBuffer?.length, 1)
+        assert.equalBytes(readBuffer, Buffer.from([8]))
 
         await writePromise
 
         // Now test for errors
-        readPromise = IOUtils.readBytes(instance,
-            readBuffer.subarray(0, 2));
+        readPromise = IOUtils.readBytes(instance, 2);
 
         await endWritesOnMemoryPipe(instance, new Error("NSE"))
         await endWritesOnMemoryPipe(instance) // should have no effect
@@ -175,8 +141,7 @@ describe("MemoryPipeCustomReaderWriter", function() {
             message: "NSE"
         })
         await nativeAssert.rejects(async () => {
-            await IOUtils.readBytes(instance,
-                readBuffer.subarray(0, 1))
+            await IOUtils.readBytes(instance, 1)
         }, {
             message: "NSE"
         })
@@ -188,52 +153,54 @@ describe("MemoryPipeCustomReaderWriter", function() {
     })
 
     it("should pass internals test (3)", async function() {
-        // NB: test depends on highWaterMark of 4 bytes.
-        const instance = createMemoryPipeCustomReaderWriter(4)
-        const readBuffer = Buffer.alloc(3)
-        let readPromise = IOUtils.readBytes(instance, readBuffer)
+        const instance = createMemoryPipeCustomReaderWriter()
 
-        await IOUtils.writeBytes(instance, Buffer.from([4, 5, 6]))
-        let readLen = await readPromise;
-        assert.equal(readLen, 3)
+        let writePromise = IOUtils.writeBytes(instance,
+            Buffer.from([4, 5, 6]))
+
+        let readPromise = IOUtils.readBytes(instance, 3)
+        let readBuffer = await readPromise
+        assert.equal(readBuffer?.length, 3)
         assert.equalBytes(readBuffer, Buffer.from([4, 5, 6]))
 
         await IOUtils.writeBytes(instance, Buffer.alloc(0))
+        
+        readPromise = IOUtils.readBytes(instance, 4)
 
-        let writePromise = IOUtils.writeBytes(instance,
-            Buffer.from([2, 4, 6]))
+        writePromise = IOUtils.writeBytes(instance,
+            Buffer.from([2, 4, 6, 8]))
         let delayPromise = createDelayPromise(200)
         assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             0)
+        
+        readBuffer = await readPromise
+        assert.equal(readBuffer?.length, 4)
+        assert.equalBytes(readBuffer, Buffer.from([2, 4, 6, 8]))
+
         writePromise = IOUtils.writeBytes(instance,
-            Buffer.from([8]))
+            Buffer.from([2, 4, 6, 8]))
         delayPromise = createDelayPromise(200)
         assert.equal(await whenAnyPromiseSettles([writePromise, delayPromise]),
             1)
 
-        readLen = await IOUtils.readBytes(instance,
-            readBuffer.subarray(0, 3))
-        assert.equal(readLen, 3)
-        assert.equalBytes(readBuffer.subarray(0, readLen),
-            Buffer.from([2, 4, 6]))
+        readBuffer = await IOUtils.readBytes(instance, 3)
+        assert.equal(readBuffer?.length, 3)
+        assert.equalBytes(readBuffer, Buffer.from([2, 4, 6]))
 
-        readLen = await IOUtils.readBytes(instance,
-            readBuffer.subarray(1, 3))
-        assert.equal(readLen, 1)
-        assert.equalBytes(readBuffer.subarray(1, 1 + readLen),
-            Buffer.from([8]))
+        readBuffer = await IOUtils.readBytes(instance, 2)
+        assert.equal(readBuffer?.length, 1)
+        assert.equalBytes(readBuffer, Buffer.from([8]))
 
         await writePromise
 
         // Now test for errors
-        readPromise = IOUtils.readBytes(instance,
-            readBuffer.subarray(0, 2));
+        readPromise = IOUtils.readBytes(instance, 2);
 
         await endWritesOnMemoryPipe(instance)
         await endWritesOnMemoryPipe(instance, new Error("NSE")) // should have no effect
 
-        readLen = await readPromise
-        assert.equal(readLen, 0)
+        readBuffer = await readPromise
+        assert.isNotOk(readBuffer)
 
         await nativeAssert.rejects(async () => {
             await IOUtils.writeBytes(instance, Buffer.alloc(4))
@@ -241,11 +208,10 @@ describe("MemoryPipeCustomReaderWriter", function() {
             message: "end of write"
         })
 
-        readLen = await IOUtils.readBytes(instance, readBuffer)
-        assert.equal(readLen, 0)
+        readBuffer = await IOUtils.readBytes(instance, 3)
+        assert.isNotOk(readBuffer)
 
-        readLen = await IOUtils.readBytes(instance,
-            readBuffer.subarray(3, 3))
-        assert.equal(readLen, 0)
+        readBuffer = await IOUtils.readBytes(instance, 0)
+        assert.isNotOk(readBuffer)
     })
 })

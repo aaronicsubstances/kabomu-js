@@ -110,7 +110,7 @@ describe("StandardClientServer2", function() {
             extraConnectivityParams: new Map([
                 [ "scheme", "https" ]
             ]),
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: false,
             responseBufferingEnabled: false,
@@ -175,7 +175,7 @@ describe("StandardClientServer2", function() {
                 [ "scheme", "https" ],
                 [ "one", 1 ]
             ]),
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBodyBufferingSizeLimit: 0,
             ensureTruthyResponse: true,
             responseBufferingEnabled: true,
@@ -240,6 +240,7 @@ describe("StandardClientServer2", function() {
         const interimResult = client.send2(remoteEndpoint, requestFunc)
         const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
+        await serverPromise
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
         await ComparisonUtils.compareResponses(actualResponse,
@@ -251,7 +252,7 @@ describe("StandardClientServer2", function() {
             extraConnectivityParams: new Map(),
             ensureTruthyResponse: true,
             responseBufferingEnabled: true,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBodyBufferingSizeLimit: 0,
             timeoutMillis: 0
         }
@@ -311,6 +312,7 @@ describe("StandardClientServer2", function() {
             requestFunc, sendOptions)
         const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
+        await serverPromise
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
         await ComparisonUtils.compareResponses(actualResponse,
@@ -320,7 +322,7 @@ describe("StandardClientServer2", function() {
             timeoutMillis: 5_000,
             ensureTruthyResponse: true,
             responseBufferingEnabled: true,
-            maxChunkSize: 0,
+            maxHeadersSize: 0,
             responseBodyBufferingSizeLimit: 0
         }
         assert.equal(clientTransport.actualRemoteEndpoint,
@@ -376,6 +378,7 @@ describe("StandardClientServer2", function() {
             requestFunc, undefined)
         const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
+        await serverPromise
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
         await ComparisonUtils.compareResponses(actualResponse,
@@ -428,6 +431,7 @@ describe("StandardClientServer2", function() {
             requestFunc, sendOptions)
         const actualResponse = await interimResult.responsePromise
         assert.isOk(serverPromise)
+        await serverPromise
         await ComparisonUtils.compareRequests(actualRequest,
             expectedRequest, undefined)
         await ComparisonUtils.compareResponses(actualResponse,
@@ -469,7 +473,7 @@ describe("StandardClientServer2", function() {
             return new DefaultQuasiHttpRequest()
         }
         const sendOptions: QuasiHttpSendOptions = {
-            maxChunkSize: 200,
+            maxHeadersSize: 200,
             responseBodyBufferingSizeLimit: 20_000,
             responseBufferingEnabled: false,
             ensureTruthyResponse: true
@@ -503,7 +507,7 @@ describe("StandardClientServer2", function() {
             ensureTruthyResponse: true,
             extraConnectivityParams: new Map(),
             timeoutMillis: -1,
-            maxChunkSize: 200,
+            maxHeadersSize: 200,
             responseBodyBufferingSizeLimit: 20_000,
             responseBufferingEnabled: false,
         }
@@ -645,7 +649,7 @@ describe("StandardClientServer2", function() {
             transport: clientTransport,
             defaultSendOptions: {
                 timeoutMillis: 30_000,
-                maxChunkSize: 200,
+                maxHeadersSize: 200,
                 responseBodyBufferingSizeLimit: 20_000,
                 responseBufferingEnabled: true
             }
@@ -680,7 +684,7 @@ describe("StandardClientServer2", function() {
         const expectedSendOptions: QuasiHttpSendOptions = {
             extraConnectivityParams: new Map(),
             timeoutMillis: 3_000,
-            maxChunkSize: 200,
+            maxHeadersSize: 200,
             responseBodyBufferingSizeLimit: 20_000,
             responseBufferingEnabled: true,
             ensureTruthyResponse: false,

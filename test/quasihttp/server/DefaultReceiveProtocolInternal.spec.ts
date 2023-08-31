@@ -23,16 +23,14 @@ import { compareLeadChunks, compareRequests } from "../../shared/common/Comparis
 import { createChunkDecodingCustomReader } from "../../../src/quasihttp/chunkedtransfer/ChunkDecodingCustomReader";
 import { stringToBytes } from "../../../src/common/ByteUtils";
 import { ByteBufferBody } from "../../../src/quasihttp/entitybody/ByteBufferBody";
-import { StringBody } from "../../../src/quasihttp/entitybody/StringBody";
 import * as QuasiHttpUtils from "../../../src/quasihttp/QuasiHttpUtils"
-import { getBodyReader } from "../../../src/quasihttp/entitybody/EntityBodyUtils";
 
 function setUpReceivingOfResponseToBeWritten(
         response: IQuasiHttpResponse,
         expectedResBodyBytes: Buffer | undefined,
-        headerReceiver: Writable,
-        bodyReceiver: Writable) {
-    const backingWriters = new Array<Writable>()
+        headerReceiver: any,
+        bodyReceiver: any) {
+    const backingWriters = new Array<any>()
     const helpingWriter = new SequenceCustomWriter(
         backingWriters)
     backingWriters.push(headerReceiver)
@@ -55,7 +53,7 @@ async function serializeRequestToBeRead(
         req)
     const helpingReaders = new Array<Readable>()
     const chunks = new Array<Buffer>()
-    const writer = new Writable({
+    const writer: any = new Writable({
         async write(chunk, encoding, cb) {
             chunks.push(chunk)
             cb()
@@ -77,7 +75,7 @@ async function serializeRequestToBeRead(
         }
         await IOUtils.writeBytes(reqBodyWriter, reqBodyBytes!)
         if (endWrites) {
-            await IOUtils.endWrites(reqBodyWriter)
+            await reqBodyWriter.endWrites()
         }
         const reqBodyStream = Readable.from(Buffer.concat(
             chunks))
@@ -106,7 +104,7 @@ async function createReqStream(
             const encoder = createChunkEncodingCustomWriter(reqWriter,
                 bodyMaxChunkSize)
             await req.body.writeBytesTo(encoder)
-            await IOUtils.endWrites(encoder)
+            await encoder.endWrites()
         }
         else {
             await req.body.writeBytesTo(reqWriter)
@@ -292,8 +290,7 @@ describe("DefaultReceiveProtocolInternal", function() {
             .readLeadChunk(headerReceiver)
         // verify all contents of headerReceiver was used
         // before comparing lead chunks
-        assert.equal(await IOUtils.readBytes(headerReceiver,
-            Buffer.alloc(1)), 0)
+        assert.isNotOk(await IOUtils.readBytes(headerReceiver, 1))
         compareLeadChunks(actualResChunk, expectedResChunk)
         
         await instance.cancel()
@@ -534,15 +531,14 @@ describe("DefaultReceiveProtocolInternal", function() {
                         CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
                 // verify all contents of headerReceiver was used
                 // before comparing lead chunks
-                assert.equal(await IOUtils.readBytes(headerReceiver,
-                    Buffer.alloc(1)), 0)
+                assert.isNotOk(await IOUtils.readBytes(headerReceiver, 1))
                 compareLeadChunks(actualResChunk, expectedResChunk)
 
                 bodyReceiver = Readable.from(Buffer.concat(
                     bChunks))
                 if (expectedResChunk.contentLength! < 0) {
                     bodyReceiver = createChunkDecodingCustomReader(
-                        bodyReceiver, CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT)
+                        bodyReceiver)
                 }
                 const actualResBodyBytes = await IOUtils.readAllBytes(bodyReceiver)
                 if (expectedResponse.body) {
@@ -646,45 +642,6 @@ describe("DefaultReceiveProtocolInternal", function() {
         })
     })
 
-    it("test request body with chunks exceeding max chunk size error", async function() {
-        const connection = []
-        const request = new DefaultQuasiHttpRequest()
-        request.body = new StringBody("data".padStart(70_000))
-        request.body.contentLength = -1
-        const reqStream = await createReqStream(request,
-            0, 100_000);
-        const application: IQuasiHttpApplication = {
-            async processRequest(request) {
-                // readAllBytes should throw error
-                await IOUtils.readAllBytes(getBodyReader(request.body))
-                return new DefaultQuasiHttpResponse()
-            },
-        }
-        const resStream = new Writable({
-            write(chunk, encoding, callback) {
-                callback()
-            },
-        })
-        const transport = new DemoQuasiHttpTransport(connection,
-            reqStream, resStream)
-        const instance = new DefaultReceiveProtocolInternal({
-            application,
-            transport,
-            connection,
-            maxChunkSize: 69_000
-        })
-
-        await nativeAssert.rejects(async () => {
-            await instance.receive()
-        }, (err: any) => {
-            assert.instanceOf(err, ChunkDecodingError)
-            expect(err.message).to.contain("quasi http body")
-            assert.isOk(err.cause)
-            expect(err.cause.message).to.contain("chunk size exceeding max")
-            return true
-        })
-    })
-
     it("test response headers exceed max chunk size error", async function() {
         const connection = []
         const request = new DefaultQuasiHttpRequest()
@@ -720,89 +677,6 @@ describe("DefaultReceiveProtocolInternal", function() {
             expect(err.message).to.contain(
                 "quasi http headers exceed max")
             return true
-        })
-    })
-
-    describe("test response body with various max chunk sizes", function() {
-        const testData = [
-            {
-                maxChunkSize: 0,
-                shouldWork: false
-            },
-            {
-                maxChunkSize: 8_192,
-                shouldWork: false,
-            },
-            {
-                maxChunkSize: 10_000,
-                shouldWork: false,
-            },
-            {
-                maxChunkSize: 100_000,
-                shouldWork: true,
-            },
-            {
-                maxChunkSize: 8_000_000,
-                shouldWork: true,
-            },
-            {
-                maxChunkSize: 10_000_000,
-                shouldWork: true,
-            }
-        ]
-        testData.forEach(({maxChunkSize, shouldWork}, i) => {
-            it(`should pass with input ${i}`, async function() {
-                const connection = {}
-                const request = new DefaultQuasiHttpRequest()
-                request.body = new StringBody("data".padStart(70_000))
-                request.body.contentLength = -1
-                const reqStream = await createReqStream(request,
-                    0, 100_000);
-                const application: IQuasiHttpApplication = {
-                    async processRequest(request) {
-                        const res = new DefaultQuasiHttpResponse()
-                        res.body = new StringBody("1".padStart(95_000))
-                        res.body.contentLength = -1
-                        return res;
-                    },
-                }
-                const chunks = new Array<Buffer>()
-                let resStream: any = new Writable({
-                    write(chunk, encoding, callback) {
-                        chunks.push(chunk)
-                        callback()
-                    }
-                })
-                const transport = new DemoQuasiHttpTransport(connection,
-                    reqStream, resStream)
-                const instance = new DefaultReceiveProtocolInternal({
-                    application,
-                    transport,
-                    connection,
-                    maxChunkSize: 82_0000
-                })
-
-                await instance.receive()
-
-                resStream = createChunkDecodingCustomReader(
-                    Readable.from(Buffer.concat(chunks)),
-                    maxChunkSize)
-
-                if (shouldWork) {
-                    await IOUtils.readAllBytes(resStream)
-                    return;
-                }
-
-                await nativeAssert.rejects(async () => {
-                    await IOUtils.readAllBytes(resStream)
-                }, (err: any) => {
-                    assert.instanceOf(err, ChunkDecodingError)
-                    expect(err.message).to.contain("quasi http body")
-                    assert.isOk(err.cause)
-                    expect(err.cause.message).to.contain("chunk size exceeding max")
-                    return true
-                })
-            })
         })
     })
 })

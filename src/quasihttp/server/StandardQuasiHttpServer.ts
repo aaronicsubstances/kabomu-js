@@ -87,7 +87,7 @@ export class StandardQuasiHttpServer {
                 undefined, defaultProcessingOptions?.timeoutMillis, 0);
         const maxChunkSize = 
             ProtocolUtilsInternal.determineEffectivePositiveIntegerOption(
-                undefined, defaultProcessingOptions?.maxChunkSize, 0)
+                undefined, defaultProcessingOptions?.maxHeadersSize, 0)
         
         transfer.timeoutId =
             ProtocolUtilsInternal.createCancellableTimeoutPromise(
@@ -107,7 +107,7 @@ export class StandardQuasiHttpServer {
                 workPromise, transfer.timeoutId?.promise, undefined)
         }
         catch (e) {
-            await transfer.abort()
+            await transfer.abort(true)
             if (e instanceof QuasiHttpRequestProcessingError) {
                 throw e;
             }
@@ -170,7 +170,7 @@ export class StandardQuasiHttpServer {
             return res!
         }
         catch (e) {
-            await transfer.abort()
+            await transfer.abort(true)
             if (e instanceof QuasiHttpRequestProcessingError) {
                 throw e;
             }

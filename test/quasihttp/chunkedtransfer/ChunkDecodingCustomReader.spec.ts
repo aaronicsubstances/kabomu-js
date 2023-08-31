@@ -9,12 +9,12 @@ import * as IOUtils from "../../../src/common/IOUtils"
 describe("ChunkDecodingCustomReader", function() {
     it("should succeed in creation (1)", function() {
         const reader = Readable.from(Buffer.alloc(0))
-        createChunkDecodingCustomReader(reader, 10_000_000)
+        createChunkDecodingCustomReader(reader)
     })
 
     it("should fail due to creation errors (1)", function() {
         assert.throws(() => {
-            createChunkDecodingCustomReader(null as any, 0)
+            createChunkDecodingCustomReader(null as any)
         })
     })
 
@@ -40,9 +40,8 @@ describe("ChunkDecodingCustomReader", function() {
         assert.equal(ByteUtils.bytesToString(
             Buffer.concat(chunks)), expected)
         
-        // ensure subsequent reading attempts return 0
-        assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1)), 0)
+        // ensure subsequent reading attempts return empty
+        assert.isNotOk(await IOUtils.readBytes(instance, 1))
     })
 
     it("should pass (2)", async function(){
@@ -53,9 +52,8 @@ describe("ChunkDecodingCustomReader", function() {
             Buffer.from([0, 0, 2, 1, 0])
         ])
         const backingReader = Readable.from(srcData)
-        const maxChunkSize = 25
         const instance = createChunkDecodingCustomReader(
-            backingReader, maxChunkSize)
+            backingReader)
         const chunks = new Array<Buffer>()
         const writer = new Writable({
             write(chunk, encoding, callback) {
@@ -72,9 +70,8 @@ describe("ChunkDecodingCustomReader", function() {
         assert.equal(ByteUtils.bytesToString(
             Buffer.concat(chunks)), expected)
         
-        // ensure subsequent reading attempts return 0
-        assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1)), 0)
+        // ensure subsequent reading attempts return empty
+        assert.isNotOk(await IOUtils.readBytes(instance, 1))
     })
 
     it("should pass (3)", async function(){
@@ -92,9 +89,8 @@ describe("ChunkDecodingCustomReader", function() {
         ])
         // get randomized read request sizes.
         const backingReader = createRandomizedReadSizeBufferReader(srcData)
-        const maxChunkSize = 6
         const instance = createChunkDecodingCustomReader(
-            backingReader, maxChunkSize)
+            backingReader)
         const chunks = new Array<Buffer>()
         const writer = new Writable({
             write(chunk, encoding, callback) {
@@ -111,9 +107,8 @@ describe("ChunkDecodingCustomReader", function() {
         assert.equal(ByteUtils.bytesToString(
             Buffer.concat(chunks)), expected)
         
-        // ensure subsequent reading attempts return 0
-        assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1)), 0)
+        // ensure subsequent reading attempts return empty
+        assert.isNotOk(await IOUtils.readBytes(instance, 1))
     })
 
     it("should pass (4)", async function(){
@@ -127,9 +122,8 @@ describe("ChunkDecodingCustomReader", function() {
         ])
         // get randomized read request sizes.
         const backingReader = createRandomizedReadSizeBufferReader(srcData)
-        const maxChunkSize = 9
         const instance = createChunkDecodingCustomReader(
-            backingReader, maxChunkSize)
+            backingReader)
         const chunks = new Array<Buffer>()
         const writer = new Writable({
             write(chunk, encoding, callback) {
@@ -146,9 +140,8 @@ describe("ChunkDecodingCustomReader", function() {
         assert.equal(ByteUtils.bytesToString(
             Buffer.concat(chunks)), expected)
         
-        // ensure subsequent reading attempts return 0
-        assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1)), 0)
+        // ensure subsequent reading attempts return empty
+        assert.isNotOk(await IOUtils.readBytes(instance, 1))
     })
 
     it("should pass (5)", async function(){
@@ -160,9 +153,8 @@ describe("ChunkDecodingCustomReader", function() {
         ])
         // get randomized read request sizes.
         const backingReader = Readable.from(srcData)
-        const maxChunkSize = "-8" as any
         const instance = createChunkDecodingCustomReader(
-            backingReader, maxChunkSize)
+            backingReader)
         const chunks = new Array<Buffer>()
         const writer = new Writable({
             write(chunk, encoding, callback) {
@@ -179,18 +171,16 @@ describe("ChunkDecodingCustomReader", function() {
         assert.equal(ByteUtils.bytesToString(
             Buffer.concat(chunks)), expected)
         
-        // ensure subsequent reading attempts return 0
-        assert.equal(await IOUtils.readBytes(instance,
-            Buffer.alloc(1)), 0)
+        // ensure subsequent reading attempts return empty
+        assert.isNotOk(await IOUtils.readBytes(instance, 1))
     })
 
     it("should fail (1)", async function() {
         // arrange
         const srcData = Buffer.from([0, 0, 11, 1])
         const backingReader = Readable.from(srcData)
-        const maxChunkSize = 9
         const instance = createChunkDecodingCustomReader(
-            backingReader, maxChunkSize)
+            backingReader)
         const chunks = new Array<Buffer>()
         const writer = new Writable({
             write(chunk, encoding, callback) {
@@ -215,9 +205,8 @@ describe("ChunkDecodingCustomReader", function() {
             ByteUtils.stringToBytes("data bi")
         ])
         const backingReader = Readable.from(srcData)
-        const maxChunkSize = 9
         const instance = createChunkDecodingCustomReader(
-            backingReader, maxChunkSize)
+            backingReader)
         const chunks = new Array<Buffer>()
         const writer = new Writable({
             write(chunk, encoding, callback) {

@@ -91,7 +91,7 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
 
         // assert
         const actual = Buffer.concat(chunks)
@@ -130,7 +130,8 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
+
         // assert
         const actual = Buffer.concat(chunks)
         assert.equalBytes(actual, expected)
@@ -164,7 +165,7 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
 
         // assert
         const actual = Buffer.concat(chunks)
@@ -197,7 +198,7 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
 
         // assert
         const actual = Buffer.concat(chunks)
@@ -230,7 +231,7 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
 
         // assert
         const actual = Buffer.concat(chunks)
@@ -264,7 +265,7 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
 
         // assert
         const actual = Buffer.concat(chunks)
@@ -313,7 +314,7 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
 
         // assert
         const actual = Buffer.concat(chunks)
@@ -366,7 +367,7 @@ describe("ChunkEncodingCustomWriter", function() {
 
         // act
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
 
         // assert
         let actual = Buffer.concat(chunks)
@@ -378,7 +379,7 @@ describe("ChunkEncodingCustomWriter", function() {
         instance = createChunkEncodingCustomWriter(destStream,
             CustomChunkedTransferCodec.HARD_MAX_CHUNK_SIZE_LIMIT + 1)
         await IOUtils.copyBytes(reader, instance)
-        await IOUtils.endWrites(instance)
+        await instance.endWrites()
         actual = Buffer.concat(chunks)
         assert.equalBytes(actual, expected)
     })

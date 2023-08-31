@@ -11,5 +11,7 @@ export function createRandomizedReadSizeBufferReader(b: Buffer) {
             offset += bytesToCopy
             await createYieldPromise()
         }
-    })());
+    })(), {
+        objectMode: false
+    });
 }

@@ -1,118 +1,157 @@
-import { Duplex, PassThrough, Writable } from "stream";
-import * as IOUtils from "../common/IOUtils";
 import { CustomIOError } from "./errors";
+import {
+    IBlankChequePromise,
+    customReaderSymbol,
+    customWriterSymbol
+} from "./types";
+import { createBlankChequePromise, parseInt32 } from "./MiscUtils";
+import { createNonBufferChunkError } from "./IOUtils";
 
 const endWritesSymbol = Symbol("endWrites")
 
+interface ReadRequest {
+    readCount: number,
+    callback: IBlankChequePromise<Buffer | undefined>
+}
+
+interface WriteRequest {
+    chunk: Buffer,
+    offset: number,
+    length: number,
+    callback: IBlankChequePromise<void>
+}
+
 /**
- * Returns an implementation of readable and writable
- * stream interfaces which is based on a "pipe" of bytes,
- * where writes at one end become reads at the other end.
+ * Returns an implementation of stream.Readable which also
+ * supports writing by supporting the customWriterSymbol.
+ * This is based on a "pipe" of bytes where writes at one end
+ * become reads at the other end.
  *
  * The endWritesOnMemoryPipe() function in this module
  * is the means of ending reading and writing, possibly
- * with error. It is like calling writable.end() but allows
- * for passing in an error which will cause pending and future
- * reads to fail.
+ * with error.
  *
  * This notion of pipe is purely implemented in memory with stream.PassThrough,
  * and is similar to (but not based on)
  * OS named pipes, OS anonymous pipes and OS shell pipes.
- *
- * @param highWaterMark optional value which determines how many
- * bytes writes can accept before draining by reads have to occur.
- * Same as the highWaterMark property of the options object
- * acceptable by stream.PassThrough.
- * @returns stream.PassThrough instance repurposed as a
- * "memory pipe".
  */
-export function createMemoryPipeCustomReaderWriter(
-        highWaterMark?: number): Duplex {
-    return new PassThrough({
-        highWaterMark: 1
-    });
-    /*const readRequests = new Array<ReadWriteRequest>()
-    const writeRequests = new Array<ReadWriteRequest>()
+export function createMemoryPipeCustomReaderWriter() {
+    const readRequests = new Array<ReadRequest>()
+    const writeRequests = new Array<WriteRequest>()
     let endOfReadWrite = false
     let endOfReadError: any
     let endOfWriteError: any;
     const highWaterMark = 1;
     
-    const matchPendingWriteAndRead = function(instance: any) {
+    const matchPendingWriteAndRead = function() {
+        const pendingRead = readRequests[0]
         const pendingWrite = writeRequests[0]
+        const bytesToReturn = Math.min(
+            pendingRead.readCount, pendingWrite.length)
+        let dataToReturn = pendingWrite.chunk
+        if (pendingWrite.offset !== 0 ||
+                bytesToReturn !== dataToReturn.length) {
+            dataToReturn = dataToReturn.subarray(
+                pendingWrite.offset,
+                pendingWrite.offset + bytesToReturn)
+        }
+
+        // do not invoke callbacks until state is updated,
+        // to prevent error of re-entrant read byte requests
+        // matching previous writes.
         readRequests.shift()
-        writeRequests.shift()
-        pendingWrite.callback()
-        instance.push(pendingWrite.chunk)
+        //let resolveWrite = false
+        if (bytesToReturn < pendingWrite.length) {
+            // due to potential storage downstream,
+            // copy new chunk to return.
+            dataToReturn = Buffer.from(dataToReturn)
+            pendingWrite.offset += bytesToReturn
+            pendingWrite.length -= bytesToReturn
+        }
+        else {
+            writeRequests.shift()
+            pendingWrite.callback.resolve()
+        }
+        pendingRead.callback.resolve(dataToReturn)
     };
 
-    const instance: any = new Duplex({
-        highWaterMark: 1,
-        read(size) {
-            // respond immediately if writes have ended
-            if (endOfReadWrite) {
-                if (endOfReadError) {
-                    this.destroy(endOfReadError);
-                }
-                else {
-                    this.push(null);
-                }
-                return;
+    const readAsync = async function(count: number) {
+        // respond immediately if writes have ended
+        if (endOfReadWrite) {
+            if (endOfReadError) {
+                throw endOfReadError;
             }
+            return undefined;
+        }
 
-            // wait for writes even if zero bytes were requested.
-            const readRequest: ReadWriteRequest = {};
-            readRequests.push(readRequest);
-            if (writeRequests.length > 0) {
-                matchPendingWriteAndRead(this);
-            }
-        },
-        write(chunk, encoding, cb) {
-            if (endOfReadWrite) {
-                cb(endOfWriteError);
-                return;
-            }
+        count = parseInt32(count)
+        if (count < 0) {
+            throw new Error("count argument cannot be negative: " + count)
+        }
 
-            // don't store any zero-byte write
-            if (chunk.length == 0) {
-                cb()
-                return;
-            }
+        // wait for writes even if zero bytes were requested.
+        const readRequest: ReadRequest = {
+            callback: createBlankChequePromise(),
+            readCount: count
+        };
+        readRequests.push(readRequest);
 
-            // check for high water mark.
-            // this setting should apply to only existing pending writes,
-            // so as to ensure that
-            // a write can always be attempted the first time,
-            // and one doesn't have to worry about high water mark
-            // if one is performing serial writes.
-            const totalOutstandingWriteBytes =
-                writeRequests.reduce((acc, curr) => {
-                    return acc + curr.chunk.length
-                }, 0);
-            if (totalOutstandingWriteBytes >= highWaterMark) {
-                const e = new CustomIOError("cannot perform further writes " +
-                    "due to high water mark setting");
-                cb(e);
-                return;
-            }
+        const readPromise = readRequest.callback.promise;
 
-            const writeRequest: ReadWriteRequest = {
-                chunk,
-                callback: cb
-            }
-            writeRequests.push(writeRequest)
+        if (writeRequests.length > 0) {
+            matchPendingWriteAndRead()
+        }
 
-            if (readRequests.length > 0) {
-                matchPendingWriteAndRead(this)
-            }
-        },
-        final(cb) {
-            let instAny: any = this;
-            instAny[endWritesSymbol]()
-            cb()
-        },
-    });
-    instance[endWritesSymbol] = function(e: any) {
+        return await readPromise
+    };
+
+    const writeAsync = async function(chunk: Buffer) {
+        if (endOfReadWrite) {
+            throw endOfWriteError;
+        }
+
+        if (!Buffer.isBuffer(chunk)) {
+            throw createNonBufferChunkError(chunk)
+        }
+
+        // don't store any zero-byte write
+        if (chunk.length === 0) {
+            return;
+        }
+
+        // check for high water mark.
+        // this setting should apply to only existing pending writes,
+        // so as to ensure that
+        // a write can always be attempted the first time,
+        // and one doesn't have to worry about high water mark
+        // if one is performing serial writes.
+        const totalOutstandingWriteBytes =
+            writeRequests.reduce((acc, curr) => {
+                return acc + curr.length
+            }, 0);
+        if (totalOutstandingWriteBytes >= highWaterMark) {
+            throw new CustomIOError("cannot perform further writes " +
+                "due to high water mark setting");
+        }
+
+        const writeRequest: WriteRequest = {
+            chunk,
+            offset: 0,
+            length: chunk.length,
+            callback: createBlankChequePromise()
+        }
+        writeRequests.push(writeRequest)
+
+        const writePromise = writeRequest.callback.promise
+
+        if (readRequests.length > 0) {
+            matchPendingWriteAndRead()
+        }
+
+        await writePromise
+    };
+
+    const endWrites = function(e: any) {
         if (endOfReadWrite) {
             return;
         }
@@ -125,57 +164,46 @@ export function createMemoryPipeCustomReaderWriter(
             endOfWriteError = new CustomIOError("end of write")
         }
         for (const readRequest of readRequests) {
-            // not using readRequest is not a problem
-            // since there is only at most one of them.
             if (endOfReadError) {
-                instance.destroy(endOfReadError)
+                readRequest.callback.reject(endOfReadError)
             }
             else {
-                instance.push(null)
+                readRequest.callback.resolve(undefined)
             }
         }
         for (const writeRequest of writeRequests) {
-            writeRequest.callback(endOfWriteError)
+            writeRequest.callback.reject(endOfWriteError)
         }
         readRequests.length = 0
         writeRequests.length = 0
     }
-    return instance*/
-}
-
-interface ReadWriteRequest {
-    chunk?: any,
-    callback?: any
+    const instance = {
+        [customReaderSymbol]: readAsync,
+        [customWriterSymbol]: writeAsync,
+        [endWritesSymbol]: endWrites
+    }
+    return instance
 }
 
 /**
  * Causes pending and future read and writes to be aborted with a
- * supplied exception instance (pending and future reads will return 0
- * if no exception is supplied).
+ * supplied error instance (pending and future reads will return empty
+ * if no error is supplied).
  * @param instance instance returned by the
  * createMemoryPipeCustomReaderWriter() function in this module
- * @param error optional exception instance for ending read and writes.
+ * @param error optional error instance for ending read and writes.
  * If null, then pending and future writes will be made to fail, and
- * pending and future reads will simply return 0
+ * pending and future reads will simply return empty
  */
 export async function endWritesOnMemoryPipe(
-        instance: Writable, error?: any) {
-    if (instance.errored || instance.writableEnded) {
-        return;
+        instance: any, error?: any) {
+    if (!instance) {
+        throw new Error("instance argument is null")
     }
-    if (!error) {
-        await IOUtils.endWrites(instance);
-        return;
+    const anyInst = instance as any;
+    if (!anyInst[endWritesSymbol]) {
+        throw new Error("instance argument is not a " +
+            "MemoryPipeCustomReaderWriter()")
     }
-    /*const anyInst: any = instance
-    anyInst[endWritesSymbol](error)*/
-    instance.destroy(error);
-    try {
-        await IOUtils.endWrites(instance);
-    }
-    catch {
-        // ignore since error is really meant
-        // for future write and read attempts,
-        // rather than for this call.
-    }
+    anyInst[endWritesSymbol](error)
 }

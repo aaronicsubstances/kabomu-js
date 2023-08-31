@@ -32,8 +32,7 @@ describe("DefaultQuasiHttpResponse", function() {
             await instance.release()
             await nativeAssert.rejects(async () => {
                 await IOUtils.readBytes(
-                    getBodyReader(instance.body),
-                    Buffer.alloc(1))
+                    getBodyReader(instance.body), 1)
             }, {
                 message: "release"
             })
@@ -78,15 +77,13 @@ describe("DefaultQuasiHttpResponse", function() {
                 endOfReadError = new Error("release")
             }
             const result = await IOUtils.readBytes(
-                getBodyReader(instance.body),
-                Buffer.alloc(1))
-            assert.equal(result, 0)
+                getBodyReader(instance.body), 1)
+            assert.isNotOk(result)
     
             await instance.release()
             await nativeAssert.rejects(async () => {
                 await IOUtils.readBytes(
-                    getBodyReader(instance.body),
-                    Buffer.alloc(1))
+                    getBodyReader(instance.body), 1)
             }, {
                 message: "release"
             })

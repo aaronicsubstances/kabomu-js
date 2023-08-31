@@ -1,6 +1,7 @@
-import { Readable, Writable } from "stream";
+import { Readable } from "stream";
 import { IQuasiHttpBody } from "../types";
 import * as CsvUtils from "../../common/CsvUtils";
+import * as IOUtils from "../../common/IOUtils"
 
 /**
  * Represents quasi http body based CSV serialized in UTF-8 encoding. This class was created
@@ -62,12 +63,7 @@ export class CsvBody implements IQuasiHttpBody {
      * to supplied writer in UTF-8 encoding.
      * @param writer supplied writer
      */
-    async writeBytesTo(writer: Writable) {
-        for (const entry of this.content) {
-            const row = new Array<string>();
-            row.push(entry[0]);
-            row.push(...entry[1]);
-            await CsvUtils.serializeTo([row], writer);
-        }
+    async writeBytesTo(writer: any) {
+        await IOUtils.copyBytes(this.getReader(), writer);
     }
 }

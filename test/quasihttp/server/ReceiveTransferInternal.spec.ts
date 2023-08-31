@@ -7,7 +7,6 @@ import {
     IQuasiHttpResponse,
     IReceiveProtocolInternal
 } from "../../../src/quasihttp/types"
-import { StringBody } from "../../../src/quasihttp/entitybody/StringBody"
 
 class HelperReceiveProtocol implements IReceiveProtocolInternal {
     cancelled = false
@@ -89,7 +88,7 @@ describe("ReceiveTransferInternal", function() {
             const instance = new ReceiveTransferInternal(protocol)
 
             // act
-            await instance.abort()
+            await instance.abort(false)
 
             // assert
             assert.isOk(protocol.cancelled)
@@ -101,7 +100,7 @@ describe("ReceiveTransferInternal", function() {
 
             // act to verify no errors are raised with
             // the missing props
-            await instance.abort();
+            await instance.abort(false);
         })
         it("should pass (3)", async function() {
             // arrange
@@ -111,7 +110,7 @@ describe("ReceiveTransferInternal", function() {
 
             // act to verify no errors are raised with
             // the missing props
-            await instance.abort();
+            await instance.abort(false);
         })
         it("should pass (4)", async function() {
             // arrange
@@ -129,7 +128,7 @@ describe("ReceiveTransferInternal", function() {
             } as ICancellableTimeoutPromiseInternal;
 
             // act
-            await instance.abort();
+            await instance.abort(false);
 
             // assert
             assert.isOk(protocol.cancelled)
@@ -152,7 +151,7 @@ describe("ReceiveTransferInternal", function() {
             instance.trySetAborted()
 
             // act
-            await instance.abort();
+            await instance.abort(false);
 
             // assert
             assert.isNotOk(protocol.cancelled)
@@ -175,7 +174,7 @@ describe("ReceiveTransferInternal", function() {
             } as ICancellableTimeoutPromiseInternal;
 
             // act
-            await instance.abort()
+            await instance.abort(false)
 
             // assert
             assert.isOk(instance.timeoutId?.isCancellationRequested())

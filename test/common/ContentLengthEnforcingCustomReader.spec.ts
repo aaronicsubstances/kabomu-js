@@ -118,18 +118,15 @@ describe("ContentLengthEnforcingCustomReader", function() {
         const instance = createContentLengthEnforcingCustomReader(
             stream, -1)
         
-        let actual = await IOUtils.readBytes(instance,
-            Buffer.alloc(0))
-        assert.equal(actual, 0)
+        let actual = await IOUtils.readBytes(instance, 0)
+        assert.isNotOk(actual)
 
-        let actual2 = Buffer.alloc(3)
-        actual = await IOUtils.readBytes(instance, actual2)
-        assert.equal(actual, 3)
-        assert.equalBytes(actual2, Buffer.from([0, 1, 2]))
+        actual = await IOUtils.readBytes(instance, 3)
+        assert.equal(actual?.length, 3)
+        assert.equalBytes(actual, Buffer.from([0, 1, 2]))
 
-        actual = await IOUtils.readBytes(instance, 
-            Buffer.alloc(0))
-        assert.equal(actual, 0)
+        actual = await IOUtils.readBytes(instance, 0)
+        assert.isNotOk(actual)
     })
 
     it("should pass with zero byte reads (2)", async function() {
@@ -137,18 +134,15 @@ describe("ContentLengthEnforcingCustomReader", function() {
         const instance = createContentLengthEnforcingCustomReader(
             stream, 3)
         
-        let actual = await IOUtils.readBytes(instance,
-            Buffer.alloc(0))
-        assert.equal(actual, 0)
+        let actual = await IOUtils.readBytes(instance, 0)
+        assert.isNotOk(actual)
 
-        let actual2 = Buffer.alloc(3)
-        actual = await IOUtils.readBytes(instance, actual2)
-        assert.equal(actual, 3)
-        assert.equalBytes(actual2, Buffer.from([0, 1, 2]))
+        actual = await IOUtils.readBytes(instance, 3)
+        assert.equal(actual?.length, 3)
+        assert.equalBytes(actual, Buffer.from([0, 1, 2]))
 
-        actual = await IOUtils.readBytes(instance, 
-            Buffer.alloc(0))
-        assert.equal(actual, 0)
+        actual = await IOUtils.readBytes(instance, 0)
+        assert.isNotOk(actual)
     })
 
     it("should pass with zero byte reads (3)", async function() {
@@ -162,15 +156,14 @@ describe("ContentLengthEnforcingCustomReader", function() {
         // zero-byte reads.
         
         await nativeAssert.rejects(async () => {
-            await IOUtils.readBytesFully(instance,
-                Buffer.alloc(contentLength))
+            await IOUtils.readBytesFully(instance, contentLength)
         }, (e: any) => {
             expect(e.message).to.contain(`length of ${contentLength}`)
             return true
         })
         
         await nativeAssert.rejects(async () => {
-            await IOUtils.readBytes(instance, Buffer.alloc(0))
+            await IOUtils.readBytes(instance, 0)
         }, (e: any) => {
             expect(e.message).to.contain(`length of ${contentLength}`)
             return true

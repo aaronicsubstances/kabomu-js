@@ -1,13 +1,13 @@
-import { Duplex, Readable, Writable } from "stream"
 import {
     createMemoryPipeCustomReaderWriter,
     endWritesOnMemoryPipe
 } from "../../../src/common/MemoryPipeCustomReaderWriter"
+import { customReaderSymbol } from "../../../src/common/types"
 
 export class MemoryBasedTransportConnectionInternal {
     _fireAndForget: any
-    _serverPipe: Duplex
-    _clientPipe: Duplex
+    _serverPipe: any
+    _clientPipe: any
 
     constructor(fireAndForget?: any) {
         this._fireAndForget = fireAndForget
@@ -17,20 +17,19 @@ export class MemoryBasedTransportConnectionInternal {
 
     getReader(fromServer: any) {
         if (!fromServer && this._fireAndForget) {
-            return Readable.from(Buffer.alloc(0))
+            return {
+                async [customReaderSymbol](size: number) {
+                }
+            }
         }
         return fromServer ? this._serverPipe : this._clientPipe
     }
 
     getWriter(fromServer: any) {
         if (fromServer && this._fireAndForget) {
-            /*return new Writable({
-                write(chunk, encoding, cb) {
-                    cb()
-                },
-                destroy(error, cb) {
-                    cb(null)
-                },
+            /*return ({
+                async [customWriterSymbol](chunk: any) {
+                }
             })*/
         }
         return fromServer ? this._clientPipe : this._serverPipe

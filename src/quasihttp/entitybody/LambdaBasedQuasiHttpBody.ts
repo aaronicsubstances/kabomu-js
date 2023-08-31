@@ -1,4 +1,3 @@
-import { Readable, Writable } from "stream";
 import { IQuasiHttpBody } from "../types";
 import { ISelfWritable } from "../../common/types";
 import * as IOUtils from "../../common/IOUtils";
@@ -29,7 +28,7 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
      * fallback readable stream, to support default
      * implementation for writeBytesTo() method.
      */
-    readerFunc?: () => Readable | undefined;
+    readerFunc?: () => any;
 
     /**
      * Creates a new instance and initializes the contentLength
@@ -46,7 +45,7 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
      * Returns value returned by invoking readerFunc property.
      * Returns null if readerFunc property is null.
      */
-    getReader(): Readable | undefined {
+    getReader(): any {
         if (this.readerFunc) {
             return this.readerFunc();
         }
@@ -72,7 +71,7 @@ export class LambdaBasedQuasiHttpBody implements IQuasiHttpBody {
      * @param writer the writer which will be the destination of
      * the bytes to be written.
      */
-    async writeBytesTo(writer: Writable) {
+    async writeBytesTo(writer: any) {
         if (this.selfWritable) {
             await this.selfWritable.writeBytesTo(writer);
             return;

@@ -1,4 +1,3 @@
-import { Writable } from "stream";
 import * as ByteUtils from "./ByteUtils";
 import * as IOUtils from "./IOUtils";
 
@@ -215,26 +214,6 @@ function createCsvParseError(row: number, column: number, errorMessage: string) 
 }
 
 /**
- * Serializes CSV data to a writable stream.
- * @param rows CSV data
- * @param writer stream which serves as destination of
- * CSV data to be written
- */
-export async function serializeTo(rows: Array<string[]>, writer: Writable) {
-    for (const row of rows) {
-        let addCommaSeparator = false;
-        for (const value of row) {
-            if (addCommaSeparator) {
-                await IOUtils.writeBytes(writer, commaConstant);
-            }
-            await escapeValueTo(value, writer);
-            addCommaSeparator = true;
-        }
-        await IOUtils.writeBytes(writer, newlineConstant);
-    }
-}
-
-/**
  * Generates a CSV string.
  * @param rows Data for CSV generation. Each row is a list whose entries will be treated as the values of
  * columns in the row. Also no row is treated specially.
@@ -255,23 +234,6 @@ export function serialize(rows: Array<string[]>)
         csvBuilder.push("\n");
     }
     return csvBuilder.join("");
-}
-
-/**
- * Escapes a string to a writable stream for use as a CSV colum value.
- * @param raw value to escape. Note that empty strings are always escaped as two double quotes.
- * @param writer the stream which serves as destination of esaped value
- */
-export async function escapeValueTo(raw: string, writer: Writable) {
-    // escape empty strings with two double quotes to resolve ambiguity
-    // between an empty row and a row containing an empty string - otherwise both
-    // serialize to the same CSV output.
-    if (raw === "" || doesValueContainSpecialCharacters(raw))
-    {
-        raw = '"' + raw.replaceAll("\"", "\"\"") + '"';
-    }
-    const rawBytes = ByteUtils.stringToBytes(raw);
-    await IOUtils.writeBytes(writer, rawBytes);
 }
 
 /**

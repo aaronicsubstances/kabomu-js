@@ -69,7 +69,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
         const leadChunk = CustomChunkedTransferCodec.createFromRequest(this.request)
         await new CustomChunkedTransferCodec().writeLeadChunk(writer, leadChunk, this.maxChunkSize)
         const reqTransferPromise = transferBodyToTransport(writer,
-            this.maxChunkSize, this.request.body as any, leadChunk.contentLength)
+            this.request.body as any, leadChunk.contentLength)
         const resFetchPromise = this.startFetchingResponse()
         if (!await whenAnyPromiseSettles([reqTransferPromise, resFetchPromise])) {
             // let any request transfer exceptions terminate entire processing.
@@ -97,7 +97,7 @@ export class DefaultSendProtocolInternal implements ISendProtocolInternal {
         const releaseFunc = async () => this.transport.releaseConnection(this.connection)
         response.body = await createBodyFromTransport(
             reader, chunk.contentLength, releaseFunc,
-            this.maxChunkSize, this.responseBufferingEnabled,
+            this.responseBufferingEnabled,
             this.responseBodyBufferingSizeLimit)
         
         return {

@@ -1,4 +1,3 @@
-import { Readable, Writable } from "stream";
 import * as ByteUtils from "../../common/ByteUtils";
 import * as CsvUtils from "../../common/CsvUtils";
 import * as IOUtils from "../../common/IOUtils";
@@ -35,15 +34,10 @@ export class CustomChunkedTransferCodec {
     static readonly DEFAULT_MAX_CHUNK_SIZE = 8192;
 
     /**
-     * The maximum value of a max chunk size that can be tolerated during chunk decoding even if it
-     * exceeds the value used for sending. Equal to 65,536 bytes.
-     * 
-     * Practically this means that communicating parties can safely send chunks not exceeding 64KB without
-     * fear of rejection and without prior negotiation. Beyond 64KB however, communicating parties must have
-     * some prior negotiation (manual or automated) on max chunk sizes, or else chunks may be rejected
-     * by receivers as too large.
+     * The maximum value of quasi http headers which will be tolerated regardless
+     * of any lower limit.
      */
-    static readonly DEFAULT_MAX_CHUNK_SIZE_LIMIT = 65_536;
+    static readonly DEFAULT_HEADERS_SIZE_LIMIT = 65_536;
 
     /**
      * Constant which communicates the largest chunk size possible with the standard chunk transfer 
@@ -54,17 +48,16 @@ export class CustomChunkedTransferCodec {
 
     private _csvDataPrefix?: Buffer;
     private _csvData?: Array<string[]>;
-    private _defaultBufferUsedForDecoding = Buffer.alloc(
-        lengthOfEncodedChunkLength + 2)
 
     /**
      * Encodes a subsequent chunk header to a writable stream.
      * @param chunkDataLength the number of bytes of the
      * chunk data section which will follow the header.
-     * @param writer destination stream of encoded subsequent chunk header
+     * @param writer destination stream of encoded subsequent chunk header.
+     * Must be acceptable by IOUtils.writeBytes() function.
      */
     async encodeSubsequentChunkV1Header(
-            chunkDataLength: number, writer: Writable) {
+            chunkDataLength: number, writer: any) {
         if (!writer) {
             throw new Error("writer argument is null");
         }
@@ -87,43 +80,22 @@ export class CustomChunkedTransferCodec {
      * An instance of ChunkDecodingError is thrown if the bytes in the
      * bufferToUse or reader argument, do not represent a valid subsequent
      * chunk header in version 1 format.
-     * @param bufferToUse optional buffer to use as temporary
-     * storage during decoding. Must be at least 5 bytes long.
      * @param reader source stream of bytes representing subsequent
-     * chunk header. Must be specified if bufferToUse argument is null.
-     * @param maxChunkSize the maximum allowable size of the subsequent chunk to be decoded.
-     * NB: This parameter imposes a maximum only on lead chunks exceeding 64KB in size. Can
-     * pass zero to use default value.
+     * chunk header. Must be acceptable by IOUtils.readBytes() function.
      * @returns a promise whose result will be the number of bytes in the
      * data following the decoded header.
      */
-    async decodeSubsequentChunkV1Header(
-            bufferToUse: Buffer | undefined,
-            reader: Readable | undefined,
-            maxChunkSize = 0) {
-        if (!maxChunkSize) {
-            maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
-        }
-        else {
-            maxChunkSize = MiscUtils.parseInt32(maxChunkSize);
-            if (maxChunkSize < CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT) {
-                maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
-            }
-        }
-        if (!bufferToUse && !reader) {
-            throw new Error("reader arg cannot be null if " +
-                "bufferToUse argument is null");
+    async decodeSubsequentChunkV1Header(reader: any) {
+        if (!reader) {
+            throw new Error("reader argument is null");
         }
         try {
-            if (!bufferToUse) {
-                bufferToUse = this._defaultBufferUsedForDecoding;
-                await IOUtils.readBytesFully(reader!,
-                    bufferToUse.subarray(0,
-                        lengthOfEncodedChunkLength + 2));
-            }
+            const bufferToUse = await IOUtils.readBytesFully(
+                reader, lengthOfEncodedChunkLength + 2);
             const chunkLen = ByteUtils.deserializeUpToInt32BigEndian(bufferToUse,
                 0, lengthOfEncodedChunkLength, true);
-            validateChunkLength(chunkLen, maxChunkSize);
+            // skip check for maximum.
+            validateChunkLength(chunkLen, chunkLen);
 
             const version = bufferToUse[lengthOfEncodedChunkLength];
             //const flags = bufferToUse[lengthOfEncodedChunkLength+1];
@@ -146,48 +118,48 @@ export class CustomChunkedTransferCodec {
      * 
      * An instance of ChunkDecodingError is thrown if data from reader could not be decoded
      * into a valid lead chunk.
-     * @param reader the source to read from
+     * @param reader the source to read from. Must be acceptable by
+     * IOUtils.readBytes() function.
      * @param maxChunkSize the maximum allowable size of the lead chunk to be decoded; effectively this
      * determines the maximum combined size of quasi http headers to be decoded. NB: This parameter
      * imposes a maximum only on lead chunks exceeding 64KB in size. Can
      * pass zero to use default value.
      * @returns promise whose result is a decoded lead chunk.
      */
-    async readLeadChunk(reader: Readable, maxChunkSize = 0) {
+    async readLeadChunk(reader: any, maxChunkSize = 0) {
         if (!reader) {
             throw new Error("reader argument is null");
         }
         if (!maxChunkSize) {
-            maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
+            maxChunkSize = CustomChunkedTransferCodec.DEFAULT_HEADERS_SIZE_LIMIT;
         }
         else {
             maxChunkSize = MiscUtils.parseInt32(maxChunkSize);
-            if (maxChunkSize < CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT) {
-                maxChunkSize = CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT;
+            if (maxChunkSize < CustomChunkedTransferCodec.DEFAULT_HEADERS_SIZE_LIMIT) {
+                maxChunkSize = CustomChunkedTransferCodec.DEFAULT_HEADERS_SIZE_LIMIT;
             }
         }
-        let chunkBytes: Buffer | undefined;
+        let chunkLen = 0
         try {
-            const encodedLength = Buffer.allocUnsafeSlow(
-                lengthOfEncodedChunkLength);
-            if (await IOUtils.readBytes(reader,
-                    encodedLength.subarray(0, 1)) <= 0) {
+            const prefix = await IOUtils.readBytes(reader, 1);
+            if (!prefix) {
                 return undefined;
             }
-            await IOUtils.readBytesFully(reader,
-                encodedLength.subarray(1, encodedLength.length));
-            const chunkLen = ByteUtils.deserializeUpToInt32BigEndian(encodedLength, 0,
+            const suffix = await IOUtils.readBytesFully(reader,
+                lengthOfEncodedChunkLength - 1);
+            const encodedLength = Buffer.concat([prefix, suffix])
+            chunkLen = ByteUtils.deserializeUpToInt32BigEndian(encodedLength, 0,
                 encodedLength.length, true);
             validateChunkLength(chunkLen, maxChunkSize);
-            chunkBytes = Buffer.allocUnsafeSlow(chunkLen);
         }
         catch (e) {
             throw new ChunkDecodingError("Failed to decode quasi http headers while " +
                 "decoding a chunk header", { cause: e});
         }
 
+        let chunkBytes: Buffer;
         try {
-            await IOUtils.readBytesFully(reader, chunkBytes);
+            chunkBytes = await IOUtils.readBytesFully(reader, chunkLen);
         }
         catch (e) {
             throw new ChunkDecodingError("Failed to decode quasi http headers while " +
@@ -209,14 +181,15 @@ export class CustomChunkedTransferCodec {
      * Helper function for writing out quasi http headers. Quasi http headers are encoded
      * as the leading chunk before any subsequent chunk representing part of the data of an http body.
      * 
-     * @param writer the destination stream to write to
+     * @param writer the destination stream to write to. Must be
+     * acceptable by IOUtils.writeBytes() function.
      * @param chunk the lead chunk containing http headers to be written
      * @param maxChunkSize the maximum size of the lead chunk. Can
      * pass zero to use default value. An error is thrown if the size of the data 
      * in the chunk argument is larger than the maxChunkSize argument, or is larger than value of
      * HardMaxChunkSizeLimit constant of this class.
      */
-    async writeLeadChunk(writer: Writable, chunk: LeadChunk,
+    async writeLeadChunk(writer: any, chunk: LeadChunk,
             maxChunkSize = 0) {
         if (!writer) {
             throw new Error("writer argument is null");
@@ -409,14 +382,15 @@ export class CustomChunkedTransferCodec {
      * to a stream.
      * @param writer the destination stream of the bytes to be written
      */
-    async _writeOutSerializedRepresentation(writer: Writable): Promise<void> {
+    async _writeOutSerializedRepresentation(writer: any): Promise<void> {
         const csvDataPrefix = this._csvDataPrefix;
         const csvData = this._csvData;
         if (!csvDataPrefix || !csvData) {
             throw new Error("missing serialized representation");
         }
         await IOUtils.writeBytes(writer, csvDataPrefix);
-        await CsvUtils.serializeTo(csvData, writer);
+        await IOUtils.writeBytes(writer,
+            ByteUtils.stringToBytes(CsvUtils.serialize(csvData)))
     }
 
     /**
@@ -431,7 +405,8 @@ export class CustomChunkedTransferCodec {
         }
 
         if (data.length < 10) {
-            throw new Error("too small to be a valid lead chunk");
+            throw new Error("too small to be a valid lead chunk: " +
+                data.length);
         }
 
         const instance: LeadChunk = {
@@ -502,7 +477,7 @@ function validateChunkLength(chunkLen: number, maxChunkSize: number) {
     if (chunkLen < 0) {
         throw new Error(`encountered negative chunk size of ${chunkLen}`);
     }
-    if (chunkLen > CustomChunkedTransferCodec.DEFAULT_MAX_CHUNK_SIZE_LIMIT &&
+    if (chunkLen > CustomChunkedTransferCodec.DEFAULT_HEADERS_SIZE_LIMIT &&
             chunkLen > maxChunkSize) {
         throw new Error(
             `encountered chunk size exceeding ` +

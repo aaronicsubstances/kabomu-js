@@ -1,4 +1,4 @@
-import { Readable, Writable } from "stream";
+import { Readable } from "stream";
 import { IQuasiHttpBody } from "../types";
 import * as IOUtils from "../../common/IOUtils";
 
@@ -41,7 +41,7 @@ export class StringBody implements IQuasiHttpBody {
      * to supplied writer in UTF-8 encoding.
      * @param writer supplied writer
      */
-    async writeBytesTo(writer: Writable) {
+    async writeBytesTo(writer: any) {
         const contentBytes = Buffer.from(this.content);
         await IOUtils.writeBytes(writer, contentBytes);
     }

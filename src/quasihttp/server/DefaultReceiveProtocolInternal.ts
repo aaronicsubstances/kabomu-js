@@ -90,7 +90,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
         CustomChunkedTransferCodec.updateRequest(request, chunk)
         request.body = await createBodyFromTransport(
             reader, chunk.contentLength, undefined,
-            this.maxChunkSize, false, 0);
+            false, 0);
         return request
     }
 
@@ -109,7 +109,7 @@ export class DefaultReceiveProtocolInternal implements IReceiveProtocolInternal 
         const leadChunk = CustomChunkedTransferCodec.createFromResponse(response)
         await new CustomChunkedTransferCodec().writeLeadChunk(
             writer, leadChunk, this.maxChunkSize)
-        await transferBodyToTransport(writer, this.maxChunkSize,
+        await transferBodyToTransport(writer,
             response.body as any, leadChunk.contentLength)
     }
 }
