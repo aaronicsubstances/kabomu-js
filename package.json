@@ -2,8 +2,8 @@
   "name": "kabomu-js",
   "version": "1.1.0",
   "description": "Kabomu library for NodeJS",
-  "main": "dist/quasihttp/index.js",
-  "types": "dist/quasihttp/.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],

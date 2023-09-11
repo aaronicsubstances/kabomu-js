@@ -5,8 +5,8 @@ import {
     finished
 } from "stream";
 
-import { CustomIOError, ExpectationViolationError } from "./errors";
-import { createBlankChequePromise, parseInt32 } from "./MiscUtils";
+import { CustomIOError, ExpectationViolationError } from "../errors";
+import { createBlankChequePromise, parseInt32 } from "../MiscUtils";
 import { customReaderSymbol, customWriterSymbol } from "./types";
 
 /**

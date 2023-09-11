@@ -1,7 +1,39 @@
-import { KabomuError } from "../common/errors";
+/**
+ * Base exception class for errors encountered in the library.
+ */
+export class KabomuError extends Error {
+    get name() {
+        return this.constructor.name
+    }
+}
+
+/**
+ * Represents errors usable by implementations of streams,
+ * as well as errors encountered by IOUtils module.
+ */
+export class CustomIOError extends KabomuError {
+    static createContentLengthNotSatisfiedError(contentLength: number,
+            remainingBytesToRead: number) {
+        return new CustomIOError(`insufficient bytes available to satisfy ` +
+            `content length of ${contentLength} bytes (could not read remaining ` +
+            `${remainingBytesToRead} bytes before end of read)`)
+    }
+}
+
+/**
+ * Error thrown to indicate that the caller of a method or function didn't find the output or outcome
+ * satisfactory. E.g. the return value from a function is invalid; the function took too long to complete.
+ */
+export class ExpectationViolationError extends KabomuError { }
+
+/**
+ * Error that is thrown by clients to indicate that a required dependency
+ * (e.g. a property of the client) has not been set up properly for use
+ * (e.g. the property is null).
+ */
+export class MissingDependencyError extends KabomuError { }
 
 // the following codes are reserved for future use.
-const reasonCodeReserved4 = 4;
 const reasonCodeReserved5 = 5;
 const reasonCodeReserved6 = 6;
 const reasonCodeReserved7 = 7;
@@ -23,9 +55,14 @@ export class QuasiHttpRequestProcessingError extends KabomuError {
     static readonly REASON_CODE_TIMEOUT = 2;
 
     /**
-     * Indicates that request processing has been explicitly cancelled by an end user.
+     * Indicates a problem with encoding/decoding headers.
      */
-    static readonly REASON_CODE_CANCELLED = 3;
+    static readonly REASON_CODE_PROTOCOL_VIOLATION = 3;
+
+    /**
+     * Indicates a problem with exceeding header or body size limits.
+     */
+    static readonly REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED = 4;
     
     reasonCode?: number;
 
@@ -41,7 +78,6 @@ export class QuasiHttpRequestProcessingError extends KabomuError {
             options?: ErrorOptions) {
         super(message, options)
         switch (reasonCode) {
-            case reasonCodeReserved4:
             case reasonCodeReserved5:
             case reasonCodeReserved6:
             case reasonCodeReserved7:
@@ -54,28 +90,5 @@ export class QuasiHttpRequestProcessingError extends KabomuError {
         }
         this.reasonCode = reasonCode ??
             QuasiHttpRequestProcessingError.REASON_CODE_GENERAL;
-    }
-}
-
-
-/**
- * Error thrown to indicate failure in encoding byte streams
- * according to custom chunked transfer defined in Kabomu library.
- */
-export class ChunkEncodingError extends QuasiHttpRequestProcessingError {
-    constructor(message: string, options?: ErrorOptions) {
-        super(message, QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
-            options)
-    }
-}
-
-/**
- * Error thrown to indicate failure in decoding of byte streams expected to be
- * encoded according to custom chunked transfer defined in Kabomu library.
- */
-export class ChunkDecodingError extends QuasiHttpRequestProcessingError {
-    constructor(message: string, options?: ErrorOptions) {
-        super(message, QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
-            options)
     }
 }

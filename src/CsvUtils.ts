@@ -1,15 +1,9 @@
-import * as ByteUtils from "./ByteUtils";
-import * as IOUtils from "./IOUtils";
-
 const TOKEN_EOI = -1;
 const TOKEN_COMMA = 1;
 const TOKEN_QUOTE = 2;
 const TOKEN_CRLF = 3;
 const TOKEN_LF = 4;
 const TOKEN_CR = 5;
-
-const newlineConstant = Buffer.from([10]);
-const commaConstant = Buffer.from([44]);
 
 /**
  * Acts as a lexing function during CSV parsing.
