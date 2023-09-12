@@ -1,23 +1,21 @@
-const fs = require('fs')
-const path = require('path')
-const { IOUtils } = require("kabomu-js/common")
+const fs = require('node:fs/promises')
+const path = require('node:path')
+const { Readable } = require('node:stream')
 const {
     DefaultQuasiHttpResponse,
-    getBodyReader,
-    QuasiHttpUtils
+    MiscUtils,
+    QuasiHttpCodec
 } = require("kabomu-js")
 
 exports.create = function(remoteEndpoint, downloadDirPath) {
-    return {
-        async processRequest(request) {
-            return await receiveFileTransfer(request, remoteEndpoint, downloadDirPath)
-        }
+    return async (request) => {
+        return await receiveFileTransfer(request, remoteEndpoint, downloadDirPath)
     }
-}
+};
 
 async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
     const fileName = path.basename(request.headers.get("f")[0])
-    console.debug(`Starting receipt of file ${fileName} from ${remoteEndpoint}...`)
+    console.info(`Starting receipt of file ${fileName} from ${remoteEndpoint}...`)
 
     let transferError
     try {
@@ -25,17 +23,19 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
         // just in case remote endpoint contains invalid file path characters...
         const pathForRemoteEndpoint = `${remoteEndpoint}`.replace(/\W/g, "_")
         const directory = path.resolve(downloadDirPath, pathForRemoteEndpoint)
-        await fs.promises.mkdir(directory, {
+        await fs.mkdir(directory, {
             recursive: true
         })
-        const p = path.resolve(directory, fileName)
-        const fileStream = fs.createWriteStream(p)
+        const filePath = path.resolve(directory, fileName)
+        const fileHandle = await fs.open(filePath, "w")
+        const fileStream = fileHandle.createWriteStream();
         try {
-            const reader = getBodyReader(request.body)
-            await IOUtils.copyBytes(reader, fileStream)
+            console.debug("about to save to file")
+            await MiscUtils.copyBytes(request.body, fileStream)
+            console.debug("saved to file")
         }
         finally {
-            fileStream.close()
+            await fileHandle.close()
         }
     }
     catch (e) {
@@ -45,12 +45,18 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
     const response = new DefaultQuasiHttpResponse()
     if (!transferError) {
         console.info(`File ${fileName} received successfully`)
-        response.statusCode = QuasiHttpUtils.STATUS_CODE_OK
+        response.statusCode = QuasiHttpCodec.STATUS_CODE_OK
     }
     else {
         console.info(`File ${fileName} received with error:`, transferError)
-        response.statusCode = QuasiHttpUtils.STATUS_CODE_SERVER_ERROR
-        response.httpStatusMessage = transferError.message
+        response.statusCode = QuasiHttpCodec.STATUS_CODE_SERVER_ERROR
+    }
+    if (transferError || fileName.length > 10) {
+        const responseBytes = MiscUtils.stringToBytes(transferError?.message ?? "done");
+        response.body = Readable.from(responseBytes);
+        response.contentLength = Math.random() < 0.5 ? -1 :
+            responseBytes.length;
+        response.contentLength = responseBytes.length
     }
 
     return response

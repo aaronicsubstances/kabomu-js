@@ -1,12 +1,10 @@
 const fs = require('node:fs')
 const util = require("node:util")
 const { globIterate } = require('glob')
-const { IOUtils } = require("kabomu-js/common")
 const {
     DefaultQuasiHttpRequest,
-    LambdaBasedQuasiHttpBody,
-    getBodyReader,
-    QuasiHttpUtils
+    MiscUtils,
+    QuasiHttpCodec
 } = require("kabomu-js")
 
 async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
@@ -43,13 +41,9 @@ async function transferFile(instance, serverEndpoint, f) {
     ])
     const fd = await fs.promises.open(f.fullpath())
     const fileStream = fd.createReadStream()
-    const fLen = Math.random() < 0.5 ? -1 : f.size
-    request.body = new LambdaBasedQuasiHttpBody(
-        () => fileStream)
-    request.body.contentLength = fLen
-    request.body.releaseFunc = async () => {
-        fileStream.close()
-    }
+    request.contentLength = Math.random() < 0.5 ? -1 : f.size
+    request.contentLength = f.size
+    request.body = fileStream
     let res
     try {
         res = await instance.send(serverEndpoint, request)
@@ -58,18 +52,20 @@ async function transferFile(instance, serverEndpoint, f) {
         console.info(`File ${f.fullpath()} sent with error`)
         throw e
     }
-    if (!res) {
-        console.warn("Received no response.")
-        return
-    }
-    if (res.statusCode === QuasiHttpUtils.STATUS_CODE_OK) {
+    if (res.statusCode === QuasiHttpCodec.STATUS_CODE_OK) {
+        let responseMsg = ""
+        if (res.body) {
+            const responseMsgBytes = await MiscUtils.readAllBytes(res.body)
+            responseMsg = responseMsgBytes.toString()
+        }
         console.info(`File ${f.fullpath()} sent successfully`)
+        console.info(`(from server: ${responseMsg})`)
     }
     else {
         let responseMsg = ""
         if (res.body) {
             try {
-                const responseMsgBytes = await IOUtils.readAllBytes(getBodyReader(res.body))
+                const responseMsgBytes = await MiscUtils.readAllBytes(res.body)
                 responseMsg = responseMsgBytes.toString()
             }
             catch {

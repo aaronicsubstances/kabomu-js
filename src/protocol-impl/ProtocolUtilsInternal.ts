@@ -48,6 +48,9 @@ export function decodeRequestBodyFromTransport(
     if (contentLength < 0) {
         return undefined
     }
+    if (!body) {
+        throw new QuasiHttpError("no request body");
+    }
     return createContentLengthEnforcingStream(body,
         contentLength);
 }
@@ -73,6 +76,9 @@ export async function decodeResponseBodyFromTransport(
     if (getEnvVarAsBoolean(environment, 
             QuasiHttpCodec.ENV_KEY_SKIP_RES_BODY_DECODING)) {
         return responseStreamingEnabled
+    }
+    if (!response.body) {
+        throw new QuasiHttpError("no response body");
     }
     if (responseStreamingEnabled) {
         if (contentLength > 0) {
@@ -114,37 +120,3 @@ export async function decodeResponseBodyFromTransport(
     }
     return false
 }
-
-/*export function createCancellableTimeoutPromise(
-        timeoutMillis: number, timeoutMsg: string) {
-    if (!timeoutMillis || timeoutMillis <= 0) {
-        return {
-            isCancellationRequested() {
-                return false
-            },
-            cancel() {
-                
-            },
-        } as ICancellableTimeoutPromiseInternal
-    }
-    const blankChequePromise = createBlankChequePromise<void>()
-    const timeoutId = setTimeout(() => {
-        const timeoutError = new QuasiHttpError(
-            timeoutMsg,
-            QuasiHttpError.REASON_CODE_TIMEOUT);
-        blankChequePromise.reject(timeoutError);
-    }, timeoutMillis);
-    let cancelled = false;
-    const cancellationHandle: ICancellableTimeoutPromiseInternal = {
-        promise: blankChequePromise.promise,
-        isCancellationRequested() {
-            return cancelled
-        },
-        cancel() {
-            clearTimeout(timeoutId);
-            blankChequePromise.resolve();
-            cancelled = true;
-        }
-    }
-    return cancellationHandle
-}*/

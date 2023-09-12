@@ -126,7 +126,10 @@ async function processAccept(
         }
     }
     finally {
-        await response.release()
+        const releaseFunc = response.release;
+        if (releaseFunc) {
+            await releaseFunc.call(response);
+        }
     }
     await abort(transport, connection, false)
 }

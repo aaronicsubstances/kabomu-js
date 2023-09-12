@@ -152,7 +152,7 @@ export function encodeRequestHeaders(
         stringifyPossibleNull(reqHeaders.httpMethod),
         stringifyPossibleNull(reqHeaders.target),
         stringifyPossibleNull(reqHeaders.httpVersion),
-        stringifyPossibleNull(reqHeaders.contentLength)
+        stringifyPossibleNull(reqHeaders.contentLength || 0)
     ]
     return encodeRemainingHeaders(uniqueRow,
         reqHeaders?.headers, maxHeadersSize)
@@ -165,10 +165,10 @@ export function encodeResponseHeaders(
         throw new Error("resHeaders argument is null");
     }
     const uniqueRow = [
-        stringifyPossibleNull(resHeaders.statusCode),
+        stringifyPossibleNull(resHeaders.statusCode || 0),
         stringifyPossibleNull(resHeaders.httpStatusMessage),
         stringifyPossibleNull(resHeaders.httpVersion),
-        stringifyPossibleNull(resHeaders.contentLength)
+        stringifyPossibleNull(resHeaders.contentLength || 0)
     ]
     return encodeRemainingHeaders(uniqueRow,
         resHeaders?.headers, maxHeadersSize)
@@ -213,7 +213,8 @@ function encodeRemainingHeaders(uniqueRow: string[],
     let serialized = CsvUtils.serialize(csv);
     let effectiveByteCount = MiscUtils._getByteCount(serialized);
     let lfCount = Math.ceil(effectiveByteCount /
-        headerChunkSize) * headerChunkSize;
+        headerChunkSize) * headerChunkSize -
+        effectiveByteCount;
     if (lfCount < 2) {
         lfCount += headerChunkSize;
     }
@@ -285,7 +286,7 @@ export function decodeResponseHeaders(
             QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     try {
-        response.contentLength = MiscUtils.parseInt32(
+        response.statusCode = MiscUtils.parseInt32(
             specialHeader[0])
     }
     catch (e) {
@@ -352,7 +353,7 @@ export async function readEncodedHeaders(source: Readable,
             // done
             break;
         }
-        for (let i = 0; i < chunk.length; i++) {
+        for (let i = 1; i < chunk.length; i++) {
             if (chunk[i] !== newline) {
                 continue;
             }

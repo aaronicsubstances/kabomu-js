@@ -92,10 +92,14 @@ const generateContentChunksForEnforcingContentLength =
                 MiscUtils.DEFAULT_READ_BUFFER_SIZE)
             const chunk = await MiscUtils.tryReadBytesFully(
                 backingStream, bytesToRead)
-            if (chunk.length) {
-                yield chunk
+            if (!chunk.length) {
+                break
             }
+            yield chunk
             bytesLeft -= chunk.length
+            if (!bytesLeft) {
+                break
+            }
             if (chunk.length < bytesToRead) {
                 break
             }
@@ -115,7 +119,7 @@ const generateContentChunksForEnforcingContentLength =
  * @returns a stream for enforcing any supplied content length
  */
 export function createContentLengthEnforcingStream(
-        backingStream: Readable | undefined,
+        backingStream: Readable,
         expectedLength: number) {
     if (!backingStream) {
         throw new Error("backingStream argument is null");

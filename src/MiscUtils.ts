@@ -1,4 +1,4 @@
-import { Readable, Writable, finished } from "stream";
+import { PipelineOptions, Readable, Writable, finished } from "stream";
 import { pipeline } from "stream/promises";
 import { KabomuIOError, ExpectationViolationError } from "./errors";
 import {
@@ -41,41 +41,13 @@ export async function tryReadBytesFully(
     // stream, rather than just return.
     abortSignal?.throwIfAborted();
 
+    const successIndicator = new AbortController();
     const chunks = new Array<Buffer>();
     let totalBytesRead = 0;
-
-    const successIndicator = new AbortController();
-    const options = {
-        signal: successIndicator.signal
-    };
-    const p = createBlankChequePromise<Buffer>()
-    const cleanup = finished(stream, options, (err) => {
-        cleanup();
-        stream.removeListener("readable", onReadable)
-        if (err) {
-            if (successIndicator.signal.aborted) {
-                // no problem, treat as success
-            }
-            else {
-                p.reject(err)
-                return;
-            }
-        }
-        if (totalBytesRead > count) {
-            throw new ExpectationViolationError(
-                "total bytes read exceeded requested number " +
-                `${totalBytesRead} > ${count}`);
-        }
-        const result = Buffer.concat(chunks);
-        p.resolve(result);
-    });
     const onReadable = () => {
         abortSignal?.throwIfAborted()
         let chunk: Buffer | null;
         while ((chunk = stream.read()) !== null) {
-            if (chunk === null) {
-                break;
-            }
             if (totalBytesRead + chunk.length < count) {
                 chunks.push(chunk);
                 totalBytesRead += chunk.length;
@@ -84,7 +56,7 @@ export async function tryReadBytesFully(
                 let outstanding: Buffer | undefined;
                 if (totalBytesRead + chunk.length === count) {
                     chunks.push(chunk);
-                    totalBytesRead = count;
+                    totalBytesRead += chunk.length;
                 }
                 else {
                     const bytesLeft = count - totalBytesRead;
@@ -103,7 +75,35 @@ export async function tryReadBytesFully(
         }
     }
     stream.on("readable", onReadable);
-    return await p.promise;
+    
+    const options = {
+        readable: false,
+        signal: successIndicator.signal
+    };
+    const blankCheque = createBlankChequePromise<Buffer>()
+    const cleanup = finished(stream, options, (err) => {
+        cleanup();
+        stream.removeListener("readable", onReadable)
+        if (err) {
+            if (successIndicator.signal.aborted) {
+                // no problem, treat as success
+            }
+            else {
+                blankCheque.reject(err)
+                return;
+            }
+        }
+        if (totalBytesRead > count) {
+            blankCheque.reject(new ExpectationViolationError(
+                "total bytes read exceeded requested number " +
+                `${totalBytesRead} > ${count}`));
+        }
+        else {
+            const result = Buffer.concat(chunks);
+            blankCheque.resolve(result);
+        }
+    });
+    return await blankCheque.promise;
 }
 
 export async function readBytesFully(
@@ -153,7 +153,7 @@ export async function copyBytes(
         inputStream: Readable,
         outputStream: Writable,
         abortSignal?: AbortSignal) {
-    const options = {
+    const options: PipelineOptions = {
         signal: abortSignal,
         end: false
     }
