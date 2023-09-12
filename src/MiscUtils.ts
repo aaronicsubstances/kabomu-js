@@ -1,43 +1,10 @@
-import { Readable, Writable } from "stream";
+import { Readable, Writable, finished } from "stream";
 import { pipeline } from "stream/promises";
 import { CustomIOError, ExpectationViolationError } from "./errors";
-import { QuasiHttpProcessingOptions } from "./types";
-
-
-/**
-* The default read buffer size. Equal to 8,192 bytes.
-*/
-export const DEFAULT_READ_BUFFER_SIZE = 8192;
-
-/**
- * This JavaScript function always returns a random number between min (included) and max (excluded).
- * (copied from https://www.w3schools.com/js/js_random.asp).
- * @param min defaults to zero
- * @param max defaults to max signed 32-bit integer
- * @returns random integer between min inclusive and max exclusive
- */
-/*export function getRndInteger(min?: number, max?: number) {
-    if (!min) {
-        min = 0
-    }
-    const MAX_SIGNED_INT_32_VALUE = 2_147_483_647
-    if (!max) {
-        max = MAX_SIGNED_INT_32_VALUE
-    }
-    return Math.floor(Math.random() * (max - min) ) + min;
-}*/
-
-/*export function createDelayPromise(millis: number) {
-    return new Promise<void>((resolve) => {
-        setTimeout(resolve, millis)
-    })
-}
-
-export function createYieldPromise() {
-    return new Promise<void>((resolve) => {
-        setImmediate(resolve)
-    })
-}
+import {
+    IBlankChequePromise,
+    QuasiHttpProcessingOptions
+} from "./types";
 
 export function createBlankChequePromise<T>() {
     const blankCheque = {
@@ -47,7 +14,7 @@ export function createBlankChequePromise<T>() {
         blankCheque.reject = reject
     })
     return blankCheque;
-}*/
+}
 
 /**
  * 
@@ -58,7 +25,73 @@ export function createBlankChequePromise<T>() {
 export async function tryReadBytesFully(
         stream: Readable, count: number,
         abortSignal?: AbortSignal): Promise<Buffer> {
-    throw new Error("not implemented")
+    // allow zero-byte reads to proceed to touch the
+    // stream, rather than just return.
+    abortSignal?.throwIfAborted();
+
+    const chunks = new Array<Buffer>();
+    let totalBytesRead = 0;
+
+    const successIndicator = new AbortController();
+    const options = {
+        signal: successIndicator.signal
+    };
+    const p = createBlankChequePromise<Buffer>()
+    const cleanup = finished(stream, options, (err) => {
+        cleanup();
+        stream.removeListener("readable", onReadable)
+        if (err) {
+            if (successIndicator.signal.aborted) {
+                // no problem, treat as success
+            }
+            else {
+                p.reject(err)
+                return;
+            }
+        }
+        if (totalBytesRead > count) {
+            throw new ExpectationViolationError(
+                "total bytes read exceeded requested number " +
+                `${totalBytesRead} > ${count}`);
+        }
+        const result = Buffer.concat(chunks);
+        p.resolve(result);
+    });
+    const onReadable = () => {
+        abortSignal?.throwIfAborted()
+        let chunk: Buffer | null;
+        while ((chunk = stream.read()) !== null) {
+            if (chunk === null) {
+                break;
+            }
+            if (totalBytesRead + chunk.length < count) {
+                chunks.push(chunk);
+                totalBytesRead += chunk.length;
+            }
+            else {
+                let outstanding: Buffer | undefined;
+                if (totalBytesRead + chunk.length === count) {
+                    chunks.push(chunk);
+                    totalBytesRead = count;
+                }
+                else {
+                    const bytesLeft = count - totalBytesRead;
+                    totalBytesRead += bytesLeft;
+                    chunks.push(chunk.subarray(0, bytesLeft));
+                    outstanding = chunk.subarray(bytesLeft);
+                }
+                // Remove the 'readable' listener before unshifting.
+                stream.removeListener("readable", onReadable)
+                if (outstanding) {
+                    stream.unshift(outstanding);
+                }
+                successIndicator.abort();
+                break;
+            }
+        }
+    }
+    stream.on("readable", onReadable);
+    return await p.promise;
 }
 
 export async function readBytesFully(
@@ -66,12 +99,7 @@ export async function readBytesFully(
         abortSignal?: AbortSignal): Promise<Buffer> {
     const data = await tryReadBytesFully(stream,
         count, abortSignal)
-    /*if (data.length > count) {
-        throw new ExpectationViolationError(
-            "read beyond requested length: " +
-            `(${data.length} > ${count})`);
-    }*/
-    if (data.length != count) {
+    if (data.length !== count) {
         throw new CustomIOError("unexpected end of read");
     }
     return data;
@@ -86,16 +114,17 @@ export async function readAllBytes(stream: Readable,
             callback()
         }
     })
-    await copyBytesToStream(stream, writer, abortSignal);
+    await copyBytes(stream, writer, abortSignal);
     return Buffer.concat(chunks)
 }
 
-export async function copyBytesToStream(
+export async function copyBytes(
         inputStream: Readable,
         outputStream: Writable,
         abortSignal?: AbortSignal) {
     const options = {
-        signal: abortSignal
+        signal: abortSignal,
+        end: false
     }
     await pipeline(inputStream, outputStream, options);
 }

@@ -1,8 +1,6 @@
 const { assert } = require('chai').use(require('chai-bytes'))
 
-import { Writable } from "stream"
-import * as ByteUtils from "../../src/common/ByteUtils"
-import * as CsvUtils from "../../src/common/CsvUtils"
+import * as CsvUtils from "../src/CsvUtils"
 
 describe("CsvUtils", function() {
     const testData = [

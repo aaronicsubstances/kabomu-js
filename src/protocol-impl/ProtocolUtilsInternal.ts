@@ -56,6 +56,11 @@ export async function decodeResponseBodyFromTransport(
         environment: Map<string, any> | undefined,
         processingOptions: QuasiHttpProcessingOptions | undefined,
         abortSignal?: AbortSignal) {
+    const contentLength = response.contentLength
+    if (!contentLength) {
+        response.body = undefined
+        return false;
+    }
     let responseStreamingEnabled = processingOptions?.responseBufferingEnabled
     if (typeof responseStreamingEnabled === "undefined" ||
             responseStreamingEnabled === null) {
@@ -68,7 +73,6 @@ export async function decodeResponseBodyFromTransport(
             QuasiHttpCodec.ENV_KEY_SKIP_RES_BODY_DECODING)) {
         return responseStreamingEnabled
     }
-    const contentLength = response.contentLength!
     if (responseStreamingEnabled) {
         if (contentLength > 0) {
             response.body = createContentLengthEnforcingStream(

@@ -7,9 +7,9 @@ import {
     IQuasiHttpApplication,
     IQuasiHttpServerTransport
 } from "./types";
-import * as ProtocolUtilsInternal from "./protocolImpl/ProtocolUtilsInternal"
-import * as QuasiHttpCodec from "./protocolImpl/QuasiHttpCodec"
-import { DefaultQuasiHttpRequest } from "./protocolImpl";
+import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
+import * as QuasiHttpCodec from "./protocol-impl/QuasiHttpCodec"
+import { DefaultQuasiHttpRequest } from "./protocol-impl";
 
 /**
  * The standard implementation of the server side of the quasi http protocol

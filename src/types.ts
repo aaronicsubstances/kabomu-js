@@ -276,14 +276,14 @@ export interface IQuasiHttpServerTransport  extends IQuasiHttpTransport {
     releaseConnection(connection: QuasiHttpConnection): Promise<void>
 }
 
+export interface IBlankChequePromise<T> {
+    promise: Promise<T>
+    resolve: (r: T) => void
+    reject: (r: Error) => void
+}
+
 /*export interface ICancellableTimeoutPromiseInternal {
     promise: Promise<void>
     isCancellationRequested(): boolean
     cancel(): void
-}*/
-
-/*export interface IBlankChequePromise<T> {
-    promise: Promise<T>
-    resolve: (r: T) => void
-    reject: (r: Error) => void
 }*/

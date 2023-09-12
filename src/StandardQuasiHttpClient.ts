@@ -9,9 +9,9 @@ import {
     QuasiHttpConnection,
     QuasiHttpProcessingOptions,
 } from "./types"
-import * as ProtocolUtilsInternal from "./protocolImpl/ProtocolUtilsInternal"
-import * as QuasiHttpCodec from "./protocolImpl/QuasiHttpCodec"
-import { DefaultQuasiHttpResponse } from "./protocolImpl"
+import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
+import * as QuasiHttpCodec from "./protocol-impl/QuasiHttpCodec"
+import { DefaultQuasiHttpResponse } from "./protocol-impl"
 
 /**
  * The standard implementation of the client side of the quasi http protocol
@@ -156,22 +156,20 @@ async function processSend(
         throw new QuasiHttpRequestProcessingError("no response");
     }
 
-    const response = new DefaultQuasiHttpResponse()
+    const response = new DefaultQuasiHttpResponse({
+        body: encodedResponseBody
+    })
     response.release = async () => {
         await transport.releaseConnection(connection, true);
     }
     QuasiHttpCodec.decodeResponseHeaders(encodedResponseHeaders,
         response)
-    let responseStreamingEnabled = false;
-    if (!response.contentLength) {
-        response.body = encodedResponseBody;
-        responseStreamingEnabled = 
-            await ProtocolUtilsInternal.decodeResponseBodyFromTransport(
-                response,
-                connection.environment, 
-                connection.processingOptions,
-                connection.abortSignal);
-    }
+    const responseStreamingEnabled = 
+        await ProtocolUtilsInternal.decodeResponseBodyFromTransport(
+            response,
+            connection.environment, 
+            connection.processingOptions,
+            connection.abortSignal);
     await abort(transport, connection, false, responseStreamingEnabled);
     return response;
 }

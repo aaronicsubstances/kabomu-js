@@ -90,7 +90,7 @@ export async function writeBytes(writer: any, data: Buffer) {
     writable.removeListener("error", ev);
 }
 
-async function readSomeBytes(reader: any, 
+async function readSomeBytes(reader: Readable, 
         count: number, readFully: boolean)
         : Promise<Buffer | undefined> {
     if (!reader) {
@@ -98,50 +98,6 @@ async function readSomeBytes(reader: any,
     }
     // allow zero-byte reads to proceed to touch the
     // stream, rather than just return.
-    if (reader instanceof Readable) {
-        // proceed
-    }
-    else if (reader[customReaderSymbol]) {
-        if (readFully) {
-            let bytesLeft = count
-            const chunks = new Array<Buffer>()
-            while (true) {
-                const chunk = await reader[customReaderSymbol](bytesLeft)
-                if (!chunk || !chunk.length) {
-                    if (bytesLeft > 0) {
-                        throw new CustomIOError("unexpected end of read");
-                    }
-                }
-                if (chunk.length > bytesLeft) {
-                    throw new ExpectationViolationError(
-                        "received chunk greater than maximum length: " +
-                        `(${chunk.length} > ${bytesLeft})`)
-                }
-                chunks.push(chunk)
-                bytesLeft -= chunk.length
-                if (!bytesLeft) {
-                    break
-                }
-            }
-            return Buffer.concat(chunks)
-        }
-        else {
-            const result = await reader[customReaderSymbol](count)
-            if (result && result.length > 0) {
-                if (result.length > count) {
-                    throw new ExpectationViolationError(
-                        "received chunk greater than maximum length: " +
-                        `(${result.length} > ${count})`)
-                }
-                return result;
-            }
-            return undefined;
-        }
-    }
-    else {
-        throw new Error("reader argument does not support the " +
-            "customReaderSymbol")
-    }
     const controller = new AbortController();
     const finishedOptions: FinishedOptions = {
         signal: controller.signal

@@ -1,5 +1,5 @@
 import { assert } from "chai"
-import * as MiscUtils from "../../src/common/MiscUtils"
+import * as MiscUtils from "../src/MiscUtils"
 
 describe("MiscUtilsInternal", function() {
     describe("#whenAnyPromiseSettles", function() {
