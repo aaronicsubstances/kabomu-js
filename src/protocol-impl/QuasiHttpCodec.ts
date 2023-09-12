@@ -2,7 +2,7 @@ import { Readable } from "stream";
 import * as MiscUtils from "../MiscUtils"
 import * as CsvUtils from "../CsvUtils"
 import {
-    QuasiHttpRequestProcessingError
+    QuasiHttpError
 } from "../errors";
 import {
     IQuasiHttpRequest, IQuasiHttpResponse
@@ -138,11 +138,6 @@ const headerChunkSize = 512;
  */
 export const PROTOCOL_VERSION_01 = "01";
 
-/**
- * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
- */
-export const DEFAULT_DATA_BUFFER_LIMIT = 134_217_728;
-
 function stringifyPossibleNull(s: any) {
     return (s === null || typeof s === "undefined") ? "" : `${s}`;
 }
@@ -208,9 +203,9 @@ function encodeRemainingHeaders(uniqueRow: string[],
     // ensure there are no new lines in csv items
     if (csv.some(row => row.some(item => item.indexOf("\n") != -1 ||
             item.indexOf("\r") != -1))) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "quasi http headers cannot contain newlines",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION)
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
     }
 
     // add at least two line feeds to ensure byte count
@@ -227,16 +222,16 @@ function encodeRemainingHeaders(uniqueRow: string[],
 
     // finally check that byte count of csv doesn't exceed limit.
     if (effectiveByteCount > maxHeadersSize) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "quasi http headers exceed " +
             `max size (${effectiveByteCount} > ${maxHeadersSize})`,
-            QuasiHttpRequestProcessingError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
     }
     if (effectiveByteCount > hardLimitOnMaxHeadersSize) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "quasi http headers too " +
             `large (${effectiveByteCount} > ${hardLimitOnMaxHeadersSize})`,
-            QuasiHttpRequestProcessingError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
     }
     return MiscUtils.stringToBytes(serialized);
 }
@@ -246,16 +241,16 @@ export function decodeRequestHeaders(
     const csv = CsvUtils.deserialize(MiscUtils.bytesToString(
         Buffer.concat(encodedCsv)))
     if (csv.length < 2) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "invalid encoded quasi http request headers",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION);
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     // skip first row.
     const specialHeader = csv[1]
     if (specialHeader.length < 4) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "invalid encoded quasi http request line",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION);
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     request.httpMethod = specialHeader[0]
     request.target = specialHeader[1]
@@ -265,9 +260,9 @@ export function decodeRequestHeaders(
             specialHeader[3])
     }
     catch (e) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "invalid quasi http request content length",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
             { cause: e });
     }
     request.headers = decodeRemainingHeaders(csv)
@@ -278,25 +273,25 @@ export function decodeResponseHeaders(
     const csv = CsvUtils.deserialize(MiscUtils.bytesToString(
         Buffer.concat(encodedCsv)))
     if (csv.length < 2) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "invalid encoded quasi http response headers",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION);
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     // skip first row.
     const specialHeader = csv[1]
     if (specialHeader.length < 4) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "invalid encoded quasi http status line",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION);
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     try {
         response.contentLength = MiscUtils.parseInt32(
             specialHeader[0])
     }
     catch (e) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "invalid quasi http response status code",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
             { cause: e });
     }
     response.httpStatusMessage = specialHeader[1]
@@ -306,9 +301,9 @@ export function decodeResponseHeaders(
             specialHeader[3])
     }
     catch (e) {
-        throw new QuasiHttpRequestProcessingError(
+        throw new QuasiHttpError(
             "invalid quasi http response content length",
-            QuasiHttpRequestProcessingError.REASON_CODE_PROTOCOL_VIOLATION,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
             { cause: e });
     }
     response.headers = decodeRemainingHeaders(csv)
@@ -344,10 +339,10 @@ export async function readEncodedHeaders(source: Readable,
     while (true) {
         totalBytesRead += headerChunkSize
         if (totalBytesRead > maxHeadersSize) {
-            throw new QuasiHttpRequestProcessingError(
+            throw new QuasiHttpError(
                 "size of quasi http headers to read exceed " +
                 `max size (${totalBytesRead} > ${maxHeadersSize})`,
-                QuasiHttpRequestProcessingError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
         }
         const chunk = await MiscUtils.readBytesFully(source,
             headerChunkSize, abortSignal);
@@ -370,22 +365,4 @@ export async function readEncodedHeaders(source: Readable,
         }
         previousChunkEndsWithLf = chunk[chunk.length - 1] === newline;
     }
-}
-
-export async function readAllBytes(body: Readable,
-        bufferingLimit: number, abortSignal?: AbortSignal) {
-    const allBytes = await MiscUtils.tryReadBytesFully(
-        body, bufferingLimit, abortSignal)
-    if (allBytes.length === bufferingLimit) {
-        // force a read of 1 byte
-        const extra = await MiscUtils.tryReadBytesFully(body, 1,
-            abortSignal);
-        if (extra.length) {
-            throw new QuasiHttpRequestProcessingError(
-                "response body of indeterminate length exceeds buffering limit of " +
-                `${bufferingLimit} bytes`,
-                QuasiHttpRequestProcessingError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
-        }
-    }
-    return Readable.from(allBytes);
 }

@@ -1,6 +1,6 @@
 import { Readable } from "stream";
 import { IQuasiHttpRequest, IQuasiHttpResponse } from "../types";
-import { CustomIOError } from "../errors";
+import { KabomuIOError } from "../errors";
 import * as MiscUtils from "../MiscUtils";
 
 export * as QuasiHttpCodec from "./QuasiHttpCodec"
@@ -84,29 +84,24 @@ export class DefaultQuasiHttpResponse implements IQuasiHttpResponse {
 }
 
 const generateContentChunksForEnforcingContentLength = 
-    async function*(backingStream: any, contentLength: number) {
+    async function*(backingStream: Readable, contentLength: number) {
         let bytesLeft = contentLength
-        for await (const chunk of backingStream) {
-            if (contentLength < 0) {
+        while (true) {
+            const bytesToRead = Math.min(
+                bytesLeft,
+                MiscUtils.DEFAULT_READ_BUFFER_SIZE)
+            const chunk = await MiscUtils.tryReadBytesFully(
+                backingStream, bytesToRead)
+            if (chunk.length) {
                 yield chunk
             }
-            else if (chunk.length < bytesLeft) {
-                yield chunk
-                bytesLeft -= chunk.length
-            }
-            else {
-                if (chunk.length > bytesLeft) {
-                    yield chunk.subarray(0, bytesLeft)
-                }
-                else {
-                    yield chunk
-                }
-                bytesLeft = 0
+            bytesLeft -= chunk.length
+            if (chunk.length < bytesToRead) {
                 break
             }
         }
-        if (contentLength > 0 && bytesLeft < 0) {
-            throw CustomIOError.createContentLengthNotSatisfiedError(
+        if (bytesLeft > 0) {
+            throw KabomuIOError.createContentLengthNotSatisfiedError(
                 contentLength, bytesLeft)
         }
     }
@@ -117,13 +112,19 @@ const generateContentChunksForEnforcingContentLength =
  * @param expectedLength the expected number of bytes to guarantee or assert.
  * Can be negative to indicate that the all remaining bytes in the backing reader
  * should be returned
- * @returns a stream decorating the reader argument
+ * @returns a stream for enforcing any supplied content length
  */
 export function createContentLengthEnforcingStream(
-    backingStream: any, expectedLength: number) {
+        backingStream: Readable | undefined,
+        expectedLength: number) {
     if (!backingStream) {
         throw new Error("backingStream argument is null");
     }
-    return Readable.from(generateContentChunksForEnforcingContentLength(backingStream,
-        MiscUtils.parseInt48(expectedLength)));
+    expectedLength = MiscUtils.parseInt48(expectedLength);
+    if (expectedLength < 0) {
+        return backingStream;
+    }
+    return Readable.from(
+        generateContentChunksForEnforcingContentLength(backingStream,
+            expectedLength));
 }

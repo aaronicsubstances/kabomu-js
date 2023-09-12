@@ -1,6 +1,6 @@
 import {
     MissingDependencyError,
-    QuasiHttpRequestProcessingError
+    QuasiHttpError
 } from "./errors"
 import {
     IQuasiHttpClientTransport,
@@ -103,13 +103,13 @@ export class StandardQuasiHttpClient {
         const connection = await transport.allocateConnection(
             remoteEndpoint, sendOptions)
         if (!connection) {
-            throw new QuasiHttpRequestProcessingError("no connection")
+            throw new QuasiHttpError("no connection")
         }
 
         if (!request) {
             request = await requestFunc(connection.environment)
             if (!request) {
-                throw new QuasiHttpRequestProcessingError("no request")
+                throw new QuasiHttpError("no request")
             }
         }
 
@@ -120,12 +120,12 @@ export class StandardQuasiHttpClient {
         }
         catch (e) {
             await abort(transport, connection, true)
-            if (e instanceof QuasiHttpRequestProcessingError) {
+            if (e instanceof QuasiHttpError) {
                 throw e;
             }
-            const abortError = new QuasiHttpRequestProcessingError(
+            const abortError = new QuasiHttpError(
                 "encountered error during send request processing",
-                QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+                QuasiHttpError.REASON_CODE_GENERAL,
                 { cause: e });
             throw abortError;
         }
@@ -153,7 +153,7 @@ async function processSend(
     const encodedResponseBody = await transport.read(connection, true,
         encodedResponseHeaders);
     if (!encodedResponseHeaders.length) {
-        throw new QuasiHttpRequestProcessingError("no response");
+        throw new QuasiHttpError("no response");
     }
 
     const response = new DefaultQuasiHttpResponse({

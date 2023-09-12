@@ -1,10 +1,10 @@
 import {
     MissingDependencyError,
-    QuasiHttpRequestProcessingError
+    QuasiHttpError
 } from "./errors";
 import {
     QuasiHttpConnection,
-    IQuasiHttpApplication,
+    QuasiHttpApplication,
     IQuasiHttpServerTransport
 } from "./types";
 import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
@@ -27,10 +27,10 @@ import { DefaultQuasiHttpRequest } from "./protocol-impl";
 export class StandardQuasiHttpServer {
 
     /**
-     * The object which is
+     * The function which is
      * responsible for processing requests to generate responses.
      */
-    application?: IQuasiHttpApplication
+    application?: QuasiHttpApplication
 
     /**
      * The underlying transport (TCP or IPC) for retrieving requests
@@ -45,7 +45,7 @@ export class StandardQuasiHttpServer {
      * on the instance.
      */
     constructor(options?: {
-            application?: IQuasiHttpApplication
+            application?: QuasiHttpApplication
             transport?: IQuasiHttpServerTransport
         }) {
         this.application = options?.application
@@ -79,12 +79,12 @@ export class StandardQuasiHttpServer {
         }
         catch (e) {
             await abort(transport, connection, true)
-            if (e instanceof QuasiHttpRequestProcessingError) {
+            if (e instanceof QuasiHttpError) {
                 throw e;
             }
-            const abortError = new QuasiHttpRequestProcessingError(
+            const abortError = new QuasiHttpError(
                 "encountered error during receive request processing",
-                QuasiHttpRequestProcessingError.REASON_CODE_GENERAL,
+                QuasiHttpError.REASON_CODE_GENERAL,
                 { cause: e })
             throw abortError;
         }
@@ -92,14 +92,14 @@ export class StandardQuasiHttpServer {
 }
 
 async function processAccept(
-        application: IQuasiHttpApplication,
+        application: QuasiHttpApplication,
         transport: IQuasiHttpServerTransport,
         connection: QuasiHttpConnection) {
     const encodedRequestHeaders = new Array<Buffer>();
     const encodedRequestBody = await transport.read(connection, false,
         encodedRequestHeaders);
     if (!encodedRequestHeaders.length) {
-        throw new QuasiHttpRequestProcessingError("no request")
+        throw new QuasiHttpError("no request")
     }
 
     const request = new DefaultQuasiHttpRequest({
@@ -109,9 +109,9 @@ async function processAccept(
     request.body = ProtocolUtilsInternal.decodeRequestBodyFromTransport(
         request.contentLength, encodedRequestBody);
 
-    const response = await application.processRequest(request);
+    const response = await application(request);
     if (!response) {
-        throw new QuasiHttpRequestProcessingError("no response");
+        throw new QuasiHttpError("no response");
     }
 
     try {

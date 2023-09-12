@@ -10,7 +10,7 @@ import {
 } from "../types";
 import {
     ExpectationViolationError,
-    QuasiHttpRequestProcessingError
+    QuasiHttpError
 } from "../errors";
 
 export function getEnvVarAsBoolean(
@@ -48,7 +48,8 @@ export function decodeRequestBodyFromTransport(
     if (contentLength < 0) {
         return undefined
     }
-    return createContentLengthEnforcingStream(body, contentLength);
+    return createContentLengthEnforcingStream(body,
+        contentLength);
 }
 
 export async function decodeResponseBodyFromTransport(
@@ -82,7 +83,7 @@ export async function decodeResponseBodyFromTransport(
     }
     let bufferingLimit = processingOptions?.responseBodyBufferingSizeLimit
     if (!bufferingLimit || bufferingLimit < 0) {
-        bufferingLimit = QuasiHttpCodec.DEFAULT_DATA_BUFFER_LIMIT
+        bufferingLimit = MiscUtils.DEFAULT_DATA_BUFFER_LIMIT
     }
     const body = response.body
     if (!body) {
@@ -90,15 +91,22 @@ export async function decodeResponseBodyFromTransport(
             "expected non-null response body")
     }
     if (contentLength < 0) {
-        response.body = await QuasiHttpCodec.readAllBytes(
+        const buffer = await MiscUtils.readAllBytesUpToGivenLimit(
             body, bufferingLimit, abortSignal);
+        if (!buffer) {
+            throw new QuasiHttpError(
+                "response body of indeterminate length exceeds buffering limit of " +
+                `${bufferingLimit} bytes`,
+                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+        }
+        response.body = Readable.from(buffer);
     }
     else {
         if (contentLength > bufferingLimit) {
-            throw new QuasiHttpRequestProcessingError(
+            throw new QuasiHttpError(
                 "response body length exceeds buffering limit " +
                 `(${contentLength} > ${bufferingLimit})`,
-                QuasiHttpRequestProcessingError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED)
+                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED)
         }
         const buffer = await MiscUtils.readBytesFully(body,
             contentLength, abortSignal)
@@ -121,9 +129,9 @@ export async function decodeResponseBodyFromTransport(
     }
     const blankChequePromise = createBlankChequePromise<void>()
     const timeoutId = setTimeout(() => {
-        const timeoutError = new QuasiHttpRequestProcessingError(
+        const timeoutError = new QuasiHttpError(
             timeoutMsg,
-            QuasiHttpRequestProcessingError.REASON_CODE_TIMEOUT);
+            QuasiHttpError.REASON_CODE_TIMEOUT);
         blankChequePromise.reject(timeoutError);
     }, timeoutMillis);
     let cancelled = false;

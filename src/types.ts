@@ -18,17 +18,8 @@ export interface ICustomDisposable {
  * instances of StandardQuasiHttpServer class
  * to generate quasi http responses.
  */
-export interface IQuasiHttpApplication {
-
-    /**
-     * Processes a quasi htp request.
-     * @param request the quasi http request
-     * @returns a promise whose result will be the response to the 
-     * quasi http request
-     */
-    processRequest(request: IQuasiHttpRequest):
-        Promise<IQuasiHttpResponse | undefined>
-}
+export type QuasiHttpApplication =
+    (request: IQuasiHttpRequest) => Promise<IQuasiHttpResponse | undefined>;
 
 /**
  * Represents the equivalent of an HTTP request entity:
@@ -46,7 +37,7 @@ export interface IQuasiHttpRequest extends ICustomDisposable {
      * Optional map of string arrays keyed by strings,
      * which is the equivalent of HTTP request headers.
      * 
-     * Unlike in HTTP/1.1, headers are case-sensitive and lower-cased
+     * Unlike in HTTP, headers are case-sensitive and lower-cased
      * header names are recommended.
      * Also setting a Content-Length header
      * here will have no bearing on how to transmit or receive
@@ -54,6 +45,11 @@ export interface IQuasiHttpRequest extends ICustomDisposable {
      */
     headers?: Map<string, string[]>
 
+    /**
+     * Gets or sets the number of bytes that the instance will supply,
+     * or -1 (actually any negative value) to indicate an unknown number of
+     * bytes.
+     */
     contentLength?: number
 
     /**
@@ -93,7 +89,7 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
      * Optional map of string arrays keyed by strings,
      * which is the equivalent of HTTP response headers.
      * 
-     * Unlike in HTTP/1.1, headers are case-sensitive and lower-cased
+     * Unlike in HTTP, headers are case-sensitive and lower-cased
      * header names are recommended.
      * Also setting a Content-Length header
      * here will have no bearing on how to transmit or receive
@@ -101,6 +97,11 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
      */
     headers?: Map<string, string[]>
 
+    /**
+     * Gets or sets the number of bytes that the instance will supply,
+     * or -1 (actually any negative value) to indicate an unknown number of
+     * bytes.
+     */
     contentLength?: number
 
     /**

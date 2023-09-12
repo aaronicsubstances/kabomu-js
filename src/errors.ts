@@ -11,12 +11,29 @@ export class KabomuError extends Error {
  * Represents errors usable by implementations of streams,
  * as well as errors encountered by IOUtils module.
  */
-export class CustomIOError extends KabomuError {
+export class KabomuIOError extends KabomuError {
+
+    /**
+     * Creates error indicating that a number of bytes
+     * indicated by quasi http content length could not be fully
+     * read from a reader or source of bytes.
+     * @param contentLength content length to include in error message
+     * @param remainingBytesToRead remaining bytes to read which led to error
+     */
     static createContentLengthNotSatisfiedError(contentLength: number,
             remainingBytesToRead: number) {
-        return new CustomIOError(`insufficient bytes available to satisfy ` +
+        return new KabomuIOError(`insufficient bytes available to satisfy ` +
             `content length of ${contentLength} bytes (could not read remaining ` +
             `${remainingBytesToRead} bytes before end of read)`)
+    }
+
+    /**
+     * Creates error indicating that reading from a stream has
+     * unexpectedly ended.
+     */
+    static createEndOfReadError()
+    {
+        return new KabomuIOError("unexpected end of read");
     }
 }
 
@@ -41,7 +58,7 @@ const reasonCodeReserved8 = 8;
 const reasonCodeReserved9 = 9;
 const reasonCodeReserved0 = 0;
 
-export class QuasiHttpRequestProcessingError extends KabomuError {
+export class QuasiHttpError extends KabomuError {
 
     /**
      * Indicates general error without much detail to offer aside inspecting 
@@ -89,6 +106,6 @@ export class QuasiHttpRequestProcessingError extends KabomuError {
                 break;
         }
         this.reasonCode = reasonCode ??
-            QuasiHttpRequestProcessingError.REASON_CODE_GENERAL;
+            QuasiHttpError.REASON_CODE_GENERAL;
     }
 }
