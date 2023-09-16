@@ -3,6 +3,7 @@ import {
     QuasiHttpError
 } from "./errors"
 import {
+    ConnectionAllocationResponse,
     IQuasiHttpClientTransport,
     IQuasiHttpRequest,
     IQuasiHttpResponse,
@@ -11,7 +12,8 @@ import {
 } from "./types"
 import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
 import * as QuasiHttpCodec from "./protocol-impl/QuasiHttpCodec"
-import { DefaultQuasiHttpResponse } from "./protocol-impl"
+import * as QuasiHttpUtils from "./QuasiHttpUtils"
+import { DefaultQuasiHttpResponse } from "./DefaultQuasiHttpResponse"
 
 /**
  * The standard implementation of the client side of the quasi http protocol
@@ -100,23 +102,23 @@ export class StandardQuasiHttpClient {
             throw new MissingDependencyError("client transport");
         }
 
-        const connection = await transport.allocateConnection(
-            remoteEndpoint, sendOptions)
+        const connectionAllocationResponse = await transport.allocateConnection(
+            remoteEndpoint, sendOptions);
+        const connection = connectionAllocationResponse?.connection
         if (!connection) {
             throw new QuasiHttpError("no connection")
         }
-
-        if (!request) {
-            request = await requestFunc(connection.environment)
-            if (!request) {
-                throw new QuasiHttpError("no request")
-            }
-        }
-
         try {
-            const response = await processSend(request, transport,
-                connection)
-            return response
+            const responsePromise = processSend(
+                request, requestFunc,
+                transport, connection, connectionAllocationResponse)
+            if (connection.timeoutPromise) {
+                const timeoutPromise = ProtocolUtilsInternal.wrapTimeoutPromise(
+                    connection.timeoutPromise, "send timeout")
+                await Promise.race([
+                    responsePromise, timeoutPromise]);
+            }
+            return await responsePromise;
         }
         catch (e) {
             await abort(transport, connection, true)
@@ -133,13 +135,25 @@ export class StandardQuasiHttpClient {
 }
 
 async function processSend(
-        request: IQuasiHttpRequest,
+        request: IQuasiHttpRequest | undefined,
+        requestFunc: any,
         transport: IQuasiHttpClientTransport,
-        connection: QuasiHttpConnection) {
+        connection: QuasiHttpConnection,
+        connectionAllocationResponse: ConnectionAllocationResponse) {
+    // wait for connection to be completely established.
+    await connectionAllocationResponse.connectPromise;
+
+    if (!request) {
+        request = await requestFunc(connection.environment)
+        if (!request) {
+            throw new QuasiHttpError("no request")
+        }
+    }
+
     // send entire request first before
     // receiving of response.
     if (ProtocolUtilsInternal.getEnvVarAsBoolean(
-            request.environment, QuasiHttpCodec.ENV_KEY_SKIP_SENDING)
+            request.environment, QuasiHttpUtils.ENV_KEY_SKIP_SENDING)
             !== true) {
         const encodedRequestHeaders = QuasiHttpCodec.encodeRequestHeaders(request,
             connection.processingOptions?.maxHeadersSize);
@@ -149,27 +163,36 @@ async function processSend(
             encodedRequestBody);
     }
 
-    const encodedResponseHeaders = new Array<Buffer>();
-    const encodedResponseBody = await transport.read(connection, true,
-        encodedResponseHeaders);
-    if (!encodedResponseHeaders.length) {
-        throw new QuasiHttpError("no response");
-    }
+    const encodedResponse = 
+        await ProtocolUtilsInternal.readEntityFromTransport(
+            true, transport, connection);
 
     const response = new DefaultQuasiHttpResponse({
-        body: encodedResponseBody
+        body: encodedResponse.body
     })
-    response.release = async () => {
-        await transport.releaseConnection(connection, true);
-    }
-    QuasiHttpCodec.decodeResponseHeaders(encodedResponseHeaders,
+    QuasiHttpCodec.decodeResponseHeaders(encodedResponse.headers,
         response)
-    const responseStreamingEnabled = 
-        await ProtocolUtilsInternal.decodeResponseBodyFromTransport(
-            response,
+    const responseBodyDecodingResult =
+        ProtocolUtilsInternal.decodeResponseBodyFromTransport(
+            response.contentLength,
+            response.body,
             connection.environment, 
-            connection.processingOptions,
-            connection.abortSignal);
+            connection.processingOptions?.responseBufferingEnabled);
+    response.body = responseBodyDecodingResult[0] as any
+    const responseStreamingEnabled = !!responseBodyDecodingResult[1];
+    const applyResponseBuffering = !!responseBodyDecodingResult[2];
+    if (applyResponseBuffering) {
+        response.body = await ProtocolUtilsInternal.bufferResponseBody(
+            response.contentLength,
+            response.body,
+            connection.processingOptions?.responseBodyBufferingSizeLimit,
+            connection.abortSignal)
+    }
+    if (responseStreamingEnabled) {
+        response.release = async () => {
+            await transport.releaseConnection(connection, true);
+        }
+    }
     await abort(transport, connection, false, responseStreamingEnabled);
     return response;
 }

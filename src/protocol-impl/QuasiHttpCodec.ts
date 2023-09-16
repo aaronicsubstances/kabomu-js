@@ -1,5 +1,5 @@
-import { Readable } from "stream";
-import * as MiscUtils from "../MiscUtils"
+import * as QuasiHttpUtils from "../QuasiHttpUtils";
+import * as MiscUtilsInternal from "../MiscUtilsInternal"
 import * as CsvUtils from "../CsvUtils"
 import {
     QuasiHttpError
@@ -9,139 +9,27 @@ import {
 } from "../types";
 
 /**
- *  Request environment variable for local server endpoint.
- */
-export const ENV_KEY_LOCAL_PEER_ENDPOINT = "kabomu.local_peer_endpoint";
-
-/**
- *  Request environment variable for remote client endpoint.
- */
-export const ENV_KEY_REMOTE_PEER_ENDPOINT = "kabomu.remote_peer_endpoint";
-
-/**
- * Request environment variable for the transport instance from
- * which a request was received.
- */
-export const ENV_KEY_TRANSPORT_INSTANCE = "kabomu.transport";
-
-/**
- * Request environment variable for the connection from which a
- * request was received.
- */
-export const ENV_KEY_CONNECTION = "kabomu.connection";
-
-/**
- * Environment variable for indicating that a request or response
- * should not be sent at all. Intended
- * for use in responding to fire and forget requests, as well as
- * cases where request or response has been sent already by other
- * means.
- */
-export const ENV_KEY_SKIP_SENDING = "kabomu.skip_sending";
-
-/**
- * Environment variable indicating that the response body 
- * received from transport should be returned to client without
- * any decoding applied.
- */
-export const ENV_KEY_SKIP_RES_BODY_DECODING = "kabomu.skip_res_body_decoding";
-
-export const METHOD_CONNECT = "CONNECT";
-export const METHOD_DELETE = "DELETE";
-export const METHOD_GET = "GET";
-export const METHOD_HEAD = "HEAD";
-export const METHOD_OPTIONS = "OPTIONS";
-export const METHOD_PATCH = "PATCH";
-export const METHOD_POST = "POST";
-export const METHOD_PUT = "PUT";
-export const METHOD_TRACE = "TRACE";
-
-/**
- * 200 OK
- */
-export const STATUS_CODE_OK = 200;
-
-/**
- * 400 Bad Request
- */
-export const STATUS_CODE_CLIENT_ERROR_BAD_REQUEST = 400;
-
-/**
- * 401 Unauthorized
- */
-export const STATUS_CODE_CLIENT_ERROR_UNAUTHORIZED = 401;
-
-/**
- * 403 Forbidden
- */
-export const STATUS_CODE_CLIENT_ERROR_FORBIDDEN = 403;
-
-/**
- * 404 Not Found
- */
-export const STATUS_CODE_CLIENT_ERROR_NOT_FOUND = 404;
-
-/**
- * 405 Method Not Allowed
- */
-export const STATUS_CODE_CLIENT_ERROR_METHOD_NOT_ALLOWED = 405;
-
-/**
- * 413 Payload Too Large
- */
-export const STATUS_CODE_CLIENT_ERROR_PAYLOAD_TOO_LARGE = 413;
-
-/**
- * 414 URI Too Long
- */
-export const STATUS_CODE_CLIENT_ERROR_URI_TOO_LONG = 414;
-
-/**
- * 415 Unsupported Media Type
- */
-export const STATUS_CODE_CLIENT_ERROR_UNSUPPORTED_MEDIA_TYPE = 415;
-
-/**
- * 422 Unprocessable Entity
- */
-export const STATUS_CODE_CLIENT_ERROR_UNPROCESSABLE_ENTITY = 422;
-
-/**
- * 429 Too Many Requests
- */
-export const STATUS_CODE_CLIENT_ERROR_TOO_MANY_REQUESTS = 429;
-
-/**
- * 500 Internal Server Error
- */
-export const STATUS_CODE_SERVER_ERROR = 500;
-
-/**
- * The default value of maximum size of headers in a request or response.
- */
-export const DEFAULT_MAX_HEADERS_SIZE = 8_192;
-
-/**
- * The maximum possible size that headers in a request or response
- * cannot exceed.
- */
-const hardLimitOnMaxHeadersSize = 999_999;
-
-/**
  * This field gives a number of which all header sizes are
  * an integral multiple of.
  */
-const headerChunkSize = 512;
+export const _HEADER_CHUNK_SIZE = 512;
 
 /**
  * First version of quasi web protocol.
  */
-export const PROTOCOL_VERSION_01 = "01";
+export const _PROTOCOL_VERSION_01 = "01";
 
 function stringifyPossibleNull(s: any) {
     return (s === null || typeof s === "undefined") ? "" : `${s}`;
 }
 
+/**
+ * Serializes quasi http request headers.
+ * @param reqHeaders source of quasi http request headers
+ * @param maxHeadersSize limit on size of serialized result.
+ * Can be null or zero for a default value to be used.
+ * @returns serialized representation of quasi http request headers
+ */
 export function encodeRequestHeaders(
         reqHeaders: IQuasiHttpRequest,
         maxHeadersSize?: number) {
@@ -155,9 +43,16 @@ export function encodeRequestHeaders(
         stringifyPossibleNull(reqHeaders.contentLength || 0)
     ]
     return encodeRemainingHeaders(uniqueRow,
-        reqHeaders?.headers, maxHeadersSize)
+        reqHeaders.headers, maxHeadersSize)
 }
 
+/**
+ * Serializes quasi http response headers.
+ * @param resHeaders source of quasi http response headers
+ * @param maxHeadersSize limit on size of serialized result.
+ * Can be null or zero for a default value to be used.
+ * @returns serialized representation of quasi http response headers
+ */
 export function encodeResponseHeaders(
         resHeaders: IQuasiHttpResponse,
         maxHeadersSize?: number) {
@@ -171,17 +66,17 @@ export function encodeResponseHeaders(
         stringifyPossibleNull(resHeaders.contentLength || 0)
     ]
     return encodeRemainingHeaders(uniqueRow,
-        resHeaders?.headers, maxHeadersSize)
+        resHeaders.headers, maxHeadersSize)
 }
 
 function encodeRemainingHeaders(uniqueRow: string[],
         headers?: Map<string, string[]>,
         maxHeadersSize?: number) {
     if (!maxHeadersSize || maxHeadersSize < 0) {
-        maxHeadersSize = DEFAULT_MAX_HEADERS_SIZE;
+        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
     }
     const csv = new Array<string[]>();
-    csv.push([PROTOCOL_VERSION_01]);
+    csv.push([_PROTOCOL_VERSION_01]);
     csv.push(uniqueRow);
     if (headers) {
         for (let [header, values] of headers) {
@@ -211,12 +106,12 @@ function encodeRemainingHeaders(uniqueRow: string[],
     // add at least two line feeds to ensure byte count
     // is multiple of header chunk size.
     let serialized = CsvUtils.serialize(csv);
-    let effectiveByteCount = MiscUtils._getByteCount(serialized);
+    let effectiveByteCount = MiscUtilsInternal.getByteCount(serialized);
     let lfCount = Math.ceil(effectiveByteCount /
-        headerChunkSize) * headerChunkSize -
+        _HEADER_CHUNK_SIZE) * _HEADER_CHUNK_SIZE -
         effectiveByteCount;
     if (lfCount < 2) {
-        lfCount += headerChunkSize;
+        lfCount += _HEADER_CHUNK_SIZE;
     }
     serialized += "".padEnd(lfCount, "\n");
     effectiveByteCount += lfCount;
@@ -228,36 +123,32 @@ function encodeRemainingHeaders(uniqueRow: string[],
             `max size (${effectiveByteCount} > ${maxHeadersSize})`,
             QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
     }
-    if (effectiveByteCount > hardLimitOnMaxHeadersSize) {
-        throw new QuasiHttpError(
-            "quasi http headers too " +
-            `large (${effectiveByteCount} > ${hardLimitOnMaxHeadersSize})`,
-            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
-    }
-    return MiscUtils.stringToBytes(serialized);
+    return MiscUtilsInternal.stringToBytes(serialized);
 }
 
+/**
+ * Deserializes a quasi http request header section.
+ * @param buffer source of data to deserialize
+ * @param request object whose header-related properties will be
+ * set with decoded quasi http request headers
+ */
 export function decodeRequestHeaders(
-        encodedCsv: Array<Buffer>, request: IQuasiHttpRequest) {
-    const csv = CsvUtils.deserialize(MiscUtils.bytesToString(
-        Buffer.concat(encodedCsv)))
-    if (csv.length < 2) {
-        throw new QuasiHttpError(
-            "invalid encoded quasi http request headers",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
+        buffer: Buffer, request: IQuasiHttpRequest) {
+    if (!request) {
+        throw new Error("request argument is null");
     }
-    // skip first row.
-    const specialHeader = csv[1]
+    const csv = startDecodeReqOrRes(buffer, false);
+    const specialHeader = csv[1];
     if (specialHeader.length < 4) {
         throw new QuasiHttpError(
-            "invalid encoded quasi http request line",
+            "invalid quasi http request line",
             QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     request.httpMethod = specialHeader[0]
     request.target = specialHeader[1]
     request.httpVersion = specialHeader[2]
     try {
-        request.contentLength = MiscUtils.parseInt48(
+        request.contentLength = MiscUtilsInternal.parseInt48(
             specialHeader[3])
     }
     catch (e) {
@@ -269,24 +160,26 @@ export function decodeRequestHeaders(
     request.headers = decodeRemainingHeaders(csv)
 }
 
+/**
+ * Deserializes a quasi http response header section.
+ * @param buffer source of data to deserialize
+ * @param response object whose header-related properties will be
+ * set with decoded quasi http response headers
+ */
 export function decodeResponseHeaders(
-        encodedCsv: Array<Buffer>, response: IQuasiHttpResponse) {
-    const csv = CsvUtils.deserialize(MiscUtils.bytesToString(
-        Buffer.concat(encodedCsv)))
-    if (csv.length < 2) {
-        throw new QuasiHttpError(
-            "invalid encoded quasi http response headers",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
+        buffer: Buffer, response: IQuasiHttpResponse) {
+    if (!response) {
+        throw new Error("response argument is null");
     }
-    // skip first row.
-    const specialHeader = csv[1]
+    const csv = startDecodeReqOrRes(buffer, true);
+    const specialHeader = csv[1];
     if (specialHeader.length < 4) {
         throw new QuasiHttpError(
-            "invalid encoded quasi http status line",
+            "invalid quasi http status line",
             QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     try {
-        response.statusCode = MiscUtils.parseInt32(
+        response.statusCode = MiscUtilsInternal.parseInt32(
             specialHeader[0])
     }
     catch (e) {
@@ -298,7 +191,7 @@ export function decodeResponseHeaders(
     response.httpStatusMessage = specialHeader[1]
     response.httpVersion = specialHeader[2]
     try {
-        response.contentLength = MiscUtils.parseInt48(
+        response.contentLength = MiscUtilsInternal.parseInt48(
             specialHeader[3])
     }
     catch (e) {
@@ -308,6 +201,31 @@ export function decodeResponseHeaders(
             { cause: e });
     }
     response.headers = decodeRemainingHeaders(csv)
+}
+
+function startDecodeReqOrRes(buffer: Buffer, isResponse: boolean) {
+    if (!buffer) {
+        throw new Error("buffer argument is null");
+    }
+    const tag = isResponse ? "response" : "request";
+    let csv: Array<string[]>;
+    try {
+        csv = CsvUtils.deserialize(MiscUtilsInternal.bytesToString(
+            buffer))
+    }
+    catch (e) {
+        throw new QuasiHttpError(
+            `invalid quasi http ${tag} headers`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
+            { cause: e });
+    }
+    if (csv.length < 2 || !csv[0].length ||
+            csv[0][0] !== _PROTOCOL_VERSION_01) {
+        throw new QuasiHttpError(
+            `invalid quasi http ${tag} headers`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
+    }
+    return csv;
 }
 
 function decodeRemainingHeaders(csv: Array<string[]>) {
@@ -326,44 +244,4 @@ function decodeRemainingHeaders(csv: Array<string[]>) {
         headers.get(headerName)!.push(...headerValue);
     }
     return headers
-}
-
-export async function readEncodedHeaders(source: Readable,
-        encodedHeadersReceiver: Array<Buffer>,
-        maxHeadersSize?: number,
-        abortSignal?: AbortSignal) {
-    if (!maxHeadersSize || maxHeadersSize < 0) {
-        maxHeadersSize = DEFAULT_MAX_HEADERS_SIZE
-    }
-    let totalBytesRead = 0
-    let previousChunkEndsWithLf = false;
-    while (true) {
-        totalBytesRead += headerChunkSize
-        if (totalBytesRead > maxHeadersSize) {
-            throw new QuasiHttpError(
-                "size of quasi http headers to read exceed " +
-                `max size (${totalBytesRead} > ${maxHeadersSize})`,
-                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
-        }
-        const chunk = await MiscUtils.readBytesFully(source,
-            headerChunkSize, abortSignal);
-        encodedHeadersReceiver.push(chunk);
-        const newline = 10;
-        if (previousChunkEndsWithLf && chunk[0] === newline) {
-            // done
-            break;
-        }
-        for (let i = 1; i < chunk.length; i++) {
-            if (chunk[i] !== newline) {
-                continue;
-            }
-            if (chunk[i - 1] === newline) {
-                // done.
-                // don't just break, as this will only quit
-                // the for loop and leave us in while loop.
-                return;
-            }
-        }
-        previousChunkEndsWithLf = chunk[chunk.length - 1] === newline;
-    }
 }

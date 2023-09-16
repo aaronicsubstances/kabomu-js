@@ -1,57 +1,68 @@
+const { pipeline } = require('node:stream/promises')
 const {
-    MiscUtils,
-    QuasiHttpCodec
+    QuasiHttpUtils
 } = require("kabomu-js")
-const {
-    createCancellableTimeoutPromise
-} = require("./TransportImplHelpers")
+const { logDebug } = require('./AppLogger')
 
 class SocketConnection {
-    socket = undefined
-    abortSignal = undefined
+    _owner = ''
+    _socket = undefined
+    _abortController = undefined
+    _timeoutId = undefined
     processingOptions = undefined
-    timeoutId = undefined
+    environment = undefined
 
     constructor(socket, isClient, processingOptions,
             fallbackProcessingOptions) {
-        this.socket = socket
-        this.processingOptions = MiscUtils.mergeProcessingOptions(
+        this._owner = isClient ? "client" : "server";
+        this._socket = socket
+        this.processingOptions = QuasiHttpUtils.mergeProcessingOptions(
             processingOptions, fallbackProcessingOptions) ||
             {}
-        const abortController = new AbortController()
-        this.abortSignal = abortController.signal
-        this.timeoutId = createCancellableTimeoutPromise(
-            this.processingOptions.timeoutMillis,
-            isClient ? "send timeout" : "receive timeout");
+        this._abortController = new AbortController()
+        this._timeoutId = QuasiHttpUtils.createCancellableTimeoutPromise(
+            this.processingOptions.timeoutMillis);
+    }
+
+    get timeoutPromise() {
+        return this._timeoutId?.promise
+    }
+
+    get abortSignal() {
+        return this._abortController.signal
     }
 
     async release(responseStreamingEnabled) {
-        this.timeoutId?.cancel()
+        const usageTag = responseStreamingEnabled ? "partially" : "fully";
+        logDebug(`releasing ${usageTag} for ${this._owner}...`);
+        this._timeoutId?.cancel()
         if (responseStreamingEnabled) {
             return;
         }
-        this.socket.destroy()
+        this._abortController.abort()
+        this._socket.destroy()
     }
 
     async write(isResponse, encodedHeaders, body) {
-        console.debug(`writing ${isResponse ? "response" : "request"}...`)
-        this.socket.write(encodedHeaders)
+        logDebug(`writing ${getUsageTag(isResponse)} for ${this._owner}...`)
+        this._socket.write(encodedHeaders)
         if (body) {
-            await MiscUtils.copyBytes(body, this.socket,
-                this.abortSignal)
+            await pipeline(body, this._socket, {
+                end: false,
+                signal: this._abortController.signal
+            })
         }
-        console.debug(`done writing ${isResponse ? "response" : "request"}...`)
+        logDebug(`done writing ${getUsageTag(isResponse)} for ${this._owner}.`)
     }
 
     async read(isResponse, encodedHeadersReceiver) {
-        console.debug(`reading ${isResponse ? "response" : "request"}...`)
-        await QuasiHttpCodec.readEncodedHeaders(
-            this.socket, encodedHeadersReceiver,
-            this.processingOptions.maxHeadersSize,
-            this.abortSignal)
-        console.debug(`done reading ${isResponse ? "response" : "request"}...`)
-        return this.socket
+        logDebug(`read ${getUsageTag(isResponse)} called for ${this._owner}...`)
+        return this._socket
     }
+}
+
+function getUsageTag(isResponse) {
+    return isResponse ? "response" : "request";
 }
 
 exports.SocketConnection = SocketConnection

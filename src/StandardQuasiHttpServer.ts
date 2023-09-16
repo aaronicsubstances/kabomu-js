@@ -9,7 +9,8 @@ import {
 } from "./types";
 import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
 import * as QuasiHttpCodec from "./protocol-impl/QuasiHttpCodec"
-import { DefaultQuasiHttpRequest } from "./protocol-impl";
+import * as QuasiHttpUtils from "./QuasiHttpUtils"
+import { DefaultQuasiHttpRequest } from "./DefaultQuasiHttpRequest";
 
 /**
  * The standard implementation of the server side of the quasi http protocol
@@ -75,7 +76,15 @@ export class StandardQuasiHttpServer {
         }
 
         try {
-            await processAccept(application, transport, connection)
+            const acceptPromise = processAccept(application,
+                transport, connection);
+            if (connection.timeoutPromise) {
+                const timeoutPromise = ProtocolUtilsInternal.wrapTimeoutPromise(
+                    connection.timeoutPromise, "receive timeout")
+                await Promise.race([
+                    acceptPromise, timeoutPromise]);
+            }
+            await acceptPromise;
         }
         catch (e) {
             await abort(transport, connection, true)
@@ -95,19 +104,16 @@ async function processAccept(
         application: QuasiHttpApplication,
         transport: IQuasiHttpServerTransport,
         connection: QuasiHttpConnection) {
-    const encodedRequestHeaders = new Array<Buffer>();
-    const encodedRequestBody = await transport.read(connection, false,
-        encodedRequestHeaders);
-    if (!encodedRequestHeaders.length) {
-        throw new QuasiHttpError("no request")
-    }
+    const encodedRequest= await
+        ProtocolUtilsInternal.readEntityFromTransport(
+            false, transport, connection);
 
     const request = new DefaultQuasiHttpRequest({
         environment: connection.environment
     });
-    QuasiHttpCodec.decodeRequestHeaders(encodedRequestHeaders, request);
+    QuasiHttpCodec.decodeRequestHeaders(encodedRequest.headers, request);
     request.body = ProtocolUtilsInternal.decodeRequestBodyFromTransport(
-        request.contentLength, encodedRequestBody);
+        request.contentLength, encodedRequest.body);
 
     const response = await application(request);
     if (!response) {
@@ -116,7 +122,7 @@ async function processAccept(
 
     try {
         if (ProtocolUtilsInternal.getEnvVarAsBoolean(response.environment,
-                QuasiHttpCodec.ENV_KEY_SKIP_SENDING) !== true) {
+                QuasiHttpUtils.ENV_KEY_SKIP_SENDING) !== true) {
             const encodedResponseHeaders = QuasiHttpCodec.encodeResponseHeaders(response,
                 connection.processingOptions?.maxHeadersSize);
             const encodedResponseBody = ProtocolUtilsInternal.encodeBodyToTransport(true,

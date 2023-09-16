@@ -1,6 +1,6 @@
 const net = require("node:net")
 const {
-    MiscUtils
+    QuasiHttpUtils
 } = require("kabomu-js")
 const { SocketConnection } = require("./SocketConnection")
 
@@ -12,11 +12,11 @@ class LocalhostTcpClientTransport {
     }
 
     async allocateConnection(remoteEndpoint, sendOptions) {
-        const port = MiscUtils.parseInt32(remoteEndpoint)
+        const port = QuasiHttpUtils.parseInt32(remoteEndpoint)
         const socket = new net.Socket()
         const connection = new SocketConnection(socket,
             true, sendOptions, this.defaultSendOptions)
-        const blankCheque = MiscUtils.createBlankChequePromise()
+        const blankCheque = QuasiHttpUtils.createBlankChequePromise()
         const errorListener = e => {
             blankCheque.reject(e)
         }
@@ -25,23 +25,16 @@ class LocalhostTcpClientTransport {
             port,
             noDelay: true
         }
-        socket.connect(connectOpts, "localhost", () => {
+        socket.connect(connectOpts, "::1", () => {
             blankCheque.resolve()
         })
-        try {
-            await MiscUtils.completeMainPromise(blankCheque.promise,
-                connection.timeoutId?.promise)
+        const connectionAllocationResponse = {
+            connection,
+            connectPromise: blankCheque.promise.then(() => {
+                socket.removeListener("error", errorListener)
+            })
         }
-        catch (e) {
-            try {
-                // don't wait.
-                connection.release(false)
-            }
-            catch { } // ignore
-            throw e;
-        }
-        socket.removeListener("error", errorListener)
-        return connection
+        return connectionAllocationResponse
     }
 
     async releaseConnection(connection, responseStreamingEnabled) {

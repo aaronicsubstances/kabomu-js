@@ -1,11 +1,12 @@
 const fs = require('node:fs/promises')
 const path = require('node:path')
 const { Readable } = require('node:stream')
+const { pipeline } = require('node:stream/promises')
 const {
     DefaultQuasiHttpResponse,
-    MiscUtils,
-    QuasiHttpCodec
+    QuasiHttpUtils
 } = require("kabomu-js")
+const { logDebug, logInfo, logError } = require('./AppLogger')
 
 exports.create = function(remoteEndpoint, downloadDirPath) {
     return async (request) => {
@@ -15,7 +16,6 @@ exports.create = function(remoteEndpoint, downloadDirPath) {
 
 async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
     const fileName = path.basename(request.headers.get("f")[0])
-    console.info(`Starting receipt of file ${fileName} from ${remoteEndpoint}...`)
 
     let transferError
     try {
@@ -30,9 +30,8 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
         const fileHandle = await fs.open(filePath, "w")
         const fileStream = fileHandle.createWriteStream();
         try {
-            console.debug("about to save to file")
-            await MiscUtils.copyBytes(request.body, fileStream)
-            console.debug("saved to file")
+            logDebug(`Starting receipt of file ${fileName} from ${remoteEndpoint}...`)
+            await pipeline(request.body, fileStream)
         }
         finally {
             await fileHandle.close()
@@ -43,20 +42,27 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
     }
 
     const response = new DefaultQuasiHttpResponse()
+    let responseBody
     if (!transferError) {
-        console.info(`File ${fileName} received successfully`)
-        response.statusCode = QuasiHttpCodec.STATUS_CODE_OK
+        logInfo(`File ${fileName} received successfully`)
+        response.statusCode = QuasiHttpUtils.STATUS_CODE_OK
+        const echoBody = request.headers.get("echo-body")
+        if (echoBody) {
+            responseBody = echoBody.join(",") 
+        }
     }
     else {
-        console.info(`File ${fileName} received with error:`, transferError)
-        response.statusCode = QuasiHttpCodec.STATUS_CODE_SERVER_ERROR
+        logError(`File ${fileName} received with error:`, transferError)
+        response.statusCode = QuasiHttpUtils.STATUS_CODE_SERVER_ERROR
+        responseBody = transferError.message
     }
-    if (transferError || fileName.length > 10) {
-        const responseBytes = MiscUtils.stringToBytes(transferError?.message ?? "done");
+    if (responseBody) {
+        const responseBytes = Buffer.from(responseBody)
         response.body = Readable.from(responseBytes);
-        response.contentLength = Math.random() < 0.5 ? -1 :
-            responseBytes.length;
         response.contentLength = responseBytes.length
+        if (Math.random() < 0.5) {
+            response.contentLength = -1;
+        }
     }
 
     return response

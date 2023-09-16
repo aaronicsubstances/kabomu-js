@@ -1,11 +1,13 @@
-const fs = require('node:fs')
+const fs = require('node:fs/promises')
 const util = require("node:util")
+const { Writable } = require("node:stream")
+const { pipeline } = require('node:stream/promises')
 const { globIterate } = require('glob')
 const {
     DefaultQuasiHttpRequest,
-    MiscUtils,
-    QuasiHttpCodec
+    QuasiHttpUtils
 } = require("kabomu-js")
+const { logDebug, logInfo, logWarn } = require('./AppLogger')
 
 async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
     let count = 0
@@ -18,16 +20,16 @@ async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
         withFileTypes: true
     })
     for await (const f of files) {
-        console.debug(`Transferring ${f.fullpath()}`)
+        logDebug(`Transferring ${f.fullpath()}`)
         await transferFile(instance, serverEndpoint, f)
-        console.info(`Successfully transferred ${f.fullpath()}`)
+        logDebug(`Successfully transferred ${f.fullpath()}`)
         bytesTransferred += f.size
         count++
     }
     const timeTaken = (new Date().getTime() - startTime) / 1000
     const megaBytesTransferred = bytesTransferred / (1024.0 * 1024.0)
     const rate = (megaBytesTransferred / timeTaken).toFixed(2)
-    console.info(util.format(
+    logInfo(util.format(
         "Successfully transferred %s bytes (%s MB) worth of data in %s files" +
         " in %s seconds = %s MB/s",
         bytesTransferred, megaBytesTransferred.toFixed(2),
@@ -39,41 +41,78 @@ async function transferFile(instance, serverEndpoint, f) {
     request.headers = new Map([
         ["f", f.fullpath()]
     ])
-    const fd = await fs.promises.open(f.fullpath())
+    const echoBodyOn = Math.random() < 0.5;
+    if (echoBodyOn) {
+        request.headers.set("echo-body", [ f.fullpath() ]);
+    }
+
+    // add body
+    const fd = await fs.open(f.fullpath())
     const fileStream = fd.createReadStream()
-    request.contentLength = Math.random() < 0.5 ? -1 : f.size
+    //request.contentLength = Math.random() < 0.5 ? -1 : f.size
     request.contentLength = f.size
     request.body = fileStream
+
+    // determine options
+    let sendOptions
+    if (Math.random() < 0.5) {
+        sendOptions = {
+            responseBufferingEnabled: false
+        }
+    }
     let res
     try {
-        res = await instance.send(serverEndpoint, request)
+        if (Math.random() < 0.5) {
+            res = await instance.send(serverEndpoint, request,
+                sendOptions)
+        }
+        else {
+            res = await instance.send2(serverEndpoint,
+                () => Promise.resolve(request), sendOptions)
+        }
+        if (res.statusCode === QuasiHttpUtils.STATUS_CODE_OK) {
+            if (echoBodyOn) {
+                const actualResBody = await readableToString(res.body)
+                if (actualResBody != f.fullpath()) {
+                    throw new Error("expected echo body to be " +
+                        `${f.fullpath()} but got ${actualResBody}`);
+                }
+            }
+            logInfo(`File ${f.fullpath()} sent successfully`)
+        }
+        else {
+            let responseMsg = ""
+            if (res.body) {
+                try {
+                    responseMsg = await readableToString(res.body)
+                }
+                catch {
+                    // ignore.
+                }
+            }
+            throw new Error(`status code indicates error: ${res.statusCode}\n${responseMsg}`)
+        }
     }
     catch (e) {
-        console.info(`File ${f.fullpath()} sent with error`)
-        throw e
+        logWarn(`File ${f.fullpath()} sent with error: ${e.message}`);
+        throw e;
     }
-    if (res.statusCode === QuasiHttpCodec.STATUS_CODE_OK) {
-        let responseMsg = ""
-        if (res.body) {
-            const responseMsgBytes = await MiscUtils.readAllBytes(res.body)
-            responseMsg = responseMsgBytes.toString()
+    finally {
+        await fd.close();
+        await res?.release();
+    }
+}
+
+async function readableToString(stream) {
+    const chunks = new Array()
+    const writer = new Writable({
+        write(chunk, encoding, cb) {
+            chunks.push(chunk)
+            cb()
         }
-        console.info(`File ${f.fullpath()} sent successfully`)
-        console.info(`(from server: ${responseMsg})`)
-    }
-    else {
-        let responseMsg = ""
-        if (res.body) {
-            try {
-                const responseMsgBytes = await MiscUtils.readAllBytes(res.body)
-                responseMsg = responseMsgBytes.toString()
-            }
-            catch {
-                // ignore.
-            }
-        }
-        throw new Error(`status code indicates error: ${res.statusCode}\n${responseMsg}`)
-    }
+    })
+    await pipeline(stream, writer);
+    return Buffer.concat(chunks).toString()
 }
 
 module.exports = {

@@ -6,10 +6,11 @@ const FileReceiver = require("./FileReceiver")
 const {
     LocalhostTcpServerTransport
 } = require("./LocalhostTcpServerTransport")
+const { logDebug, logInfo, logWarn, logError } = require('./AppLogger')
 
 async function main(port, uploadDirPath) {
     port = port || 5001
-    uploadDirPath = uploadDirPath || "logs"
+    uploadDirPath = uploadDirPath || "logs/server"
     const instance = new StandardQuasiHttpServer({
         application: FileReceiver.create(port, uploadDirPath)
     });
@@ -29,17 +30,17 @@ async function main(port, uploadDirPath) {
 
     try {
         await transport.start();
-        console.log(`Started Tcp.FileServer at ${port}...`);
+        logInfo(`Started Tcp.FileServer at ${port}...`);
 
         await rL.question("");
     }
     catch (e) {
-        console.error("Fatal error encountered", e);
+        logError("Fatal error encountered", e);
     }
     finally {
         rL.close();
 
-        console.debug("Stopping Tcp.FileServer...");
+        logDebug("Stopping Tcp.FileServer...");
         await transport.stop();
 
          // don't wait for remainder of ongoing
@@ -49,7 +50,7 @@ async function main(port, uploadDirPath) {
 }
 
 process.on('SIGINT', function() {
-    console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
+    logWarn( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
     process.exit(0);
 });
 

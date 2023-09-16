@@ -8,8 +8,7 @@ export class KabomuError extends Error {
 }
 
 /**
- * Represents errors usable by implementations of streams,
- * as well as errors encountered by IOUtils module.
+ * Represents errors encountered when reading from or writing to byte streams.
  */
 export class KabomuIOError extends KabomuError {
 
@@ -58,6 +57,14 @@ const reasonCodeReserved8 = 8;
 const reasonCodeReserved9 = 9;
 const reasonCodeReserved0 = 0;
 
+/**
+ * Error thrown by instances of StandardQuasiHttpClient and
+ * StandardQuasiHttpServer classes, which can provide details of
+ * error in the form of numeric reason codes.
+ * 
+ * The reason codes in 0-9 which currently do not have an assigned meaning are reserved for use by this class. 
+ * All other numbers including negative values may be used as reason codes.
+ */
 export class QuasiHttpError extends KabomuError {
 
     /**

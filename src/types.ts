@@ -1,6 +1,26 @@
 import { Readable } from "stream"
 
 /**
+ * Contains connection and other connection-related information created by
+ * IQuasiHttpClientTransport instances
+ * in response to a connection allocation request.
+ */
+export interface ConnectionAllocationResponse {
+
+    /**
+     * An object that a quasi http transport instance can
+     * use to read or write data.
+     */
+    connection: QuasiHttpConnection
+
+    /**
+     * An optional promise that would have to be completed before
+     * connection property will be fully ready to use.
+     */
+    connectPromise?: Promise<void>
+}
+
+/**
  * Common interface of instances in Kabomu library which perform
  * resource clean-up operations.
  */
@@ -14,131 +34,67 @@ export interface ICustomDisposable {
 }
 
 /**
- * Represents a quasi http request processing function used by 
- * instances of StandardQuasiHttpServer class
- * to generate quasi http responses.
+ * Equivalent of TCP client socket factory that provides 
+ * instances of StandardQuasiHttpClient class
+ * with client connections for sending quasi http requests to servers or remote endpoints.
  */
-export type QuasiHttpApplication =
-    (request: IQuasiHttpRequest) => Promise<IQuasiHttpResponse | undefined>;
-
-/**
- * Represents the equivalent of an HTTP request entity:
- * request line, request headers, and request body.
- */
-export interface IQuasiHttpRequest extends ICustomDisposable {
+export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
     
     /**
-     * Optional value which is equivalent of request target
-     * component of HTTP request line.
+     * Creates a connection to a remote endpoint.
+     * @param remoteEndpoint the target endpoint of the connection
+     * allocation request
+     * @param sendOptions any options given to one of the send*() methods of
+     * the StandardQuasiHttpClient class
+     * @returns a promise whose result contains connection to remote endpoint
      */
-    target?: string
+    allocateConnection(remoteEndpoint: any, sendOptions?: QuasiHttpProcessingOptions ):
+        Promise<ConnectionAllocationResponse | undefined>
 
     /**
-     * Optional map of string arrays keyed by strings,
-     * which is the equivalent of HTTP request headers.
-     * 
-     * Unlike in HTTP, headers are case-sensitive and lower-cased
-     * header names are recommended.
-     * Also setting a Content-Length header
-     * here will have no bearing on how to transmit or receive
-     * the request body.
+     * Releases resources held by a connection of a quasi http transport instance.
+     * @param connection the connection to release
+     * @param responseStreamingEnabled whether response body
+     * still needs the connection to some extent
      */
-    headers?: Map<string, string[]>
-
-    /**
-     * Gets or sets the number of bytes that the instance will supply,
-     * or -1 (actually any negative value) to indicate an unknown number of
-     * bytes.
-     */
-    contentLength?: number
-
-    /**
-     * Optional request body
-     */
-    body?: Readable
-
-    /**
-     * Optional HTTP method value.
-     */
-    httpMethod?: string
-
-    /**
-     * Optional HTTP request version value.
-     */
-    httpVersion?: string
-
-    /**
-     * Optional map of objects keyed by strings which may be of
-     * interest during request processing.
-     */
-    environment?: Map<string, any>
+    releaseConnection(connection: QuasiHttpConnection,
+        responseStreamingEnabled: boolean): Promise<void>
 }
 
 /**
- * Represents the equivalent of an HTTP response entity:
- * response status line, response headers, and response body.
- */
-export interface IQuasiHttpResponse extends ICustomDisposable {
-    /**
-     * Optional HTTP response status code. Falsy values will
-     * be interpreted as 0.
-     */
-    statusCode?: number
-
-    /**
-     * Optional map of string arrays keyed by strings,
-     * which is the equivalent of HTTP response headers.
-     * 
-     * Unlike in HTTP, headers are case-sensitive and lower-cased
-     * header names are recommended.
-     * Also setting a Content-Length header
-     * here will have no bearing on how to transmit or receive
-     * the response body.
-     */
-    headers?: Map<string, string[]>
-
-    /**
-     * Gets or sets the number of bytes that the instance will supply,
-     * or -1 (actually any negative value) to indicate an unknown number of
-     * bytes.
-     */
-    contentLength?: number
-
-    /**
-     * Optional response body
-     */
-    body?: Readable
-
-    /**
-     * Optional HTTP response status text or reason phrase.
-     */
-    httpStatusMessage?: string
-
-    /**
-     * Optional HTTP response version value.
-     */
-    httpVersion?: string
-
-    /**
-     * Optional map of objects keyed by strings which may be of
-     * interest during response processing.
-     */
-    environment?: Map<string, any>
-}
-
-/**
- * Contains connection and other connection-related information created by
- * IQuasiHttpServerTransport or IQuasiHttpClientTransport objects,
- * in response to a connection allocation or receive request.
+ * Represens objects needed by IQuasiHttpTransport instances
+ * for reading or writing data.
  */
 export interface QuasiHttpConnection {
 
+    /**
+     * Optional instance of AbortSignal
+     * that will be used to cancel ongoing response buffering, and any other
+     * time consuming operations by StandardQuasiHttpClient
+     * StandardQuasiHttpServer instances.
+     */
     abortSignal?: AbortSignal
+
+    /**
+     * Gets the effective processing options that will be used to
+     * configure and perform response buffering, and any other
+     * operations by StandardQuasiHttpClient
+     * and StandardQuasiHttpServer instances.
+     */
     processingOptions?: QuasiHttpProcessingOptions
 
     /**
-     * Stores any environment variables associated with a
-     * connection received from a quasi http transport.
+     * Gets an optional promise which can be used by
+     * StandardQuasiHttpClient and StandardQuasiHttpServer
+     * instances, to impose timeouts on request processing
+     * if and only if it returns true.
+     */
+    timeoutPromise?: Promise<boolean>
+
+    /**
+     * Gets any environment variables that can control decisions
+     * during operations by StandardQuasiHttpClient
+     * and StandardQuasiHttpServer instances.
      */
     environment?: Map<string, any>
 }
@@ -203,32 +159,123 @@ export interface QuasiHttpProcessingOptions {
 }
 
 /**
- * Equivalent of TCP client socket factory that provides 
- * instances of StandardQuasiHttpClient instances
- * with client connections for sending quasi http requests to servers or remote endpoints.
+ * Represents the equivalent of an HTTP request entity:
+ * request line, request headers, and request body.
  */
-export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
+export interface IQuasiHttpRequest extends ICustomDisposable {
     
     /**
-     * Creates a connection to a remote endpoint.
-     * @param remoteEndpoint the target endpoint of the connection
-     * allocation request
-     * @param sendOptions any options given to one of the send*() methods of
-     * the StandardQuasiHttpClient class
-     * @returns a promise whose result is ready for use as a duplex
-     * stream of data for reading and writing
+     * Optional value which is equivalent of request target
+     * component of HTTP request line.
      */
-    allocateConnection(remoteEndpoint: any, sendOptions?: QuasiHttpProcessingOptions ):
-        Promise<QuasiHttpConnection | undefined>
+    target?: string
+
+    /**
+     * Optional map of string arrays keyed by strings,
+     * which is the equivalent of HTTP request headers.
+     * 
+     * Unlike in HTTP, headers are case-sensitive and lower-cased
+     * header names are recommended.
+     * Also setting a Content-Length header
+     * here will have no bearing on how to transmit or receive
+     * the request body.
+     */
+    headers?: Map<string, string[]>
+
+    /**
+     * Optional HTTP method value.
+     */
+    httpMethod?: string
+
+    /**
+     * Optional HTTP request version value.
+     */
+    httpVersion?: string
+
+    /**
+     * Gets or sets the number of bytes that the instance will supply,
+     * or -1 (actually any negative value) to indicate an unknown number of
+     * bytes.
+     */
+    contentLength?: number
+
+    /**
+     * Optional request body
+     */
+    body?: Readable
+
+    /**
+     * Optional map of objects keyed by strings which may be of
+     * interest during request processing.
+     */
+    environment?: Map<string, any>
+}
+
+/**
+ * Represents the equivalent of an HTTP response entity:
+ * response status line, response headers, and response body.
+ */
+export interface IQuasiHttpResponse extends ICustomDisposable {
+    /**
+     * Optional HTTP response status code. Falsy values will
+     * be interpreted as 0.
+     */
+    statusCode?: number
+
+    /**
+     * Optional map of string arrays keyed by strings,
+     * which is the equivalent of HTTP response headers.
+     * 
+     * Unlike in HTTP, headers are case-sensitive and lower-cased
+     * header names are recommended.
+     * Also setting a Content-Length header
+     * here will have no bearing on how to transmit or receive
+     * the response body.
+     */
+    headers?: Map<string, string[]>
+
+    /**
+     * Optional HTTP response status text or reason phrase.
+     */
+    httpStatusMessage?: string
+
+    /**
+     * Optional HTTP response version value.
+     */
+    httpVersion?: string
+
+    /**
+     * Gets or sets the number of bytes that the instance will supply,
+     * or -1 (actually any negative value) to indicate an unknown number of
+     * bytes.
+     */
+    contentLength?: number
+
+    /**
+     * Optional response body
+     */
+    body?: Readable
+
+    /**
+     * Optional map of objects keyed by strings which may be of
+     * interest during response processing.
+     */
+    environment?: Map<string, any>
+}
+
+/**
+ * Equivalent of factory of sockets accepted from a TCP server socket,
+ * that provides instances of StandardQuasiHttpServer class
+ * with server operations, for sending quasi http requests to servers at
+ * remote endpoints.
+ */
+export interface IQuasiHttpServerTransport  extends IQuasiHttpTransport {
 
     /**
      * Releases resources held by a connection of a quasi http transport instance.
      * @param connection the connection to release
-     * @param responseStreamingEnabled whether response body
-     * still needs the connection to some extent
      */
-    releaseConnection(connection: QuasiHttpConnection,
-        responseStreamingEnabled: boolean): Promise<void>
+    releaseConnection(connection: QuasiHttpConnection): Promise<void>
 }
 
 /**
@@ -263,28 +310,39 @@ export interface IQuasiHttpTransport {
 }
 
 /**
- * Equivalent of factory of sockets accepted from a TCP server socket,
- * that provides instances of StandardQuasiHttpServer class
- * with server operations, for sending quasi http requests to servers at
- * remote endpoints.
+ * Represents a quasi http request processing function used by 
+ * instances of StandardQuasiHttpServer class
+ * to generate quasi http responses.
  */
-export interface IQuasiHttpServerTransport  extends IQuasiHttpTransport {
+export type QuasiHttpApplication =
+    (request: IQuasiHttpRequest) => Promise<IQuasiHttpResponse | undefined>;
+
+
+/**
+ * Represents a promise and a function to cancel it. Intended for use
+ * with timeouts.
+ */
+export interface ICancellableTimeoutPromise {
 
     /**
-     * Releases resources held by a connection of a quasi http transport instance.
-     * @param connection the connection to release
+     * Gets the pending timeout task, which will resolve
+     * with a truthy value if timeout occurs.
      */
-    releaseConnection(connection: QuasiHttpConnection): Promise<void>
+    promise: Promise<boolean>
+
+    /**
+     * Cancels the pending timeout, such that the promise
+     * property will resolve with a falsy value.
+     */
+    cancel(): void
 }
 
+/**
+ * Equivalent to TaskCompletionSource in C#.NET or
+ * Deferred in jQuery.
+ */
 export interface IBlankChequePromise<T> {
     promise: Promise<T>
     resolve: (r: T) => void
     reject: (r: Error) => void
 }
-
-/*export interface ICancellableTimeoutPromiseInternal {
-    promise: Promise<void>
-    isCancellationRequested(): boolean
-    cancel(): void
-}*/

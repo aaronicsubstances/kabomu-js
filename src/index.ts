@@ -1,7 +1,9 @@
 export * from "./StandardQuasiHttpClient"
 export * from "./StandardQuasiHttpServer"
 export * as CsvUtils from "./CsvUtils"
-export * as MiscUtils from "./MiscUtils"
-export * from "./protocol-impl"
+export * as QuasiHttpUtils from "./QuasiHttpUtils"
+export * as QuasiHttpCodec from "./protocol-impl/QuasiHttpCodec"
+export * from "./DefaultQuasiHttpRequest"
+export * from "./DefaultQuasiHttpResponse"
 export * from "./types"
 export * from "./errors";

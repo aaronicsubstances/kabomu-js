@@ -1,9 +1,9 @@
 const net = require("node:net")
 const {
-    MiscUtils
+    QuasiHttpUtils
 } = require("kabomu-js")
 const { SocketConnection } = require("./SocketConnection")
-const { createDelayPromise } = require("./TransportImplHelpers")
+const { logWarn } = require("./AppLogger")
 
 class LocalhostTcpServerTransport {
     defaultProcessingOptions = undefined
@@ -21,8 +21,11 @@ class LocalhostTcpServerTransport {
 
     async start() {
         this.acceptConnections()
-        const blankCheque = MiscUtils.createBlankChequePromise()
-        this.serverSocket.listen(this.port, "localhost", e => {
+        this.serverSocket.on("error", e => {
+            logWarn("server socket error:", e);
+        })
+        const blankCheque = QuasiHttpUtils.createBlankChequePromise()
+        this.serverSocket.listen(this.port, "::1", e => {
             if (e) {
                 blankCheque.reject(e)
             }
@@ -36,7 +39,7 @@ class LocalhostTcpServerTransport {
     async stop() {
         // don't wait for close except for a few secs.
         this.serverSocket.close()
-        await createDelayPromise(1_000);
+        await QuasiHttpUtils.createDelayPromise(1_000);
     }
 
     async acceptConnections() {
@@ -47,13 +50,16 @@ class LocalhostTcpServerTransport {
     }
 
     async receiveConnection(socket) {
+        socket.on("error", e => {
+            logWarn("client socket error:", e);
+        })
         try {
             const connection = new SocketConnection(socket,
                 false, this.defaultProcessingOptions)
             await this.server.acceptConnection(connection)
         }
         catch (e) {
-            console.warn("connection processing error", e)
+            logWarn("connection processing error", e)
         }
     }
 

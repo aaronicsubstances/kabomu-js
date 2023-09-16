@@ -5,10 +5,11 @@ const { startTransferringFiles } = require("./FileSender")
 const {
     LocalhostTcpClientTransport
 } = require("./LocalhostTcpClientTransport")
+const { logInfo, logError } = require("./AppLogger")
 
 async function main(serverPort, uploadDirPath) {
     serverPort = serverPort || 5001
-    uploadDirPath = uploadDirPath || "."
+    uploadDirPath = uploadDirPath || "logs/client"
     const transport = new LocalhostTcpClientTransport({
         defaultSendOptions: {
             timeoutMillis: 5_000
@@ -19,12 +20,12 @@ async function main(serverPort, uploadDirPath) {
     });
 
     try {
-        console.log(`Connecting Tcp.FileClient to ${serverPort}...`);
+        logInfo(`Connecting Tcp.FileClient to ${serverPort}...`);
 
         await startTransferringFiles(instance, serverPort, uploadDirPath);
     }
     catch (e) {
-        console.error("Fatal error encountered", e);
+        logError("Fatal error encountered", e);
     }
 }
 
