@@ -5,6 +5,7 @@ import {
 } from "../errors";
 import * as IOUtilsInternal from "../IOUtilsInternal";
 import * as MiscUtilsInternal from "../MiscUtilsInternal";
+import { BodyChunkEncodingWriter } from "./BodyChunkEncodingWriter";
 
 /**
  * Wraps another readable stream to ensure a given amount of bytes are read.
@@ -66,6 +67,31 @@ export function createContentLengthEnforcingStream(
                 instance.push(null);
             }
         }
+    };
+    return createReadableStreamDecorator(backingStream,
+        onData, onEnd);
+}
+
+export function createBodyChunkEncodingStream(
+        backingStream: Readable) {
+    if (!backingStream) {
+        throw new Error("backingStream argument is null");
+    }
+    const bodyChunkEncoder = new BodyChunkEncodingWriter();
+    const onData = (instance: Readable, chunk: Buffer) => {
+        let receiveMore = true;
+        for (const c of bodyChunkEncoder.generateBodyChunks(chunk)) {
+            receiveMore &&= instance.push(c);
+        }
+        if (!receiveMore) {
+            return {
+                pauseSrc: true
+            };
+        }
+    };
+    const onEnd = (instance: Readable) => {
+        instance.push(bodyChunkEncoder.generateEndBodyChunk());
+        instance.push(null);
     };
     return createReadableStreamDecorator(backingStream,
         onData, onEnd);

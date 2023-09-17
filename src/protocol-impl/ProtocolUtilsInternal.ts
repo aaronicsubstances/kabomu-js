@@ -2,6 +2,7 @@ import { Readable } from "stream";
 import * as QuasiHttpCodec from "./QuasiHttpCodec";
 import * as QuasiHttpUtils from "../QuasiHttpUtils";
 import {
+    createBodyChunkEncodingStream,
     createContentLengthEnforcingStream
 } from "./CustomStreamsInternal";
 import {
@@ -48,8 +49,14 @@ export function encodeBodyToTransport(isResponse: boolean,
     if (!contentLength) {
         return undefined;
     }
-    if (!isResponse && contentLength < 0) {
-        return undefined;
+    if (!body) {
+        const errMsg = isResponse ?
+            "no response body" :
+            "no request body";
+        throw new QuasiHttpError(errMsg);
+    }
+    if (contentLength < 0) {
+        return createBodyChunkEncodingStream(body as any);
     }
     // don't enforce positive content lengths when writing out
     // quasi http bodies
