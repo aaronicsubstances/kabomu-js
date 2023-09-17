@@ -1,19 +1,25 @@
-DEBUG_ENABLED = true
+DEBUG_ENABLED = false
 
 exports.logDebug = function() {
     if (DEBUG_ENABLED) {
-        console.debug(...arguments)
+        console.debug(getTimestamp(), "DEBUG", ...arguments)
     }
 }
 
 exports.logInfo = function() {
-    console.info(...arguments)
+    console.info(getTimestamp(), "INFO", ...arguments)
 }
 
 exports.logWarn = function() {
-    console.warn(...arguments)
+    console.warn(getTimestamp(), "WARN", ...arguments)
 }
 
 exports.logError = function() {
-    console.error(...arguments)
+    console.error(getTimestamp(), "ERROR", ...arguments)
+}
+
+function getTimestamp() {
+    return new Date().toISOString()
+        .replace("T", " ")
+        .replace("Z", "");
 }

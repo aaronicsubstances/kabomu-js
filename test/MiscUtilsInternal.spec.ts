@@ -1,52 +1,7 @@
-import { assert } from "chai"
-import * as MiscUtils from "../src/MiscUtils"
+const { assert } = require('chai').use(require('chai-bytes'))
+import * as MiscUtilsInternal from "../src/MiscUtilsInternal"
 
 describe("MiscUtilsInternal", function() {
-    describe("#whenAnyPromiseSettles", function() {
-        it("should pass (1)", async function() {
-            const p1 = Promise.resolve()
-            const actual = await MiscUtils.whenAnyPromiseSettles([p1])
-            assert.equal(actual, 0)
-        })
-        it("should pass (2)", async function() {
-            const p1 = Promise.resolve()
-            const p2 = Promise.reject()
-            const actual = await MiscUtils.whenAnyPromiseSettles([p1, p2])
-            assert.equal(actual, 0)
-        })
-        it("should pass (3)", async function() {
-            const p1 = Promise.reject()
-            const p2 = Promise.reject()
-            const actual = await MiscUtils.whenAnyPromiseSettles([p1, p2])
-            assert.equal(actual, 0)
-        })
-        it("should pass (4)", async function() {
-            const p1 = Promise.resolve()
-            const p2 = Promise.resolve()
-            const actual = await MiscUtils.whenAnyPromiseSettles([p1, p2])
-            assert.equal(actual, 0)
-        })
-        it("should pass (5)", async function() {
-            const p1 = new Promise((resolve) => {
-                setImmediate(resolve)
-            })
-            const p2 = Promise.resolve()
-            const actual = await MiscUtils.whenAnyPromiseSettles([p1, p2])
-            assert.equal(actual, 1)
-        })
-        it("should pass (6)", async function() {
-            const p1 = new Promise((resolve) => {
-                setImmediate(resolve)
-            })
-            const p2 = new Promise((resolve) => {
-                setImmediate(resolve)
-            })
-            const p3 = Promise.reject()
-            const actual = await MiscUtils.whenAnyPromiseSettles([p1, p2, p3])
-            assert.equal(actual, 2)
-        })
-    })
-
     describe("#parseInt48", function() {
         const testData = [
             {
@@ -117,7 +72,7 @@ describe("MiscUtilsInternal", function() {
         ]
         testData.forEach(({input, expected}, i) => {
             it(`should pass with input ${i}`, function() {
-                const actual = MiscUtils.parseInt48(input)
+                const actual = MiscUtilsInternal.parseInt48(input)
                 assert.equal(actual, expected)
             })
         })
@@ -130,7 +85,7 @@ describe("MiscUtilsInternal", function() {
         testErrorData.forEach((input, i) => {
             it(`should fail with input ${i}`, function() {
                 assert.throws(() =>
-                    MiscUtils.parseInt48(input), /invalid 48-bit/)
+                    MiscUtilsInternal.parseInt48(input), /invalid 48-bit/)
             })
         })
     })
@@ -193,7 +148,7 @@ describe("MiscUtilsInternal", function() {
         ]
         testData.forEach(({input, expected}, i) => {
             it(`should pass with input ${i}`, function() {
-                const actual = MiscUtils.parseInt32(input)
+                const actual = MiscUtilsInternal.parseInt32(input)
                 assert.equal(actual, expected)
             })
         })
@@ -206,7 +161,78 @@ describe("MiscUtilsInternal", function() {
         testErrorData.forEach((input, i) => {
             it(`should fail with input ${i}`, function() {
                 assert.throws(() =>
-                    MiscUtils.parseInt32(input), /invalid 32-bit/)
+                    MiscUtilsInternal.parseInt32(input), /invalid 32-bit/)
+            })
+        })
+    })
+
+    describe("#stringToBytes", function() {
+        it("it should pass", function() {
+            let expected = Buffer.alloc(0);
+            let actual = MiscUtilsInternal.stringToBytes("");
+            assert.equalBytes(actual, expected);
+
+            actual = MiscUtilsInternal.stringToBytes("abc")
+            assert.equalBytes(actual,
+                Buffer.from("abc"));
+
+            // NB: text between bar and baz is
+            // supplementary character 0001d306
+            actual = MiscUtilsInternal.stringToBytes(
+                "Foo \u00a9 bar \ud834\udf06 baz \u2603 qux")
+            assert.equalBytes(actual, Buffer.from([
+                0x46, 0x6f, 0x6f, 0x20, 0xc2, 0xa9, 0x20,
+                0x62, 0x61, 0x72, 0x20,
+                0xf0, 0x9d, 0x8c, 0x86, 0x20, 0x62, 0x61,
+                0x7a, 0x20, 0xe2, 0x98, 0x83,
+                0x20, 0x71, 0x75, 0x78
+            ]))
+        })
+
+        describe("#bytesToString", function() {
+            it("it should pass", function() {
+                let expected = "";
+                let actual = MiscUtilsInternal.bytesToString(
+                    Buffer.alloc(0));
+                assert.equal(actual, expected);
+    
+                expected = "abc"
+                actual = MiscUtilsInternal.bytesToString(
+                    Buffer.from("abc"))
+                assert.equal(actual, expected);
+    
+                // NB: text between bar and baz is
+                // supplementary character 0001d306
+                expected = "Foo \u00a9 bar \ud834\udf06 baz \u2603 qux";
+                actual = MiscUtilsInternal.bytesToString(Buffer.from([
+                    0x46, 0x6f, 0x6f, 0x20, 0xc2, 0xa9, 0x20,
+                    0x62, 0x61, 0x72, 0x20,
+                    0xf0, 0x9d, 0x8c, 0x86, 0x20, 0x62, 0x61,
+                    0x7a, 0x20, 0xe2, 0x98, 0x83,
+                    0x20, 0x71, 0x75, 0x78
+                ]));
+                assert.equal(actual, expected);
+            })
+        })
+
+        describe("#getByteCount", function() {
+            it("it should pass", function() {
+                let expected = 0;
+                let actual = MiscUtilsInternal.getByteCount(
+                    "");
+                assert.equal(actual, expected);
+    
+                expected = 3
+                actual = MiscUtilsInternal.getByteCount(
+                    "abc")
+                assert.equal(actual, expected);
+    
+                // NB: text between bar and baz is
+                // supplementary character 0001d306
+                expected = 27;
+                actual = MiscUtilsInternal.getByteCount(
+                    "Foo \u00a9 bar \ud834\udf06 baz \u2603 qux");
+                assert.equal(actual, expected);
             })
         })
     })

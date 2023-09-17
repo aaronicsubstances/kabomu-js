@@ -1,8 +1,8 @@
 import { Readable } from "stream";
 import {
-    createYieldPromise,
     getRndInteger
 } from "./ComparisonUtils";
+import { createYieldPromise } from "../../src/QuasiHttpUtils";
 
 export function createRandomizedReadSizeBufferReader(b: Buffer) {
     return Readable.from((async function*() {

@@ -1,10 +1,10 @@
 const { assert } = require("chai").use(require("chai-bytes"))
-import { Readable } from "stream";
-import * as MiscUtils from "../../src/MiscUtils"
+import { Readable, Writable } from "stream";
 import {
     IQuasiHttpRequest,
     IQuasiHttpResponse
 } from "../../src/types"
+import { pipeline } from "stream/promises";
 
 export async function compareRequests(
         actual: IQuasiHttpRequest | undefined,
@@ -48,8 +48,7 @@ export async function compareBodies(
         assert.equal(actual, expected)
         return;
     }
-    const actualBodyBytes = await MiscUtils.readAllBytes(
-        actual)
+    const actualBodyBytes = await readAllBytes(actual)
     assert.equalBytes(actualBodyBytes, expectedBodyBytes)
 }
 
@@ -101,14 +100,14 @@ export function getRndInteger(min?: number, max?: number) {
     return Math.floor(Math.random() * (max - min) ) + min;
 }
 
-export function createDelayPromise(millis: number) {
-    return new Promise<void>((resolve) => {
-        setTimeout(resolve, millis)
-    })
-}
-
-export function createYieldPromise() {
-    return new Promise<void>((resolve) => {
-        setImmediate(resolve)
-    })
+export async function readAllBytes(src: Readable) {
+    const chunks = new Array<Buffer>();
+    const writer = new Writable({
+        write(chunk, encoding, callback) {
+            chunks.push(chunk);
+            callback()
+        },
+    });
+    await pipeline(src, writer);
+    return Buffer.concat(chunks);
 }

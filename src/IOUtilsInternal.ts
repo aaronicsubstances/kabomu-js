@@ -15,6 +15,13 @@ export const DEFAULT_READ_BUFFER_SIZE = 8192;
  */
 export const DEFAULT_DATA_BUFFER_LIMIT = 134_217_728;
 
+export function createNonBufferChunkError(chunk: any) {
+    const chunkType = typeof chunk;
+    return new KabomuIOError(
+        "expected Buffer chunks but got chunk of type " +
+        chunkType)
+}
+
 /**
  * Reads bytes from a stream as much as possible, until
  * either desired number of bytes are obtained, stream
@@ -37,6 +44,11 @@ export async function tryReadBytesFully(
         abortSignal?.throwIfAborted()
         let chunk: Buffer | null;
         while ((chunk = stream.read()) !== null) {
+            if (!Buffer.isBuffer(chunk)) {
+                stream.destroy(createNonBufferChunkError(chunk))
+                return;
+            }
+
             if (totalBytesRead + chunk.length < count) {
                 chunks.push(chunk);
                 totalBytesRead += chunk.length;
@@ -66,7 +78,6 @@ export async function tryReadBytesFully(
     stream.on("readable", onReadable);
     
     const options = {
-        readable: false,
         signal: successIndicator.signal
     };
     const blankCheque = createBlankChequePromise<Buffer>()
