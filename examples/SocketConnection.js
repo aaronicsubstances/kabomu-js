@@ -40,7 +40,8 @@ class SocketConnection {
             return;
         }
         this._abortController.abort()
-        this._socket.destroy()
+        this._socket.end();
+        //this._socket.destroy() // didn't help with windows named pipes
     }
 
     async write(isResponse, encodedHeaders, body) {

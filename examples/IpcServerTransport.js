@@ -4,16 +4,17 @@ const {
 } = require("kabomu-js")
 const { SocketConnection } = require("./SocketConnection")
 const { logWarn } = require("./AppLogger")
+const { unlink } = require("node:fs/promises")
 
-class LocalhostTcpServerTransport {
+class IpcServerTransport {
     defaultProcessingOptions = undefined
     server = undefined
-    port = 0
+    ipcPath = ''
 
     constructor(options) {
         this.defaultProcessingOptions = options?.defaultProcessingOptions
         this.server = options?.server
-        this.port = options?.port
+        this.ipcPath = options?.ipcPath
         this.serverSocket = net.createServer({
             noDelay: true
         })
@@ -26,7 +27,14 @@ class LocalhostTcpServerTransport {
             logWarn("server socket error:", e.message);
             blankCheque.reject(e)
         })
-        this.serverSocket.listen(this.port, "::1", e => {
+        const listenOpts = {
+            path: this.ipcPath
+        }
+        try {
+            await unlink(this.ipcPath); // for unix domain sockets.
+        }
+        catch {} // ignore
+        this.serverSocket.listen(listenOpts, e => {
             if (e) {
                 blankCheque.reject(e)
             }
@@ -77,4 +85,4 @@ class LocalhostTcpServerTransport {
     }
 }
 
-exports.LocalhostTcpServerTransport = LocalhostTcpServerTransport
+exports.IpcServerTransport = IpcServerTransport

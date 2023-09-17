@@ -4,20 +4,20 @@ const {
 } =  require("kabomu-js")
 const FileReceiver = require("./FileReceiver")
 const {
-    LocalhostTcpServerTransport
-} = require("./LocalhostTcpServerTransport")
+    IpcServerTransport
+} = require("./IpcServerTransport")
 const { logDebug, logInfo, logWarn, logError } = require('./AppLogger')
 const dotenv = require("dotenv")
 dotenv.config()
 
 async function main() {
-    port = process.env.PORT || 5001
-    uploadDirPath = process.env.SAVE_DIR || "logs/server"
+    const ipcPath = process.env.IPC_PATH || "logs/34dc4fb1-71e0-4682-a64f-52d2635df2f5.sock"
+    const uploadDirPath = process.env.SAVE_DIR || "logs/server"
     const instance = new StandardQuasiHttpServer({
-        application: FileReceiver.create(port, uploadDirPath)
+        application: FileReceiver.create(ipcPath, uploadDirPath)
     });
-    const transport = new LocalhostTcpServerTransport({
-        port,
+    const transport = new IpcServerTransport({
+        ipcPath,
         server: instance,
         defaultProcessingOptions : {
             timeoutMillis: 5_000
@@ -32,7 +32,7 @@ async function main() {
 
     try {
         await transport.start();
-        logInfo(`Started Tcp.FileServer at ${port}...`);
+        logInfo(`Started Ipc.FileServer at ${ipcPath}...`);
 
         await rL.question("");
     }
@@ -42,7 +42,7 @@ async function main() {
     finally {
         rL.close();
 
-        logDebug("Stopping Tcp.FileServer...");
+        logDebug("Stopping Ipc.FileServer...");
         await transport.stop();
 
          // don't wait for remainder of ongoing
