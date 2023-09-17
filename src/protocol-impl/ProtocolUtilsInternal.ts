@@ -3,7 +3,8 @@ import * as QuasiHttpCodec from "./QuasiHttpCodec";
 import * as QuasiHttpUtils from "../QuasiHttpUtils";
 import {
     createBodyChunkEncodingStream,
-    createContentLengthEnforcingStream
+    createContentLengthEnforcingStream,
+    createBodyChunkDecodingStream
 } from "./CustomStreamsInternal";
 import {
     IQuasiHttpTransport,
@@ -69,11 +70,11 @@ export function decodeRequestBodyFromTransport(
     if (!contentLength) {
         return undefined;
     }
-    if (contentLength < 0) {
-        return undefined
-    }
     if (!body) {
         throw new QuasiHttpError("no request body");
+    }
+    if (contentLength < 0) {
+        return createBodyChunkDecodingStream(body);
     }
     return createContentLengthEnforcingStream(body,
         contentLength);
@@ -98,6 +99,9 @@ export function decodeResponseBodyFromTransport(
     }
     if (!body) {
         throw new QuasiHttpError("no response body");
+    }
+    if (contentLength < 0) {
+        body = createBodyChunkDecodingStream(body);
     }
     if (responseStreamingEnabled) {
         if (contentLength > 0) {

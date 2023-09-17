@@ -8,9 +8,9 @@ const {
 } = require("./LocalhostTcpServerTransport")
 const { logDebug, logInfo, logWarn, logError } = require('./AppLogger')
 
-async function main(port, uploadDirPath) {
-    port = port || 5001
-    uploadDirPath = uploadDirPath || "logs/server"
+async function main() {
+    port = process.env.PORT || 5001
+    uploadDirPath = process.env.SAVE_DIR || "logs/server"
     const instance = new StandardQuasiHttpServer({
         application: FileReceiver.create(port, uploadDirPath)
     });

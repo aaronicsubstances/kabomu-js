@@ -50,7 +50,6 @@ async function transferFile(instance, serverEndpoint, f) {
     const fd = await fs.open(f.fullpath())
     const fileStream = fd.createReadStream()
     request.contentLength = Math.random() < 0.5 ? -1 : f.size
-    //request.contentLength = f.size
     request.body = fileStream
 
     // determine options

@@ -97,6 +97,156 @@ export function createBodyChunkEncodingStream(
         onData, onEnd);
 }
 
+export function createBodyChunkDecodingStream(
+        backingStream: Readable) {
+    if (!backingStream) {
+        throw new Error("backingStream argument is null");
+    }
+    const chunks = new Array<Buffer>();
+    const temp = [0, 0];
+    let isDecodingHeader = true;
+    let outstandingDataLength = 0;
+    const onData = (instance: Readable, chunk: Buffer) => {
+        let canReceiveMore = true;
+        if (!isDecodingHeader) {
+            const chunkLengthToUse = Math.min(
+                outstandingDataLength, chunk.length);
+            if (chunkLengthToUse > 0) {
+                const nextChunk = chunk.subarray(0,
+                    chunkLengthToUse);
+                canReceiveMore &&= instance.push(nextChunk);
+                outstandingDataLength -= chunkLengthToUse;
+            }
+            if (chunkLengthToUse < chunk.length) {
+                const carryOverChunk = chunk.subarray(
+                    chunkLengthToUse);
+                chunks.push(carryOverChunk);
+                isDecodingHeader = true;
+                // proceed to loop
+            }
+            else {
+                if (!outstandingDataLength) {
+                    // chunk exactly fulfilled outstanding
+                    // data length.
+                    isDecodingHeader = true;
+                    // return or proceed to loop,
+                    // it doesn't matter, as chunks should
+                    // be empty.
+                    if (chunks.length) {
+                        throw new ExpectationViolationError(
+                            "expected chunks to be empty at this point")
+                    }
+                }
+                else {
+                    // need to read more chunks to fulfil
+                    // chunk data length.
+                }
+                return {
+                    pauseSrc: !canReceiveMore
+                };
+            }
+        }
+        else {
+            chunks.push(chunk);
+        }
+        while (true) {
+            let concatenated: Buffer | undefined;
+            try {
+                concatenated = BodyChunkEncodingWriter._tryDecodeBodyChunkV1Header(
+                    chunks, temp);
+            }
+            catch (e) {
+                throw new KabomuIOError(
+                    "Failed to decode quasi http body while " +
+                    "reading body chunk header",
+                    { cause: e });
+            }
+            if (!concatenated) {
+                // need to read more chunks to fulfil
+                // chunk header length.
+                break;
+            }
+            chunks.length = 0; // clear
+            outstandingDataLength = temp[0];
+            let concatenatedLengthUsed = temp[1];
+            if (!outstandingDataLength) {
+                // done.
+                instance.push(null);
+                let unshift: Buffer | undefined;
+                if (concatenatedLengthUsed < concatenated.length) {
+                    unshift = concatenated.subarray(
+                        concatenatedLengthUsed);
+                }
+                return {
+                    done: true,
+                    outstanding: unshift
+                };
+            }
+            const nextChunkLength = Math.min(
+                outstandingDataLength,
+                concatenated.length - concatenatedLengthUsed);
+            if (nextChunkLength) {
+                const nextChunk = concatenated.subarray(
+                    concatenatedLengthUsed,
+                    nextChunkLength + concatenatedLengthUsed);
+                canReceiveMore &&= instance.push(nextChunk);
+                outstandingDataLength -= nextChunkLength;
+                concatenatedLengthUsed += nextChunkLength;
+            }
+            if (concatenatedLengthUsed < concatenated.length) {
+                // can't read more chunks yet, because there are
+                // more stuff inside concatenated
+                const carryOverChunk = concatenated.subarray(
+                    concatenatedLengthUsed);
+                chunks.push(carryOverChunk);
+            }
+            else {
+                if (outstandingDataLength) {
+                    // need to read more chunks to fulfil
+                    // chunk data length.
+                    isDecodingHeader = false;
+                }
+                else {
+                    // chunk exactly fulfilled outstanding
+                    // data length.
+                    // So start decoding header again.
+                }
+                // in any case need to read more chunks.
+                break;
+            }
+        }
+        if (!canReceiveMore) {
+            return {
+                pauseSrc: true
+            };
+        }
+    };
+    const onEnd = (instance: Readable) => {
+        if (isDecodingHeader) {
+            if (chunks.length) {
+                const e = new KabomuIOError(
+                    "Failed to decode quasi http body while " +
+                    "reading body chunk header: unexpected end of read");
+                instance.destroy(e);
+            }
+            else {
+                const e = new KabomuIOError(
+                    "Failed to decode quasi http body: " +
+                    "missing final empty chunk");
+                instance.destroy(e);
+            }
+        }
+        else {
+            const e = new KabomuIOError(
+                "Failed to decode quasi http body while " +
+                "reading body chunk data: unexpected end of read");
+            instance.destroy(e);
+        }
+    };
+    return createReadableStreamDecorator(backingStream,
+        onData, onEnd);
+}
+
 function createReadableStreamDecorator(
         backingStream: Readable,
         dataCb: any,
@@ -124,15 +274,20 @@ function createReadableStreamDecorator(
         let receiveMore = true;
         let outstanding: Buffer | undefined;
         let done = false;
-        const result = dataCb(instance, chunk);
+        let result: any;
+        try {
+            result = dataCb(instance, chunk);
+        }
+        catch (e) {
+            instance.destroy(e as any);
+            done = true;
+        }
         if (result) {
             receiveMore = !result.pauseSrc;
             done = result.done;
             outstanding = result.outstanding;
         }
         if (done) {
-            // done.
-            instance.push(null);
             if (outstanding) {
                 // ensure absence of readable and data
                 // listeners before unshifting.

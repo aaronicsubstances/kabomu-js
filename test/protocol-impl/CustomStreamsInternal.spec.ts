@@ -4,6 +4,8 @@ const { expect, assert } = require('chai').use(require('chai-bytes'))
 import * as MiscUtilsInternal from "../../src/MiscUtilsInternal"
 import * as IOUtilsInternal from "../../src/IOUtilsInternal"
 import {
+    createBodyChunkDecodingStream,
+    createBodyChunkEncodingStream,
     createContentLengthEnforcingStream
 } from "../../src/protocol-impl/CustomStreamsInternal"
 import { createRandomizedReadSizeBufferReader } from "../shared/RandomizedReadSizeBufferReader"
@@ -176,5 +178,180 @@ describe("CustomStreamsInternal", function() {
             // be needed after the transfer since the
             // pipeline destroy them.
         });
+    });
+
+    describe("#createBodyChunkEncodingStream", function() {
+        const testData = [
+            {
+                srcData: "",
+                expected: "01,0000000000"
+            },
+            {
+                srcData: "a",
+                expected: "01,0000000001a01,0000000000",
+            },
+            {
+                srcData: "ab",
+                expected: "01,0000000002ab01,0000000000"
+            },
+            {
+                srcData: "abc",
+                expected: "01,0000000003abc01,0000000000"
+            },
+            {
+                srcData: "abcd",
+                expected: "01,0000000004abcd01,0000000000"
+            },
+            {
+                srcData: "abcde",
+                expected: "01,0000000005abcde01,0000000000"
+            },
+            {
+                srcData: "abcdefghi",
+                expected: "01,0000000009abcdefghi01,0000000000"
+            }
+        ];
+        testData.forEach(({ srcData, expected }, i) => {
+            it(`should pass with input ${i}`, async function() {
+                // arrange.
+                let instance: Readable = Readable.from(
+                    MiscUtilsInternal.stringToBytes(srcData));
+                instance = createBodyChunkEncodingStream(instance);
+
+                const actual = MiscUtilsInternal.bytesToString(
+                    await readAllBytes(instance));
+
+                // assert
+                assert.equal(actual, expected);
+            })
+        })
+    })
+
+    describe("#createBodyChunkDecodingStream", function() {
+        const testData = [
+            {
+                srcData: "01,0000000000",
+                expected: "",
+            },
+            {
+                srcData: "01,0000000001a01,0000000000",
+                expected: "a",
+            },
+            {
+                srcData: "01,0000000002ab01,0000000000",
+                expected: "ab",
+            },
+            {
+                srcData: "01,0000000003abc01,0000000000",
+                expected: "abc",
+            },
+            {
+                srcData: "01,0000000001a01,0000000002bc01,0000000000",
+                expected: "abc",
+            },
+            {
+                srcData: "01,0000000004abcd01,0000000000",
+                expected: "abcd",
+            },
+            {
+                srcData: "01,0000000003abc01,0000000001d01,0000000000",
+                expected: "abcd"
+            },
+            {
+                srcData: "01,0000000005abcde01,0000000000",
+                expected: "abcde",
+            },
+            {
+                srcData: "01,0000000001a01,0000000004bcde01,0000000000",
+                expected: "abcde"
+            },
+            {
+                srcData: "01,0000000009abcdefghi01,0000000000",
+                expected: "abcdefghi",
+            },
+            {
+                srcData: "01,0000000001a01,0000000007bcdefgh01,0000000001i01,0000000000",
+                expected: "abcdefghi"
+            }
+        ];
+        testData.forEach(({ srcData, expected }, i) => {
+            it(`should pass with input ${i}`, async function() {
+                // arrange.
+                let instance: Readable = Readable.from(
+                    MiscUtilsInternal.stringToBytes(srcData));
+                instance = createBodyChunkDecodingStream(instance);
+
+                const actual = MiscUtilsInternal.bytesToString(
+                    await readAllBytes(instance));
+
+                // assert
+                assert.equal(actual, expected);
+            })
+        })
+
+        const testDataWithLeftOvers = [
+            {
+                srcData: "01,0000000000sea blue",
+                expected: "",
+                leftOver: "sea blue"
+            },
+            {
+                srcData: "01,0000000001a01,0000000000",
+                expected: "a",
+                leftOver: ""
+            },
+            {
+                srcData: "01,0000000003abc01,0000000001d01,0000000000xyz\n",
+                expected: "abcd",
+                leftOver: "xyz\n"
+            },
+            {
+                srcData: "01,0000000001a01,0000000007bcdefgh01,0000000001i01,0000000000" +
+                    "-done with extra\nthat's it",
+                expected: "abcdefghi",
+                leftOver: "-done with extra\nthat's it"
+            }
+        ];
+        testDataWithLeftOvers.forEach(({ srcData, expected, leftOver }, i) => {
+            it(`should pass left over test with input ${i}`, async function() {
+                // arrange.
+                let srcStream = Readable.from(
+                    MiscUtilsInternal.stringToBytes(srcData));
+                const instance = createBodyChunkDecodingStream(srcStream);
+
+                let actual = MiscUtilsInternal.bytesToString(
+                    await readAllBytes(instance));
+
+                // assert expected
+                assert.equal(actual, expected);
+
+                // assert left over
+                actual = MiscUtilsInternal.bytesToString(
+                    await readAllBytes(srcStream));
+                assert.equal(actual, leftOver);
+            })
+        })
+    })
+
+    describe("BodyChunkCodecStreamsInternalTest", function() {
+        const testData = [
+            "", "a", "ab", "abc", "abcd", "abcde",
+            "abcdefghi"
+        ];
+        testData.forEach((expected, i) => {
+            it(`should pass with input ${i}`, async () => {
+                // arrange
+                let instance = createRandomizedReadSizeBufferReader(
+                    MiscUtilsInternal.stringToBytes(expected))
+                instance = createBodyChunkEncodingStream(instance)
+                instance = createBodyChunkDecodingStream(instance)
+
+                // act
+                const actual = await readAllBytes(instance)
+
+                // assert
+                assert.equal(actual, expected);
+            })
+        })
     })
 })
