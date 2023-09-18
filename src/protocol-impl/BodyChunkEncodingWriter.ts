@@ -1,5 +1,8 @@
 import * as MiscUtilsInternal from "../MiscUtilsInternal"
-import { ExpectationViolationError } from "../errors"
+import {
+    ExpectationViolationError,
+    KabomuIOError
+} from "../errors"
 import * as QuasiHttpCodec from "./QuasiHttpCodec"
 import * as CsvUtils from "../CsvUtils";
 
@@ -68,9 +71,9 @@ export class BodyChunkEncodingWriter {
             MiscUtilsInternal.bytesToString(
                 decodingBuffer.subarray(0,
                     minimumBodyChunkV1HeaderLength)));
-        if (!csv.length || csv[0].length < 2 ||
+        if (csv[0].length < 2 ||
                 csv[0][0] !== QuasiHttpCodec._PROTOCOL_VERSION_01) {
-            throw new Error("invalid quasi http body chunk header");
+            throw new KabomuIOError("invalid quasi http body chunk header");
         }
         const lengthOfDataStr = csv[0][1];
         let lengthOfData = 0;
@@ -78,11 +81,11 @@ export class BodyChunkEncodingWriter {
             lengthOfData = MiscUtilsInternal.parseInt32(lengthOfDataStr);
         }
         catch (e) {
-            throw new Error("invalid quasi http body chunk length: " +
+            throw new KabomuIOError("invalid quasi http body chunk length: " +
                 lengthOfDataStr);
         }
         if (lengthOfData < 0) {
-            throw new Error("invalid quasi http body chunk length: " +
+            throw new KabomuIOError("invalid quasi http body chunk length: " +
                 lengthOfData);
         }
         result[0] = lengthOfData;

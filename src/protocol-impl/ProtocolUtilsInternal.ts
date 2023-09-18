@@ -186,8 +186,6 @@ export async function readEncodedHeaders(source: Readable,
         maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE
     }
     let totalBytesRead = 0
-    let previousChunkEndsWithLf = false;
-    let previousChunkEndsWith2Lfs = false;
     while (true) {
         totalBytesRead += QuasiHttpCodec._HEADER_CHUNK_SIZE
         if (totalBytesRead > maxHeadersSize) {
@@ -201,17 +199,6 @@ export async function readEncodedHeaders(source: Readable,
         encodedHeadersReceiver.push(chunk);
         const carriageReturn = 13;
         const newline = 10;
-        if (previousChunkEndsWith2Lfs &&
-                (chunk[0] === carriageReturn || chunk[0] === newline)) {
-            // done
-            break;
-        }
-        if (previousChunkEndsWithLf &&
-                (chunk[0] === carriageReturn || chunk[0] === newline) &&
-                (chunk[1] === carriageReturn || chunk[1] === newline)) {
-            // done
-            break;
-        }
         for (let i = 2; i < chunk.length; i++) {
             if (chunk[i] !== carriageReturn && chunk[i] !== newline) {
                 continue;
@@ -228,11 +215,5 @@ export async function readEncodedHeaders(source: Readable,
                 return;
             }
         }
-        previousChunkEndsWithLf = 
-            chunk[chunk.length - 1] === carriageReturn ||
-                chunk[chunk.length - 1] === newline;
-        previousChunkEndsWith2Lfs = previousChunkEndsWithLf &&
-            (chunk[chunk.length - 1] === carriageReturn ||
-                chunk[chunk.length - 1] === newline);
     }
 }

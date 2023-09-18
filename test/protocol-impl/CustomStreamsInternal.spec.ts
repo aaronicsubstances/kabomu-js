@@ -11,6 +11,7 @@ import {
 import { createRandomizedReadSizeBufferReader } from "../shared/RandomizedReadSizeBufferReader"
 import { Readable } from "stream"
 import { readAllBytes } from "../shared/ComparisonUtils"
+import { KabomuIOError } from "../../src/errors"
 
 describe("CustomStreamsInternal", function() {    
     describe("#createContentLengthEnforcingStream", function() {
@@ -103,6 +104,7 @@ describe("CustomStreamsInternal", function() {
                 await nativeAssert.rejects(() => {
                     return readAllBytes(instance)
                 }, (e: any) => {
+                    assert.instanceOf(e, KabomuIOError);
                     expect(e.message).to.contain(`length of ${contentLength}`)
                     return true
                 })
@@ -331,12 +333,66 @@ describe("CustomStreamsInternal", function() {
                 assert.equal(actual, leftOver);
             })
         })
+
+        const testErrorData = [
+            {
+                srcData: "",
+                expectedError: "unexpected end of read"
+            },
+            {
+                srcData: "01",
+                expectedError: "unexpected end of read"
+            },
+            {
+                srcData: "01,0000000001qabc,",
+                expectedError: "unexpected end of read"
+            },
+            {
+                srcData: "01,0000000012qabc,",
+                expectedError: "unexpected end of read"
+            },
+            {
+                srcData: "01234567890123456",
+                expectedError: "invalid quasi http body chunk header"
+            },
+            {
+                srcData: "01,0000000001h00,234567890123456",
+                expectedError: "invalid quasi http body chunk header"
+            },
+            {
+                srcData: "01,0000000tea",
+                expectedError: "length: 0000000tea"
+            },
+            {
+                srcData: "01,-000000001",
+                expectedError: "length: -1"
+            }
+        ]
+        testErrorData.forEach(({ srcData, expectedError }, i) => {
+            it(`should fail with input ${i}`, async function() {
+                // arrange
+                const stream = Readable.from(
+                    MiscUtilsInternal.stringToBytes(srcData))
+                const instance = createBodyChunkDecodingStream(
+                    stream)
+
+                // act and assert
+                await nativeAssert.rejects(() => {
+                    return readAllBytes(instance)
+                }, (e: any) => {
+                    assert.instanceOf(e, KabomuIOError);
+                    expect(e.message).to.contain(expectedError)
+                    return true
+                })
+            })
+        })
     })
 
     describe("BodyChunkCodecStreamsInternalTest", function() {
         const testData = [
             "", "a", "ab", "abc", "abcd", "abcde",
-            "abcdefghi"
+            "abcdefghi",
+            "xdg".padEnd(50_0000, 'z') // test back pressure.
         ];
         testData.forEach((expected, i) => {
             it(`should pass with input ${i}`, async () => {
@@ -346,10 +402,17 @@ describe("CustomStreamsInternal", function() {
                 instance = createBodyChunkEncodingStream(instance)
                 instance = createBodyChunkDecodingStream(instance)
 
-                // act
-                const actual = await readAllBytes(instance)
+                // act in bits to test back pressure
+                const actual1 = await IOUtilsInternal.tryReadBytesFully(
+                    instance, 4)
+                const actual2 = await IOUtilsInternal.tryReadBytesFully(
+                    instance, 30_000)
+                const actual3 = await readAllBytes(instance)
 
                 // assert
+                const actual = Buffer.concat([
+                    actual1, actual2, actual3
+                ])
                 assert.equal(actual, expected);
             })
         })

@@ -26,14 +26,14 @@ export function createContentLengthEnforcingStream(
     }
     let bytesLeft = contentLength;
     const onData = (instance: Readable, chunk: Buffer) => {
-        let receiveMore = false;
+        let canReceiveMore = false;
         let outstanding: Buffer | undefined;
         if (chunk.length <= bytesLeft) {
-            receiveMore = instance.push(chunk);
+            canReceiveMore = instance.push(chunk);
             bytesLeft -= chunk.length;
         }
         else {
-            receiveMore = instance.push(chunk.subarray(0, bytesLeft));
+            canReceiveMore = instance.push(chunk.subarray(0, bytesLeft));
             outstanding = chunk.subarray(bytesLeft);
             bytesLeft = 0;
         }
@@ -45,7 +45,7 @@ export function createContentLengthEnforcingStream(
                 outstanding
             };
         }
-        if (!receiveMore) {
+        if (!canReceiveMore) {
             return {
                 pauseSrc: true
             };
@@ -79,11 +79,11 @@ export function createBodyChunkEncodingStream(
     }
     const bodyChunkEncoder = new BodyChunkEncodingWriter();
     const onData = (instance: Readable, chunk: Buffer) => {
-        let receiveMore = true;
+        let canReceiveMore = true;
         for (const c of bodyChunkEncoder.generateBodyChunks(chunk)) {
-            receiveMore &&= instance.push(c);
+            canReceiveMore &&= instance.push(c);
         }
-        if (!receiveMore) {
+        if (!canReceiveMore) {
             return {
                 pauseSrc: true
             };
@@ -150,17 +150,8 @@ export function createBodyChunkDecodingStream(
             chunks.push(chunk);
         }
         while (true) {
-            let concatenated: Buffer | undefined;
-            try {
-                concatenated = BodyChunkEncodingWriter._tryDecodeBodyChunkV1Header(
-                    chunks, temp);
-            }
-            catch (e) {
-                throw new KabomuIOError(
-                    "Failed to decode quasi http body while " +
-                    "reading body chunk header",
-                    { cause: e });
-            }
+            const concatenated = BodyChunkEncodingWriter._tryDecodeBodyChunkV1Header(
+                chunks, temp);
             if (!concatenated) {
                 // need to read more chunks to fulfil
                 // chunk header length.
@@ -222,26 +213,7 @@ export function createBodyChunkDecodingStream(
         }
     };
     const onEnd = (instance: Readable) => {
-        if (isDecodingHeader) {
-            if (chunks.length) {
-                const e = new KabomuIOError(
-                    "Failed to decode quasi http body while " +
-                    "reading body chunk header: unexpected end of read");
-                instance.destroy(e);
-            }
-            else {
-                const e = new KabomuIOError(
-                    "Failed to decode quasi http body: " +
-                    "missing final empty chunk");
-                instance.destroy(e);
-            }
-        }
-        else {
-            const e = new KabomuIOError(
-                "Failed to decode quasi http body while " +
-                "reading body chunk data: unexpected end of read");
-            instance.destroy(e);
-        }
+        instance.destroy(KabomuIOError.createEndOfReadError());
     };
     return createReadableStreamDecorator(backingStream,
         onData, onEnd);
@@ -266,26 +238,27 @@ function createReadableStreamDecorator(
     });
     const successIndicator = new AbortController();
     const onData = (chunk: Buffer) => {
-        if (!Buffer.isBuffer(chunk)) {
-            backingStream.destroy(
-                IOUtilsInternal.createNonBufferChunkError(chunk))
-            return;
-        }
-        let receiveMore = true;
-        let outstanding: Buffer | undefined;
         let done = false;
-        let result: any;
-        try {
-            result = dataCb(instance, chunk);
-        }
-        catch (e) {
-            instance.destroy(e as any);
+        let outstanding: Buffer | undefined;
+        let pauseSrc = false;
+        if (!Buffer.isBuffer(chunk)) {
+            instance.destroy(
+                IOUtilsInternal.createNonBufferChunkError(chunk))
             done = true;
         }
-        if (result) {
-            receiveMore = !result.pauseSrc;
-            done = result.done;
-            outstanding = result.outstanding;
+        if (!done) {
+            try {
+                const result = dataCb(instance, chunk);
+                if (result) {
+                    done = result.done;
+                    outstanding = result.outstanding;
+                    pauseSrc = result.pauseSrc;
+                }
+            }
+            catch (e) {
+                instance.destroy(e as any);
+                done = true;
+            }
         }
         if (done) {
             if (outstanding) {
@@ -302,7 +275,7 @@ function createReadableStreamDecorator(
             successIndicator.abort();
             return;
         }
-        if (!receiveMore) {
+        if (pauseSrc) {
             // pause.
             backingStream.on("readable", onReadable);
         }
