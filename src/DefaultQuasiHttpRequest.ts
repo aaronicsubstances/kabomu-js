@@ -9,7 +9,6 @@ import { IQuasiHttpRequest } from "./types";
 export class DefaultQuasiHttpRequest implements IQuasiHttpRequest {
     target?: string;
     headers?: Map<string, string[]>;
-    contentLength?: number;
     body?: Readable;
     httpMethod?: string;
     httpVersion?: string;
@@ -24,7 +23,6 @@ export class DefaultQuasiHttpRequest implements IQuasiHttpRequest {
     constructor(options?: Omit<IQuasiHttpRequest, "release">) {
         this.target = options?.target;
         this.headers = options?.headers;
-        this.contentLength = options?.contentLength;
         this.body = options?.body;
         this.httpMethod = options?.httpMethod;
         this.httpVersion = options?.httpVersion;

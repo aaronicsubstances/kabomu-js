@@ -13,24 +13,10 @@ export class KabomuError extends Error {
 export class KabomuIOError extends KabomuError {
 
     /**
-     * Creates error indicating that a number of bytes
-     * indicated by quasi http content length could not be fully
-     * read from a reader or source of bytes.
-     * @param contentLength content length to include in error message
-     * @param remainingBytesToRead remaining bytes to read which led to error
-     */
-    static createContentLengthNotSatisfiedError(contentLength: number,
-            remainingBytesToRead: number) {
-        return new KabomuIOError(`insufficient bytes available to satisfy ` +
-            `content length of ${contentLength} bytes (could not read remaining ` +
-            `${remainingBytesToRead} bytes before end of read)`)
-    }
-
-    /**
      * Creates error indicating that reading from a stream has
      * unexpectedly ended.
      */
-    static createEndOfReadError()
+    static _createEndOfReadError()
     {
         return new KabomuIOError("unexpected end of read");
     }

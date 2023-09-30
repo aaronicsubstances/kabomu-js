@@ -10,11 +10,6 @@ import { createBlankChequePromise } from "./MiscUtilsInternal";
  */
 export const DEFAULT_READ_BUFFER_SIZE = 8192;
 
-/**
- * The limit of data buffering when reading byte streams into memory. Equal to 128 MB.
- */
-export const DEFAULT_DATA_BUFFER_LIMIT = 134_217_728;
-
 export function createNonBufferChunkError(chunk: any) {
     const chunkType = typeof chunk;
     return new KabomuIOError(
@@ -112,26 +107,7 @@ export async function readBytesFully(
     const data = await tryReadBytesFully(stream,
         count, abortSignal)
     if (data.length !== count) {
-        throw KabomuIOError.createEndOfReadError();
+        throw KabomuIOError._createEndOfReadError();
     }
     return data;
-}
-
-export async function readAllBytesUpToGivenLimit(
-        stream: Readable,
-        bufferingLimit: number, abortSignal?: AbortSignal) {
-    if (!bufferingLimit || bufferingLimit < 0) {
-        bufferingLimit = DEFAULT_DATA_BUFFER_LIMIT;
-    }
-    const allBytes = await tryReadBytesFully(
-        stream, bufferingLimit, abortSignal)
-    if (allBytes.length === bufferingLimit) {
-        // force a read of 1 byte
-        const extra = await tryReadBytesFully(stream, 1,
-            abortSignal);
-        if (extra.length) {
-            return undefined
-        }
-    }
-    return allBytes;
 }

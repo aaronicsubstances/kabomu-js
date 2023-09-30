@@ -2,6 +2,16 @@ import {
     IBlankChequePromise
 } from "./types";
 
+export function serializeInt32BE(v: number, dest: Buffer,
+        offset: number) {
+    dest.writeInt32BE(v, offset)
+}
+
+export function deserializeInt32BE(src: Buffer,
+        offset: number) {
+    return src.readInt32BE(offset)
+}
+
 /**
  * Parses a string (or verifies a number)
  * as a valid 48-bit signed integer
@@ -50,10 +60,6 @@ export function bytesToString(data: Buffer) {
 
 export function stringToBytes(str: string) {
     return Buffer.from(str);
-}
-
-export function getByteCount(str: string) {
-    return Buffer.byteLength(str, "utf-8")
 }
 
 export function createBlankChequePromise<T>() {

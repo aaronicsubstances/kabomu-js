@@ -1,85 +1,39 @@
 import * as QuasiHttpUtils from "../QuasiHttpUtils";
 import * as MiscUtilsInternal from "../MiscUtilsInternal"
+import * as IOUtilsInternal from "../IOUtilsInternal"
 import * as CsvUtils from "../CsvUtils"
+import * as TlvUtils from "./TlvUtils"
 import {
     QuasiHttpError
 } from "../errors";
-import {
-    IQuasiHttpRequest, IQuasiHttpResponse
-} from "../types";
+import { Readable, Writable } from "stream";
+import { pipeline } from "stream/promises";
 
-/**
- * This field gives a number of which all header sizes are
- * an integral multiple of.
- */
-export const _HEADER_CHUNK_SIZE = 512;
+export const TAG_FOR_HEADERS = 0x71683031;
 
-/**
- * First version of quasi web protocol.
- */
-export const _PROTOCOL_VERSION_01 = "01";
+export const TAG_FOR_BODY = 0x71623031;
 
 function stringifyPossibleNull(s: any) {
     return (s === null || typeof s === "undefined") ? "" : `${s}`;
 }
 
 /**
- * Serializes quasi http request headers.
- * @param reqHeaders source of quasi http request headers
- * @param maxHeadersSize limit on size of serialized result.
- * Can be null or zero for a default value to be used.
- * @returns serialized representation of quasi http request headers
+ * Serializes quasi http request or response headers.
+ * @param reqOrStatusLine request or response status line
+ * @param remainingHeaders headers after request or status line
+ * @returns serialized representation of quasi http headers
  */
-export function encodeRequestHeaders(
-        reqHeaders: IQuasiHttpRequest,
-        maxHeadersSize?: number) {
-    if (!reqHeaders) {
-        throw new Error("reqHeaders argument is null");
-    }
-    const uniqueRow = [
-        stringifyPossibleNull(reqHeaders.httpMethod),
-        stringifyPossibleNull(reqHeaders.target),
-        stringifyPossibleNull(reqHeaders.httpVersion),
-        stringifyPossibleNull(reqHeaders.contentLength || 0)
-    ]
-    return encodeRemainingHeaders(uniqueRow,
-        reqHeaders.headers, maxHeadersSize)
-}
-
-/**
- * Serializes quasi http response headers.
- * @param resHeaders source of quasi http response headers
- * @param maxHeadersSize limit on size of serialized result.
- * Can be null or zero for a default value to be used.
- * @returns serialized representation of quasi http response headers
- */
-export function encodeResponseHeaders(
-        resHeaders: IQuasiHttpResponse,
-        maxHeadersSize?: number) {
-    if (!resHeaders) {
-        throw new Error("resHeaders argument is null");
-    }
-    const uniqueRow = [
-        stringifyPossibleNull(resHeaders.statusCode || 0),
-        stringifyPossibleNull(resHeaders.httpStatusMessage),
-        stringifyPossibleNull(resHeaders.httpVersion),
-        stringifyPossibleNull(resHeaders.contentLength || 0)
-    ]
-    return encodeRemainingHeaders(uniqueRow,
-        resHeaders.headers, maxHeadersSize)
-}
-
-function encodeRemainingHeaders(uniqueRow: string[],
-        headers?: Map<string, string[]>,
-        maxHeadersSize?: number) {
-    if (!maxHeadersSize || maxHeadersSize < 0) {
-        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
-    }
+export function encodeQuasiHttpHeaders(
+        reqOrStatusLine: string[],
+        remainingHeaders?: Map<string, string[]>) {
     const csv = new Array<string[]>();
-    csv.push([_PROTOCOL_VERSION_01]);
-    csv.push(uniqueRow);
-    if (headers) {
-        for (let [header, values] of headers) {
+    const specialHeader = new Array<string>()
+    for (const v of reqOrStatusLine) {
+        specialHeader.push(stringifyPossibleNull(v))
+    }
+    csv.push(specialHeader)
+    if (remainingHeaders) {
+        for (let [header, values] of remainingHeaders) {
             if (typeof values === "string") {
                 values = [values]
             }
@@ -95,119 +49,26 @@ function encodeRemainingHeaders(uniqueRow: string[],
         }
     }
 
-    // ensure there are no new lines in csv items
-    if (csv.some(row => row.some(item => item.indexOf("\n") != -1 ||
-            item.indexOf("\r") != -1))) {
-        throw new QuasiHttpError(
-            "quasi http headers cannot contain newlines",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
-    }
-
-    // add at least two line feeds to ensure byte count
-    // is multiple of header chunk size.
-    let serialized = CsvUtils.serialize(csv);
-    let effectiveByteCount = MiscUtilsInternal.getByteCount(serialized);
-    let lfCount = Math.ceil(effectiveByteCount /
-        _HEADER_CHUNK_SIZE) * _HEADER_CHUNK_SIZE -
-        effectiveByteCount;
-    if (lfCount < 2) {
-        lfCount += _HEADER_CHUNK_SIZE;
-    }
-    serialized += "".padEnd(lfCount, "\n");
-    effectiveByteCount += lfCount;
-
-    // finally check that byte count of csv doesn't exceed limit.
-    if (effectiveByteCount > maxHeadersSize) {
-        throw new QuasiHttpError(
-            "quasi http headers exceed " +
-            `max size (${effectiveByteCount} > ${maxHeadersSize})`,
-            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
-    }
-    return MiscUtilsInternal.stringToBytes(serialized);
+    const serialized = MiscUtilsInternal.stringToBytes(
+        CsvUtils.serialize(csv));
+    return serialized;
 }
 
 /**
- * Deserializes a quasi http request header section.
+ * Deserializes a quasi http request or response header section.
  * @param buffer source of data to deserialize
- * @param request object whose header-related properties will be
- * set with decoded quasi http request headers
+ * @param headersReceiver will be extended with remaining headers found
+ * after the request or response line
+ * @returns request or response line, ie first row before headers
+ * @throws QuasiHttpError if buffer argument contains
+ * invalid quasi http request or response headers
  */
-export function decodeRequestHeaders(
-        buffer: Buffer, request: IQuasiHttpRequest) {
-    if (!request) {
-        throw new Error("request argument is null");
-    }
-    const csv = startDecodeReqOrRes(buffer, false);
-    const specialHeader = csv[1];
-    if (specialHeader.length < 4) {
-        throw new QuasiHttpError(
-            "invalid quasi http request line",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
-    }
-    request.httpMethod = specialHeader[0]
-    request.target = specialHeader[1]
-    request.httpVersion = specialHeader[2]
-    try {
-        request.contentLength = MiscUtilsInternal.parseInt48(
-            specialHeader[3])
-    }
-    catch (e) {
-        throw new QuasiHttpError(
-            "invalid quasi http request content length",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
-            { cause: e });
-    }
-    request.headers = decodeRemainingHeaders(csv)
-}
-
-/**
- * Deserializes a quasi http response header section.
- * @param buffer source of data to deserialize
- * @param response object whose header-related properties will be
- * set with decoded quasi http response headers
- */
-export function decodeResponseHeaders(
-        buffer: Buffer, response: IQuasiHttpResponse) {
-    if (!response) {
-        throw new Error("response argument is null");
-    }
-    const csv = startDecodeReqOrRes(buffer, true);
-    const specialHeader = csv[1];
-    if (specialHeader.length < 4) {
-        throw new QuasiHttpError(
-            "invalid quasi http status line",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
-    }
-    try {
-        response.statusCode = MiscUtilsInternal.parseInt32(
-            specialHeader[0])
-    }
-    catch (e) {
-        throw new QuasiHttpError(
-            "invalid quasi http response status code",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
-            { cause: e });
-    }
-    response.httpStatusMessage = specialHeader[1]
-    response.httpVersion = specialHeader[2]
-    try {
-        response.contentLength = MiscUtilsInternal.parseInt48(
-            specialHeader[3])
-    }
-    catch (e) {
-        throw new QuasiHttpError(
-            "invalid quasi http response content length",
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
-            { cause: e });
-    }
-    response.headers = decodeRemainingHeaders(csv)
-}
-
-function startDecodeReqOrRes(buffer: Buffer, isResponse: boolean) {
+export function decodeQuasiHttpHeaders(
+        buffer: Buffer,
+        headersReceiver: Map<string, string[]>) {
     if (!buffer) {
         throw new Error("buffer argument is null");
     }
-    const tag = isResponse ? "response" : "request";
     let csv: Array<string[]>;
     try {
         csv = CsvUtils.deserialize(MiscUtilsInternal.bytesToString(
@@ -215,33 +76,82 @@ function startDecodeReqOrRes(buffer: Buffer, isResponse: boolean) {
     }
     catch (e) {
         throw new QuasiHttpError(
-            `invalid quasi http ${tag} headers`,
+            `invalid quasi http headers`,
             QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
             { cause: e });
     }
-    if (csv.length < 2 || !csv[0].length ||
-            csv[0][0] !== _PROTOCOL_VERSION_01) {
+    if (!csv.length) {
         throw new QuasiHttpError(
-            `invalid quasi http ${tag} headers`,
+            `invalid quasi http headers`,
             QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
-    return csv;
-}
-
-function decodeRemainingHeaders(csv: Array<string[]>) {
-    let headers = new Map<string, string[]>()
-    for (let i = 2; i < csv.length; i++) {
+    const specialHeader = csv[0];
+    for (let i = 1; i < csv.length; i++) {
         const headerRow = csv[i];
         if (headerRow.length < 2) {
             continue;
         }
         // merge headers with the same name in different rows.
         const headerName = headerRow[0]
-        if (!headers.has(headerName)) {
-            headers.set(headerName, [])
+        if (!headersReceiver.has(headerName)) {
+            headersReceiver.set(headerName, [])
         }
         const headerValue = headerRow.slice(1);
-        headers.get(headerName)!.push(...headerValue);
+        headersReceiver.get(headerName)!.push(...headerValue);
     }
-    return headers
+    return specialHeader;
+}
+
+export async function writeQuasiHttpHeaders(
+        dest: Writable,
+        reqOrStatusLine: string[],
+        remainingHeaders: Map<string, string[]> | undefined,
+        maxHeadersSize?: number,
+        abortSignal?: AbortSignal) {
+    const encodedHeaders = encodeQuasiHttpHeaders(reqOrStatusLine,
+        remainingHeaders)
+    if (!maxHeadersSize || maxHeadersSize < 0) {
+        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
+    }
+
+    // finally check that byte count of csv doesn't exceed limit.
+    if (encodedHeaders.length > maxHeadersSize) {
+        throw new QuasiHttpError(
+            "quasi http headers exceed " +
+            `max size (${encodedHeaders.length} > ${maxHeadersSize})`,
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+    }
+
+    const encodedHeadersReadable = Readable.from((function*() {
+        yield TlvUtils.encodeTagAndLengthOnly(
+            TAG_FOR_HEADERS, encodedHeaders.length)
+        yield encodedHeaders
+    })());
+    await pipeline(encodedHeadersReadable, dest, {
+        end: false,
+        signal: abortSignal
+    });
+}
+
+export async function readQuasiHttpHeaders(
+        src: Readable,
+        headersReceiver: Map<string, string[]>,
+        maxHeadersSize?: number,
+        abortSignal?: AbortSignal) {
+    await TlvUtils.readExpectedTagOnly(src, TAG_FOR_HEADERS,
+        abortSignal)
+    if (!maxHeadersSize || maxHeadersSize < 0) {
+        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
+    }
+    const headersSize = await TlvUtils.readLengthOnly(src, abortSignal)
+    if (headersSize > maxHeadersSize) {
+        throw new QuasiHttpError(
+            "quasi http headers exceed " +
+            `max size (${headersSize} > ${maxHeadersSize})`,
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+    }
+    const encodedHeaders = await IOUtilsInternal.readBytesFully(
+        src, headersSize, abortSignal);
+    return decodeQuasiHttpHeaders(encodedHeaders,
+        headersReceiver);
 }

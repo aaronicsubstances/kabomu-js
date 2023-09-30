@@ -1,24 +1,19 @@
-import { Readable } from "stream";
+import { Readable, Writable } from "stream";
+import { pipeline } from "stream/promises";
 import * as QuasiHttpCodec from "./QuasiHttpCodec";
 import * as QuasiHttpUtils from "../QuasiHttpUtils";
+import * as TlvUtils from "./TlvUtils";
 import {
-    createBodyChunkEncodingStream,
-    createContentLengthEnforcingStream,
-    createBodyChunkDecodingStream
-} from "./CustomStreamsInternal";
-import {
-    IQuasiHttpTransport,
+    IQuasiHttpRequest,
+    IQuasiHttpResponse,
     QuasiHttpConnection
 } from "../types";
 import {
-    ExpectationViolationError,
+    MissingDependencyError,
     QuasiHttpError
 } from "../errors";
-import {
-    DEFAULT_DATA_BUFFER_LIMIT,
-    readAllBytesUpToGivenLimit,
-    readBytesFully
-} from "../IOUtilsInternal";
+import { DefaultQuasiHttpResponse } from "../DefaultQuasiHttpResponse";
+import { DefaultQuasiHttpRequest } from "../DefaultQuasiHttpRequest";
 
 export function getEnvVarAsBoolean(
         environment: Map<string, any> | undefined,
@@ -44,176 +39,114 @@ export async function wrapTimeoutPromise(
     }
 }
 
-export function encodeBodyToTransport(isResponse: boolean,
-        contentLength: number | undefined,
-        body: Readable | undefined) {
-    if (!contentLength) {
-        return undefined;
+export async function writeEntityToTransport(
+        isResponse: boolean,
+        entity: any,
+        writableStream: Writable | undefined,
+        connection: QuasiHttpConnection) {
+    if (!writableStream) {
+        throw new MissingDependencyError(
+            "no writable stream found for transport")
     }
-    if (!body) {
-        const errMsg = isResponse ?
-            "no response body" :
-            "no request body";
-        throw new QuasiHttpError(errMsg);
-    }
-    if (contentLength < 0) {
-        return createBodyChunkEncodingStream(body as any);
-    }
-    // don't enforce positive content lengths when writing out
-    // quasi http bodies
-    return body;
-}
-
-export function decodeRequestBodyFromTransport(
-        contentLength: number | undefined,
-        body: Readable | undefined) {
-    if (!contentLength) {
-        return undefined;
-    }
-    if (!body) {
-        throw new QuasiHttpError("no request body");
-    }
-    if (contentLength < 0) {
-        return createBodyChunkDecodingStream(body);
-    }
-    return createContentLengthEnforcingStream(body,
-        contentLength);
-}
-
-export function decodeResponseBodyFromTransport(
-        contentLength: number | undefined,
-        body: Readable | undefined,
-        environment: Map<string, any> | undefined,
-        responseBufferingEnabled: boolean | undefined) {
-    if (!contentLength) {
-        return [undefined, false, false];
-    }
-    let responseStreamingEnabled = false;
-    if (typeof responseBufferingEnabled !== "undefined" &&
-            responseBufferingEnabled !== null) {
-        responseStreamingEnabled = !responseBufferingEnabled
-    }
-    if (getEnvVarAsBoolean(environment, 
-            QuasiHttpUtils.ENV_KEY_SKIP_RES_BODY_DECODING)) {
-        return [body, responseStreamingEnabled, false]
-    }
-    if (!body) {
-        throw new QuasiHttpError("no response body");
-    }
-    if (contentLength < 0) {
-        body = createBodyChunkDecodingStream(body);
-    }
-    if (responseStreamingEnabled) {
-        if (contentLength > 0) {
-            body = createContentLengthEnforcingStream(
-                body, contentLength)
-        }
-        return [body, true, false];
-    }
-    return [body, false, true];
-}
-
-export async function bufferResponseBody(
-        contentLength: number | undefined,
-        body: Readable | undefined,
-        bufferingSizeLimit: number | undefined,
-        abortSignal?: AbortSignal) {
-    if (!bufferingSizeLimit || bufferingSizeLimit < 0) {
-        bufferingSizeLimit = DEFAULT_DATA_BUFFER_LIMIT;
-    }
-    if (!contentLength) {
-        throw new ExpectationViolationError(
-            "expected non-null and non-zero content length");
-    }
-    if (!body) {
-        throw new ExpectationViolationError(
-            "expected non-null response body")
-    }
-    if (contentLength < 0) {
-        const buffer = await readAllBytesUpToGivenLimit(
-            body, bufferingSizeLimit, abortSignal);
-        if (!buffer) {
-            throw new QuasiHttpError(
-                "response body of indeterminate length exceeds buffering limit of " +
-                `${bufferingSizeLimit} bytes`,
-                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
-        }
-        return Readable.from(buffer);
+    let body: Readable | undefined;
+    if (isResponse) {
+        const response = entity as IQuasiHttpResponse
+        body = response.body
+        const statusLine: any = [
+            response.statusCode,
+            response.httpStatusMessage,
+            response.httpVersion,
+            body ? -1 : 0
+        ]
+        await QuasiHttpCodec.writeQuasiHttpHeaders(
+            writableStream, statusLine, response.headers,
+            connection.processingOptions?.maxHeadersSize,
+            connection.abortSignal)
     }
     else {
-        if (contentLength > bufferingSizeLimit) {
-            throw new QuasiHttpError(
-                "response body length exceeds buffering limit " +
-                `(${contentLength} > ${bufferingSizeLimit})`,
-                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED)
-        }
-        const buffer = await readBytesFully(body,
-            contentLength, abortSignal)
-        return Readable.from(buffer)
+        const request = entity as IQuasiHttpRequest
+        body = request.body
+        const requestLine: any = [
+            request.httpMethod,
+            request.target,
+            request.httpVersion,
+            body ? -1 : 0
+        ]
+        await QuasiHttpCodec.writeQuasiHttpHeaders(
+            writableStream, requestLine, request.headers,
+            connection.processingOptions?.maxHeadersSize,
+            connection.abortSignal)
     }
+    if (!body) {
+        return;
+    }
+    const encodedBody = TlvUtils.createTlvEncodingReadableStream(
+        body, QuasiHttpCodec.TAG_FOR_BODY)
+    await pipeline(encodedBody, writableStream, {
+        end: false,
+        signal: connection.abortSignal
+    })
 }
 
 export async function readEntityFromTransport(
-        isResponse: boolean, transport: IQuasiHttpTransport,
-        connection: QuasiHttpConnection) {
-    const encodedHeadersReceiver = new Array<Buffer>();
-    const body = await transport.read(connection, isResponse,
-        encodedHeadersReceiver);
-    // either body should be non-null or some byte chunks should be
-    // present in receiver list.
-    if (!encodedHeadersReceiver.length) {
-        if (!body) {
-            const errMsg = isResponse ? "no response" : "no request";
-            throw new QuasiHttpError(errMsg);
+        isResponse: boolean,
+        readableStream: Readable | undefined,
+        connection: QuasiHttpConnection)
+        : Promise<IQuasiHttpRequest | IQuasiHttpResponse> {
+    if (!readableStream) {
+        throw new MissingDependencyError(
+            "no readable stream found for transport");
+    }
+    const headersReceiver = new Map<string, string[]>()
+    const reqOrStatusLine = await QuasiHttpCodec.readQuasiHttpHeaders(
+        readableStream,
+        headersReceiver,
+        connection.processingOptions?.maxHeadersSize,
+        connection.abortSignal)
+    if (reqOrStatusLine.length < 4) {
+        throw new QuasiHttpError(
+            `invalid quasi http ${(isResponse ? "status" : "request")} line`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+    }
+    let body: Readable | undefined
+    if (reqOrStatusLine[3] === "-1") {
+        body = TlvUtils.createTlvDecodingReadableStream(
+            readableStream, QuasiHttpCodec.TAG_FOR_BODY)
+    }
+    if (isResponse) {
+        const response = new DefaultQuasiHttpResponse()
+        try {
+            response.statusCode = QuasiHttpUtils.parseInt32(
+                reqOrStatusLine[0])
         }
-        await readEncodedHeaders(body,
-            encodedHeadersReceiver,
-            connection.processingOptions?.maxHeadersSize,
-            connection.abortSignal);
-    }
-    const encodedHeaders = Buffer.concat(encodedHeadersReceiver);
-    return {
-        headers: encodedHeaders,
-        body
-    };
-}
-
-export async function readEncodedHeaders(source: Readable,
-        encodedHeadersReceiver: Array<Buffer>,
-        maxHeadersSize?: number,
-        abortSignal?: AbortSignal) {
-    if (!maxHeadersSize || maxHeadersSize < 0) {
-        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE
-    }
-    let totalBytesRead = 0
-    while (true) {
-        totalBytesRead += QuasiHttpCodec._HEADER_CHUNK_SIZE
-        if (totalBytesRead > maxHeadersSize) {
+        catch (e) {
             throw new QuasiHttpError(
-                "size of quasi http headers to read exceed " +
-                `max size (${totalBytesRead} > ${maxHeadersSize})`,
-                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+                "invalid quasi http response status code",
+                QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
+                { cause: e })
         }
-        const chunk = await readBytesFully(source,
-            QuasiHttpCodec._HEADER_CHUNK_SIZE, abortSignal);
-        encodedHeadersReceiver.push(chunk);
-        const carriageReturn = 13;
-        const newline = 10;
-        for (let i = 2; i < chunk.length; i++) {
-            if (chunk[i] !== carriageReturn && chunk[i] !== newline) {
-                continue;
-            }
-            if (chunk[i - 1] !== carriageReturn &&
-                    chunk[i - 1] !== newline) {
-                continue;
-            }
-            if (chunk[i - 2] === carriageReturn ||
-                    chunk[i - 2] === newline) {
-                // done.
-                // don't just break, as this will only quit
-                // the for loop and leave us in while loop.
-                return;
+        response.httpStatusMessage = reqOrStatusLine[1]
+        response.httpVersion = reqOrStatusLine[2]
+        response.headers = headersReceiver
+        if (body) {
+            const bodySizeLimit = connection.processingOptions?.maxResponseBodySize
+            if (!bodySizeLimit || bodySizeLimit > 0) {
+                body = TlvUtils.createMaxLengthEnforcingStream(body,
+                    bodySizeLimit)
             }
         }
+        response.body = body
+        return response
+    }
+    else {
+        const request = new DefaultQuasiHttpRequest({
+            environment: connection.environment
+        })
+        request.httpMethod = reqOrStatusLine[0]
+        request.target = reqOrStatusLine[1]
+        request.httpVersion = reqOrStatusLine[2]
+        request.headers = headersReceiver
+        request.body = body
+        return request
     }
 }
