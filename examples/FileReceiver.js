@@ -61,6 +61,7 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
     if (responseBody) {
         const responseBytes = Buffer.from(responseBody)
         response.body = Readable.from(responseBytes);
+        response.contentLength = -1;
         if (Math.random() < 0.5) {
             response.contentLength = responseBytes.length;
         }
