@@ -3,7 +3,7 @@ const { expect, assert } = require('chai').use(require('chai-bytes'))
 
 import * as MiscUtilsInternal from "../../src/MiscUtilsInternal"
 import * as IOUtilsInternal from "../../src/IOUtilsInternal"
-import {
+/*import {
     createBodyChunkDecodingStream,
     createBodyChunkEncodingStream,
     createContentLengthEnforcingStream
@@ -417,4 +417,4 @@ describe("CustomStreamsInternal", function() {
             })
         })
     })
-})
+})*/

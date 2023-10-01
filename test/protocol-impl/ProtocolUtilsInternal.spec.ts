@@ -1,6 +1,8 @@
+import nativeAssert from "assert/strict"
 const { assert } = require("chai").use(require("chai-bytes"))
 
 import * as ProtocolUtilsInternal from "../../src/protocol-impl/ProtocolUtilsInternal"
+import { KabomuIOError, QuasiHttpError } from "../../src/errors"
 
 describe("ProtocolUtilsInternal", function() {
     describe("#getEnvVarAsBoolean", function() {
@@ -76,6 +78,59 @@ describe("ProtocolUtilsInternal", function() {
                 const actual = ProtocolUtilsInternal.getEnvVarAsBoolean(
                     environment, key)
                 assert.equal(actual, expected)
+            })
+        })
+    })
+
+    describe("#wrapTimeoutPromise", function() {
+        it("should pass (1)", async function() {
+            await ProtocolUtilsInternal.wrapTimeoutPromise(
+                undefined, "")
+        })
+        it("should pass (2)", async function() {
+            await ProtocolUtilsInternal.wrapTimeoutPromise(
+                Promise.resolve(false), "")
+        })
+        it("should pass (3)", async function() {
+            await nativeAssert.rejects(async () => {
+                await ProtocolUtilsInternal.wrapTimeoutPromise(
+                    Promise.resolve(true), "te")
+            }, (e: any) => {
+                assert.instanceOf(e, QuasiHttpError)
+                assert.equal(e.message, "te")
+                assert.equal(e.reasonCode, QuasiHttpError.REASON_CODE_TIMEOUT)
+                return true;
+            })
+        })
+        it("should pass (4)", async function() {
+            await nativeAssert.rejects(async () => {
+                await ProtocolUtilsInternal.wrapTimeoutPromise(
+                    Promise.resolve({} as any), "recv")
+            }, (e: any) => {
+                assert.instanceOf(e, QuasiHttpError)
+                assert.equal(e.message, "recv")
+                assert.equal(e.reasonCode, QuasiHttpError.REASON_CODE_TIMEOUT)
+                return true;
+            })
+        })
+        it("should pass (5)", async function() {
+            await nativeAssert.rejects(async () => {
+                await ProtocolUtilsInternal.wrapTimeoutPromise(
+                    Promise.reject(new Error("th")), "te")
+            }, (e: any) => {
+                assert.instanceOf(e, Error)
+                assert.equal(e.message, "th")
+                return true;
+            })
+        })
+        it("should pass (6)", async function() {
+            await nativeAssert.rejects(async () => {
+                await ProtocolUtilsInternal.wrapTimeoutPromise(
+                    Promise.reject(new KabomuIOError("2gh")), "te")
+            }, (e: any) => {
+                assert.instanceOf(e, KabomuIOError)
+                assert.equal(e.message, "2gh")
+                return true;
             })
         })
     })

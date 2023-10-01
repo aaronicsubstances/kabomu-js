@@ -6,6 +6,10 @@ import {
 import * as IOUtilsInternal from "../IOUtilsInternal";
 import * as MiscUtilsInternal from "../MiscUtilsInternal";
 
+export const TAG_FOR_QUASI_HTTP_HEADERS = 0x71683031;
+
+export const TAG_FOR_QUASI_HTTP_BODY = 0x71623031;
+
 export function encodeTagAndLengthOnly(tag: number,
         length: number) {
     if (!tag || tag < 0) {
@@ -147,13 +151,15 @@ export function createMaxLengthEnforcingStream(
     if (!backingStream) {
         throw new Error("backingStream argument is null");
     }
-    maxLength = MiscUtilsInternal.parseInt32(maxLength);
     if (!maxLength) {
         maxLength = DEFAULT_MAX_LENGTH 
     }
-    else if (maxLength < 0) {
-        throw new Error(
-            `max length cannot be negative: ${maxLength}`)
+    else {
+        maxLength = MiscUtilsInternal.parseInt32(maxLength);
+        if (maxLength < 0) {
+            throw new Error(
+                `max length cannot be negative: ${maxLength}`)
+        }
     }
     let bytesLeft = maxLength + 1; // check for excess read.
     const onData = (instance: Readable, chunk: Buffer) => {

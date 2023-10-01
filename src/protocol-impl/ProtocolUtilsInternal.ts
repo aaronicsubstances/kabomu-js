@@ -1,9 +1,14 @@
 import { Readable, Writable } from "stream";
 import { pipeline } from "stream/promises";
-import * as QuasiHttpCodec from "./QuasiHttpCodec";
 import {
-    parseInt32, parseInt48
+    bytesToString,
+    parseInt32,
+    parseInt48,
+    stringToBytes
 } from "../MiscUtilsInternal";
+import * as QuasiHttpUtils from "../QuasiHttpUtils";
+import * as IOUtilsInternal from "../IOUtilsInternal"
+import * as CsvUtils from "../CsvUtils"
 import * as TlvUtils from "./TlvUtils";
 import {
     IQuasiHttpRequest,
@@ -30,7 +35,7 @@ export function getEnvVarAsBoolean(
 }
 
 export async function wrapTimeoutPromise(
-        timeoutPromise: Promise<boolean>,
+        timeoutPromise: Promise<boolean> | undefined,
         timeoutMsg: string) {
     if (!timeoutPromise) {
         return;
@@ -39,6 +44,167 @@ export async function wrapTimeoutPromise(
         throw new QuasiHttpError(timeoutMsg,
             QuasiHttpError.REASON_CODE_TIMEOUT);
     }
+}
+
+/**
+ * Serializes quasi http request or response headers.
+ * @param reqOrStatusLine request or response status line
+ * @param remainingHeaders headers after request or status line
+ * @returns serialized representation of quasi http headers
+ */
+export function encodeQuasiHttpHeaders(
+        reqOrStatusLine: string[],
+        remainingHeaders?: Map<string, string[]>) {
+    if (!reqOrStatusLine) {
+        throw new Error("reqOrStatusLine argument is null")
+    }
+    const csv = new Array<string[]>();
+    const specialHeader = new Array<string>()
+    for (const v of reqOrStatusLine) {
+        specialHeader.push(stringifyPossibleNull(v))
+    }
+    csv.push(specialHeader)
+    if (remainingHeaders) {
+        for (let [header, values] of remainingHeaders) {
+            // allow string values not inside an array.
+            if (typeof values === "string") {
+                values = [values]
+            }
+            if (!values) {
+                continue;
+            }
+            const headerRow = new Array<string>();
+            headerRow.push(stringifyPossibleNull(header));
+            for (let v of values) {
+                v = stringifyPossibleNull(v)
+                if (v) {
+                    headerRow.push(v);
+                }
+            }
+            if (headerRow.length > 1) {
+                csv.push(headerRow);
+            }
+        }
+    }
+
+    if (!QuasiHttpUtils.isValidHttpHeaderSection(csv)) {
+        throw new QuasiHttpError(
+            "quasi http headers cannot contain newlines or other " +
+            "non-printable ASCII characters",
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+    }
+
+    const serialized = stringToBytes(
+        CsvUtils.serialize(csv));
+    return serialized;
+}
+
+function stringifyPossibleNull(s: any) {
+    return (s === null || typeof s === "undefined") ? "" : `${s}`;
+}
+
+/**
+ * Deserializes a quasi http request or response header section.
+ * @param buffer source of data to deserialize
+ * @param headersReceiver will be extended with remaining headers found
+ * after the request or response line
+ * @returns request or response line, ie first row before headers
+ * @throws QuasiHttpError if buffer argument contains
+ * invalid quasi http request or response headers
+ */
+export function decodeQuasiHttpHeaders(
+        buffer: Buffer,
+        headersReceiver: Map<string, string[]>) {
+    if (!buffer) {
+        throw new Error("buffer argument is null");
+    }
+    let csv: Array<string[]>;
+    try {
+        csv = CsvUtils.deserialize(bytesToString(
+            buffer))
+    }
+    catch (e) {
+        throw new QuasiHttpError(
+            `invalid quasi http headers`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
+            { cause: e });
+    }
+    if (!csv.length) {
+        throw new QuasiHttpError(
+            `invalid quasi http headers`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
+    }
+    const specialHeader = csv[0];
+    for (let i = 1; i < csv.length; i++) {
+        const headerRow = csv[i];
+        if (headerRow.length < 2) {
+            continue;
+        }
+        // merge headers with the same normalized name in different rows.
+        const headerName = headerRow[0].toLowerCase()
+        if (!headersReceiver.has(headerName)) {
+            headersReceiver.set(headerName, [])
+        }
+        const headerValue = headerRow.slice(1);
+        headersReceiver.get(headerName)!.push(...headerValue);
+    }
+    return specialHeader;
+}
+
+export async function writeQuasiHttpHeaders(
+        dest: Writable,
+        reqOrStatusLine: string[],
+        remainingHeaders: Map<string, string[]> | undefined,
+        maxHeadersSize?: number,
+        abortSignal?: AbortSignal) {
+    const encodedHeaders = encodeQuasiHttpHeaders(reqOrStatusLine,
+        remainingHeaders)
+    if (!maxHeadersSize || maxHeadersSize < 0) {
+        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
+    }
+
+    // finally check that byte count of csv doesn't exceed limit.
+    if (encodedHeaders.length > maxHeadersSize) {
+        throw new QuasiHttpError(
+            "quasi http headers exceed " +
+            `max size (${encodedHeaders.length} > ${maxHeadersSize})`,
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+    }
+
+    const encodedHeadersReadable = Readable.from((function*() {
+        yield TlvUtils.encodeTagAndLengthOnly(
+            TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS,
+            encodedHeaders.length)
+        yield encodedHeaders
+    })());
+    await pipeline(encodedHeadersReadable, dest, {
+        end: false,
+        signal: abortSignal
+    });
+}
+
+export async function readQuasiHttpHeaders(
+        src: Readable,
+        headersReceiver: Map<string, string[]>,
+        maxHeadersSize?: number,
+        abortSignal?: AbortSignal) {
+    await TlvUtils.readExpectedTagOnly(src,
+        TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS,
+        abortSignal)
+    if (!maxHeadersSize || maxHeadersSize < 0) {
+        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
+    }
+    const headersSize = await TlvUtils.readLengthOnly(src, abortSignal)
+    if (headersSize > maxHeadersSize) {
+        throw new QuasiHttpError(
+            "quasi http headers exceed " +
+            `max size (${headersSize} > ${maxHeadersSize})`,
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+    }
+    const encodedHeaders = await IOUtilsInternal.readBytesFully(
+        src, headersSize, abortSignal);
+    return decodeQuasiHttpHeaders(encodedHeaders,
+        headersReceiver);
 }
 
 export async function writeEntityToTransport(
@@ -82,7 +248,7 @@ export async function writeEntityToTransport(
         contentLength = body ? -1 : 0;
     }
     reqOrStatusLine[3] = contentLength
-    await QuasiHttpCodec.writeQuasiHttpHeaders(
+    await writeQuasiHttpHeaders(
         writableStream, reqOrStatusLine, headers,
         connection.processingOptions?.maxHeadersSize,
         connection.abortSignal)
@@ -91,7 +257,7 @@ export async function writeEntityToTransport(
     }
     if (contentLength < 0) {
         const encodedBody = TlvUtils.createTlvEncodingReadableStream(
-            body, QuasiHttpCodec.TAG_FOR_BODY)
+            body, TlvUtils.TAG_FOR_QUASI_HTTP_BODY)
         await pipeline(encodedBody, writableStream, {
             end: false,
             signal: connection.abortSignal
@@ -117,7 +283,7 @@ export async function readEntityFromTransport(
             "no readable stream found for transport");
     }
     const headersReceiver = new Map<string, string[]>()
-    const reqOrStatusLine = await QuasiHttpCodec.readQuasiHttpHeaders(
+    const reqOrStatusLine = await readQuasiHttpHeaders(
         readableStream,
         headersReceiver,
         connection.processingOptions?.maxHeadersSize,
@@ -145,7 +311,7 @@ export async function readEntityFromTransport(
         }
         else {
             body = TlvUtils.createTlvDecodingReadableStream(
-                readableStream, QuasiHttpCodec.TAG_FOR_BODY)
+                readableStream, TlvUtils.TAG_FOR_QUASI_HTTP_BODY)
         }
     }
     if (isResponse) {

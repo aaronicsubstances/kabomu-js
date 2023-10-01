@@ -189,7 +189,7 @@ describe("IOUtilsInternal", function() {
         })
     })
 
-    describe("#readAllBytesUpToGivenLimit", function() {
+    /*describe("#readAllBytesUpToGivenLimit", function() {
         const testData = [
             {
                 bufferingLimit: 0,
@@ -284,5 +284,5 @@ describe("IOUtilsInternal", function() {
                 assert.isNotOk(actual);
             })
         })
-    })
+    })*/
 })

@@ -39,11 +39,13 @@ async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
 async function transferFile(instance, serverEndpoint, f) {
     const request = new DefaultQuasiHttpRequest()
     request.headers = new Map([
-        ["f", f.fullpath()]
+        ["f", Buffer.from(f.name).toString("base64")]
     ])
     const echoBodyOn = Math.random() < 0.5;
     if (echoBodyOn) {
-        request.headers.set("echo-body", [ f.fullpath() ]);
+        request.headers.set("echo-body", [
+            Buffer.from(f.fullpath()).toString("base64")
+        ]);
     }
 
     // add body
@@ -73,7 +75,8 @@ async function transferFile(instance, serverEndpoint, f) {
         }
         if (res.statusCode === QuasiHttpUtils.STATUS_CODE_OK) {
             if (echoBodyOn) {
-                const actualResBody = await readableToString(res.body)
+                let actualResBody = await readableToString(res.body)
+                actualResBody = Buffer.from(actualResBody, "base64").toString()
                 if (actualResBody != f.fullpath()) {
                     throw new Error("expected echo body to be " +
                         `${f.fullpath()} but got ${actualResBody}`);
