@@ -60,7 +60,7 @@ export async function writeEntityToTransport(
         body = response.body
         contentLength = response.contentLength
         reqOrStatusLine = [
-            response.statusCode,
+            response.statusCode || 0,
             response.httpStatusMessage,
             response.httpVersion,
             undefined
