@@ -185,6 +185,13 @@ export interface IQuasiHttpRequest extends ICustomDisposable {
     httpVersion?: string
 
     /**
+     * Gets or sets the number of bytes that the instance will supply,
+     * or -1 (actually any negative value) to indicate an unknown number of
+     * bytes.
+     */
+    contentLength?: number
+
+    /**
      * Optional request body
      */
     body?: Readable
@@ -228,6 +235,13 @@ export interface IQuasiHttpResponse extends ICustomDisposable {
      * Optional HTTP response version value.
      */
     httpVersion?: string
+
+    /**
+     * Gets or sets the number of bytes that the instance will supply,
+     * or -1 (actually any negative value) to indicate an unknown number of
+     * bytes.
+     */
+    contentLength?: number
 
     /**
      * Optional response body

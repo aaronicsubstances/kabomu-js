@@ -1,7 +1,9 @@
 import { Readable, Writable } from "stream";
 import { pipeline } from "stream/promises";
 import * as QuasiHttpCodec from "./QuasiHttpCodec";
-import * as QuasiHttpUtils from "../QuasiHttpUtils";
+import {
+    parseInt32, parseInt48
+} from "../MiscUtilsInternal";
 import * as TlvUtils from "./TlvUtils";
 import {
     IQuasiHttpRequest,
@@ -49,43 +51,60 @@ export async function writeEntityToTransport(
             "no writable stream found for transport")
     }
     let body: Readable | undefined;
+    let contentLength: number | undefined;
+    let reqOrStatusLine: any
+    let headers: Map<string, string[]> | undefined
     if (isResponse) {
         const response = entity as IQuasiHttpResponse
+        headers = response.headers
         body = response.body
-        const statusLine: any = [
+        contentLength = response.contentLength
+        reqOrStatusLine = [
             response.statusCode,
             response.httpStatusMessage,
             response.httpVersion,
-            body ? -1 : 0
+            undefined
         ]
-        await QuasiHttpCodec.writeQuasiHttpHeaders(
-            writableStream, statusLine, response.headers,
-            connection.processingOptions?.maxHeadersSize,
-            connection.abortSignal)
     }
     else {
         const request = entity as IQuasiHttpRequest
+        headers = request.headers
         body = request.body
-        const requestLine: any = [
+        contentLength = request.contentLength
+        reqOrStatusLine = [
             request.httpMethod,
             request.target,
             request.httpVersion,
-            body ? -1 : 0
+            undefined
         ]
-        await QuasiHttpCodec.writeQuasiHttpHeaders(
-            writableStream, requestLine, request.headers,
-            connection.processingOptions?.maxHeadersSize,
-            connection.abortSignal)
     }
+    if (!contentLength) {
+        contentLength = body ? -1 : 0;
+    }
+    reqOrStatusLine[3] = contentLength
+    await QuasiHttpCodec.writeQuasiHttpHeaders(
+        writableStream, reqOrStatusLine, headers,
+        connection.processingOptions?.maxHeadersSize,
+        connection.abortSignal)
     if (!body) {
         return;
     }
-    const encodedBody = TlvUtils.createTlvEncodingReadableStream(
-        body, QuasiHttpCodec.TAG_FOR_BODY)
-    await pipeline(encodedBody, writableStream, {
-        end: false,
-        signal: connection.abortSignal
-    })
+    if (contentLength < 0) {
+        const encodedBody = TlvUtils.createTlvEncodingReadableStream(
+            body, QuasiHttpCodec.TAG_FOR_BODY)
+        await pipeline(encodedBody, writableStream, {
+            end: false,
+            signal: connection.abortSignal
+        })
+    }
+    else {
+        // don't enforce positive content lengths when writing out
+        // quasi http bodies
+        await pipeline(body, writableStream, {
+            end: false,
+            signal: connection.abortSignal
+        })
+    }
 }
 
 export async function readEntityFromTransport(
@@ -108,15 +127,31 @@ export async function readEntityFromTransport(
             `invalid quasi http ${(isResponse ? "status" : "request")} line`,
             QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
     }
+    let contentLength = 0;
+    try {
+        contentLength = parseInt48(reqOrStatusLine[3])
+    }
+    catch (e) {
+        throw new QuasiHttpError(
+            `invalid quasi http ${(isResponse ? "response" : "request")} content length`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
+            { cause: e })
+    }
     let body: Readable | undefined
-    if (reqOrStatusLine[3] === "-1") {
-        body = TlvUtils.createTlvDecodingReadableStream(
-            readableStream, QuasiHttpCodec.TAG_FOR_BODY)
+    if (contentLength) {
+        if (contentLength > 0) {
+            body = TlvUtils.createContentLengthEnforcingStream(
+                readableStream, contentLength)
+        }
+        else {
+            body = TlvUtils.createTlvDecodingReadableStream(
+                readableStream, QuasiHttpCodec.TAG_FOR_BODY)
+        }
     }
     if (isResponse) {
         const response = new DefaultQuasiHttpResponse()
         try {
-            response.statusCode = QuasiHttpUtils.parseInt32(
+            response.statusCode = parseInt32(
                 reqOrStatusLine[0])
         }
         catch (e) {

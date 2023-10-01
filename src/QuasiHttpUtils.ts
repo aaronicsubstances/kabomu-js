@@ -9,6 +9,7 @@ import {
 
 export {
     parseInt32,
+    parseInt48,
     createBlankChequePromise
 } from "./MiscUtilsInternal";
 

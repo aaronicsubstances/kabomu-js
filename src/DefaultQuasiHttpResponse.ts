@@ -9,6 +9,7 @@ import { IQuasiHttpResponse } from "./types";
 export class DefaultQuasiHttpResponse implements IQuasiHttpResponse {
     statusCode = 0;
     headers?: Map<string, string[]>;
+    contentLength?: number;
     body?: Readable;
     httpStatusMessage?: string;
     httpVersion?: string;
@@ -23,6 +24,7 @@ export class DefaultQuasiHttpResponse implements IQuasiHttpResponse {
     constructor(options?: Omit<IQuasiHttpResponse, "release">) {
         this.statusCode = options?.statusCode || 0;
         this.headers = options?.headers;
+        this.contentLength = options?.contentLength;
         this.body = options?.body;
         this.httpStatusMessage = options?.httpStatusMessage;
         this.httpVersion = options?.httpVersion;
