@@ -6,9 +6,11 @@ import {
 import * as IOUtilsInternal from "../IOUtilsInternal";
 import * as MiscUtilsInternal from "../MiscUtilsInternal";
 
-export const TAG_FOR_QUASI_HTTP_HEADERS = 0x71683031;
+export const TAG_FOR_QUASI_HTTP_HEADERS = 0x68647273;
 
-export const TAG_FOR_QUASI_HTTP_BODY = 0x71623031;
+export const TAG_FOR_QUASI_HTTP_BODY_CHUNK = 0x62647461;
+
+export const TAG_FOR_QUASI_HTTP_BODY_CHUNK_EXT = 0x62657874;
 
 export function encodeTagAndLengthOnly(tag: number,
         length: number) {
@@ -161,23 +163,14 @@ export function createMaxLengthEnforcingStream(
                 `max length cannot be negative: ${maxLength}`)
         }
     }
-    let bytesLeft = maxLength + 1; // check for excess read.
+    let bytesLeft = maxLength;
     const onData = (instance: Readable, chunk: Buffer) => {
-        let canReceiveMore = false;
-        let outstanding: Buffer | undefined;
-        if (chunk.length <= bytesLeft) {
-            canReceiveMore = instance.push(chunk);
-            bytesLeft -= chunk.length;
-        }
-        else {
-            canReceiveMore = instance.push(chunk.subarray(0, bytesLeft));
-            outstanding = chunk.subarray(bytesLeft);
-            bytesLeft = 0;
-        }
-        if (!bytesLeft) {
+        if (chunk.length > bytesLeft) {
             throw new KabomuIOError(
                 `reading of stream exceeds maximum size of ${maxLength} bytes`)
         }
+        const canReceiveMore = instance.push(chunk);
+        bytesLeft -= chunk.length;
         if (!canReceiveMore) {
             return {
                 pauseSrc: true
@@ -198,6 +191,9 @@ export function createTlvEncodingReadableStream(
         throw new Error("backingStream argument is null");
     }
     const onData = (instance: Readable, chunk: Buffer) => {
+        if (!chunk.length) {
+            return;
+        }
         let canReceiveMore = instance.push(
             encodeTagAndLengthOnly(tagToUse, chunk.length))
         canReceiveMore &&= instance.push(chunk);
@@ -217,23 +213,25 @@ export function createTlvEncodingReadableStream(
 
 export function createTlvDecodingReadableStream(
         backingStream: Readable,
-        expectedTag: number) {
+        expectedTag: number, tagToIgnore: number) {
     if (!backingStream) {
         throw new Error("backingStream argument is null");
     }
     const chunks = new Array<Buffer>();
-    const temp = [0, 0];
     let isDecodingHeader = true;
     let outstandingDataLength = 0;
+    let lastTagSeenIsExpected = true;
     const onData = (instance: Readable, chunk: Buffer) => {
         let canReceiveMore = true;
         if (!isDecodingHeader) {
             const chunkLengthToUse = Math.min(
                 outstandingDataLength, chunk.length);
             if (chunkLengthToUse > 0) {
-                const nextChunk = chunk.subarray(0,
-                    chunkLengthToUse);
-                canReceiveMore &&= instance.push(nextChunk);
+                if (lastTagSeenIsExpected) {
+                    const nextChunk = chunk.subarray(0,
+                        chunkLengthToUse);
+                    canReceiveMore &&= instance.push(nextChunk);
+                }
                 outstandingDataLength -= chunkLengthToUse;
             }
             if (chunkLengthToUse < chunk.length) {
@@ -269,17 +267,27 @@ export function createTlvDecodingReadableStream(
             chunks.push(chunk);
         }
         while (true) {
+            const tagAndLen = [0, 0]
             const concatenated = tryDecodeTagAndLength(
-                expectedTag, chunks, temp);
+                chunks, tagAndLen);
             if (!concatenated) {
                 // need to read more chunks to fulfil
                 // chunk header length.
                 break;
             }
             chunks.length = 0; // clear
-            outstandingDataLength = temp[0];
-            let concatenatedLengthUsed = temp[1];
-            if (!outstandingDataLength) {
+            const decodedTag = tagAndLen[0]
+            if (lastTagSeenIsExpected && decodedTag === tagToIgnore) {
+                // ok.
+            }
+            else if (decodedTag !== expectedTag) {
+                throw new KabomuIOError("unexpected tag: expected " +
+                    `${expectedTag} but found ${decodedTag}`);
+            }
+            lastTagSeenIsExpected = decodedTag === expectedTag
+            outstandingDataLength = tagAndLen[1];
+            let concatenatedLengthUsed = 8;
+            if (lastTagSeenIsExpected && !outstandingDataLength) {
                 // done.
                 instance.push(null);
                 let unshift: Buffer | undefined;
@@ -296,10 +304,12 @@ export function createTlvDecodingReadableStream(
                 outstandingDataLength,
                 concatenated.length - concatenatedLengthUsed);
             if (nextChunkLength) {
-                const nextChunk = concatenated.subarray(
-                    concatenatedLengthUsed,
-                    nextChunkLength + concatenatedLengthUsed);
-                canReceiveMore &&= instance.push(nextChunk);
+                if (lastTagSeenIsExpected) {
+                    const nextChunk = concatenated.subarray(
+                        concatenatedLengthUsed,
+                        nextChunkLength + concatenatedLengthUsed);
+                    canReceiveMore &&= instance.push(nextChunk);
+                }
                 outstandingDataLength -= nextChunkLength;
                 concatenatedLengthUsed += nextChunkLength;
             }
@@ -337,9 +347,8 @@ export function createTlvDecodingReadableStream(
     return createReadableStreamDecorator(backingStream,
         onData, onEnd);
 }
-    
+
 function tryDecodeTagAndLength(
-        expectedTag: number,
         chunks: Array<Buffer>,
         result: Array<number>) {
     const totalLength = chunks.reduce((acc, chunk) => {
@@ -349,14 +358,8 @@ function tryDecodeTagAndLength(
         return undefined;
     }
     const decodingBuffer = Buffer.concat(chunks);
-    const decodedTag = decodeTag(
-        decodingBuffer, 0)
-    if (decodedTag !== expectedTag) {
-        throw new KabomuIOError("unexpected tag: expected " +
-            `${expectedTag} but found ${decodedTag}`);
-    }
-    result[0] = decodeLength(decodingBuffer, 4);
-    result[1] = 8;
+    result[0] = decodeTag(decodingBuffer, 0);
+    result[1] = decodeLength(decodingBuffer, 4);
     return decodingBuffer;
 }
 

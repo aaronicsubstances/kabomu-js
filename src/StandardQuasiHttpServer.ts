@@ -145,6 +145,7 @@ async function abort(transport: IQuasiHttpServerTransport,
         connection: QuasiHttpConnection, errorOccured: boolean) {
     if (errorOccured) {
         try {
+            // don't wait
             transport.releaseConnection(connection);
         }
         catch { } // ignore

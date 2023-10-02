@@ -357,7 +357,7 @@ export async function writeEntityToTransport(
     else {
         // proceed, even if content length is 0.
         const encodedBody = TlvUtils.createTlvEncodingReadableStream(
-            body, TlvUtils.TAG_FOR_QUASI_HTTP_BODY)
+            body, TlvUtils.TAG_FOR_QUASI_HTTP_BODY_CHUNK)
         await pipeline(encodedBody, writableStream, {
             end: false,
             signal: connection.abortSignal
@@ -403,7 +403,9 @@ export async function readEntityFromTransport(
         }
         else {
             body = TlvUtils.createTlvDecodingReadableStream(
-                readableStream, TlvUtils.TAG_FOR_QUASI_HTTP_BODY)
+                readableStream,
+                TlvUtils.TAG_FOR_QUASI_HTTP_BODY_CHUNK,
+                TlvUtils.TAG_FOR_QUASI_HTTP_BODY_CHUNK_EXT)
         }
     }
     if (isResponse) {
