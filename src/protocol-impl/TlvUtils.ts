@@ -6,12 +6,29 @@ import {
 import * as IOUtilsInternal from "../IOUtilsInternal";
 import * as MiscUtilsInternal from "../MiscUtilsInternal";
 
+/**
+ * Tag number for quasi http headers.
+ */
 export const TAG_FOR_QUASI_HTTP_HEADERS = 0x68647273;
 
+/**
+ * Tag number for quasi http body chunks.
+ */
 export const TAG_FOR_QUASI_HTTP_BODY_CHUNK = 0x62647461;
 
+/**
+ * Tag number for quasi http body chunk extensions.
+ */
 export const TAG_FOR_QUASI_HTTP_BODY_CHUNK_EXT = 0x62657874;
 
+const DEFAULT_MAX_LENGTH  = 134_217_728; // 128 MB
+
+/**
+ * Generates an 8-byte buffer consisting of tag and length.
+ * @param tag positive number
+ * @param length non negative number
+ * @returns buffer with tag and length serialized
+ */
 export function encodeTagAndLengthOnly(tag: number,
         length: number) {
     if (!tag || tag < 0) {
@@ -26,10 +43,22 @@ export function encodeTagAndLengthOnly(tag: number,
     return tagAndLen;
 }
 
-export function generateEndOfTlvStream(tagToUse: number) {
-    return encodeTagAndLengthOnly(tagToUse, 0)
+/**
+ * Generates an 8-byte buffer consisting of a tag and zero length.
+ * @param tag positive number to write out
+ * @returns buffer with tag and zero length serialized
+ */
+export function generateEndOfTlvStream(tag: number) {
+    return encodeTagAndLengthOnly(tag, 0)
 }
 
+/**
+ * Decodes a 4-byte buffer slice into a positive number
+ * representing a tag.
+ * @param data source buffer
+ * @param offset starting position in source buffer
+ * @returns decoded positive number
+ */
 export function decodeTag(data: Buffer, offset: number) {
     const tag = MiscUtilsInternal.deserializeInt32BE(
         data, offset);
@@ -39,6 +68,12 @@ export function decodeTag(data: Buffer, offset: number) {
     return tag;
 }
 
+/**
+ * Decodes a 4-byte buffer slice into a length.
+ * @param data source buffer
+ * @param offset starting position in source buffer
+ * @returns The decoded length is negative.
+ */
 export function decodeLength(data: Buffer, offset: number) {
     const decodedLength = MiscUtilsInternal.deserializeInt32BE(
         data, offset);
@@ -49,6 +84,14 @@ export function decodeLength(data: Buffer, offset: number) {
     return decodedLength;
 }
 
+/**
+ * Reads a 4-byte tag.
+ * @param inputStream source of read
+ * @param abortSignal allows cancelling the read operation
+ * if the signal is aborted.
+ * @returns a promise whose result is a positive number representing
+ * a tag
+ */
 export async function readTagOnly(inputStream: Readable,
         abortSignal?: AbortSignal) {
     const encodedTag = await IOUtilsInternal.readBytesFully(inputStream,
@@ -56,15 +99,14 @@ export async function readTagOnly(inputStream: Readable,
     return decodeTag(encodedTag, 0);
 }
 
-export async function readExpectedTagOnly(inputStream: Readable,
-        expectedTag: number, abortSignal?: AbortSignal) {
-    const tag = await readTagOnly(inputStream, abortSignal);
-    if (tag !== expectedTag) {
-        throw new KabomuIOError("unexpected tag: expected " +
-            `${expectedTag} but found ${tag}`)
-    }
-}
-
+/**
+ * Reads a 4-byte length.
+ * @param inputStream source of read
+ * @param abortSignal allows cancelling the read operation
+ * if the signal is aborted.
+ * @returns a promise whose result is a non-negative number representing
+ * a length
+ */
 export async function readLengthOnly(inputStream: Readable,
         abortSignal?: AbortSignal) {
     const encodedLen = await IOUtilsInternal.readBytesFully(
@@ -118,10 +160,7 @@ export function createContentLengthEnforcingStream(
     };
     const onEnd = (instance: Readable) => {
         if (bytesLeft) {
-            const e = new KabomuIOError(`insufficient bytes available to satisfy ` +
-                `content length of ${contentLength} bytes (could not read remaining ` +
-                `${bytesLeft} bytes before end of read)`)
-            instance.destroy(e);
+            instance.destroy(KabomuIOError._createEndOfReadError());
         }
         else {
             if (contentLength) {
@@ -137,8 +176,6 @@ export function createContentLengthEnforcingStream(
     return createReadableStreamDecorator(backingStream,
         onData, onEnd);
 }
-
-const DEFAULT_MAX_LENGTH  = 134_217_728;
 
 /**
  * Wraps another readable stream to ensure a given amount of bytes
@@ -167,7 +204,7 @@ export function createMaxLengthEnforcingStream(
     const onData = (instance: Readable, chunk: Buffer) => {
         if (chunk.length > bytesLeft) {
             throw new KabomuIOError(
-                `reading of stream exceeds maximum size of ${maxLength} bytes`)
+                `stream size exceeds limit of ${maxLength} bytes`)
         }
         const canReceiveMore = instance.push(chunk);
         bytesLeft -= chunk.length;
@@ -184,6 +221,13 @@ export function createMaxLengthEnforcingStream(
         onData, onEnd);
 }
 
+/**
+ * Creates a stream which wraps another stream to encode
+ * byte chunks into it in TLV format.
+ * @param backingStream the readable stream to read from
+ * @param tagToUse the tag to use to encode byte chunks
+ * @returns stream which encodes byte chunks in TLV format
+ */
 export function createTlvEncodingReadableStream(
         backingStream: Readable,
         tagToUse: number) {
@@ -211,6 +255,15 @@ export function createTlvEncodingReadableStream(
         onData, onEnd);
 }
 
+/**
+ * Creates a stream which wraps another stream to decode
+ * TLV-encoded byte chunks from it.
+ * @param backingStream the readable stream to read from
+ * @param expectedTag the tag of the byte chunks
+ * @param tagToIgnore the tag of any optional byte chunk
+ * preceding chunks with the expected tag.
+ * @returns stream which decodes TLV-encoded bytes chunks.
+ */
 export function createTlvDecodingReadableStream(
         backingStream: Readable,
         expectedTag: number, tagToIgnore: number) {

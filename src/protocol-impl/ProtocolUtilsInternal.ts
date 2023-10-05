@@ -59,9 +59,9 @@ export function validateHttpHeaderSection(isResponse: boolean,
             "expected special header to have 4 values " +
             `instead of ${specialHeader.length}`)
     }
-    for (const item of specialHeader) {
-        if (!containsOnlyPrintableAsciiChars(item,
-                false, false)) {
+    for (let i = 0; i < specialHeader.length; i++) {
+        const item = specialHeader[i]
+        if (!containsOnlyPrintableAsciiChars(item, isResponse && i === 2)) {
             throw new QuasiHttpError(
                 `quasi http ${(isResponse ? "status" : "request")} line ` +
                 "field contains spaces, newlines or " +
@@ -78,8 +78,7 @@ export function validateHttpHeaderSection(isResponse: boolean,
                 `instead of ${row.length}`)
         }
         const headerName = row[0];
-        if (!containsOnlyPrintableAsciiChars(headerName,
-                true, false)) {
+        if (!containsOnlyHeaderNameChars(headerName)) {
             throw new QuasiHttpError(
                 "quasi http header name contains characters " +
                 "other than hyphen and English alphabets: " +
@@ -89,7 +88,7 @@ export function validateHttpHeaderSection(isResponse: boolean,
         for (let j = 1; j < row.length; j++) {
             const headerValue = row[j];
             if (!containsOnlyPrintableAsciiChars(headerValue,
-                    false, true)) {
+                    true)) {
                 throw new QuasiHttpError(
                     "quasi http header value contains newlines or " +
                     "non-printable ASCII characters: " + headerValue,
@@ -99,34 +98,37 @@ export function validateHttpHeaderSection(isResponse: boolean,
     }
 }
 
-export function containsOnlyPrintableAsciiChars(v: string,
-        safeOnly: boolean, allowSpace: boolean) {
+export function containsOnlyHeaderNameChars(v: string) {
     for (let i = 0; i < v.length; i++) {
         const c = v.charCodeAt(i);
-        if (safeOnly) {
-            if (c >= 48 && c < 58) {
-                // digits.
-            }
-            else if (c >= 65 && c < 91) {
-                // upper case
-            }
-            else if (c >= 97 && c < 123) {
-                // lower case
-            }
-            else if (c === 45) {
-                // hyphen
-            }
-            else {
-                return false;
-            }
+        if (c >= 48 && c < 58) {
+            // digits.
+        }
+        else if (c >= 65 && c < 91) {
+            // upper case
+        }
+        else if (c >= 97 && c < 123) {
+            // lower case
+        }
+        else if (c === 45) {
+            // hyphen
         }
         else {
-            if (c < 32 || c > 126) {
-                return false;
-            }
-            if (!allowSpace && c === 32) {
-                return false;
-            }
+            return false;
+        }
+    }
+    return true;
+}
+
+export function containsOnlyPrintableAsciiChars(v: string,
+        allowSpace: boolean) {
+    for (let i = 0; i < v.length; i++) {
+        const c = v.charCodeAt(i);
+        if (c < 32 || c > 126) {
+            return false;
+        }
+        if (!allowSpace && c === 32) {
+            return false;
         }
     }
     return true;
@@ -201,6 +203,7 @@ function stringifyPossibleNull(s: any) {
  * invalid quasi http request or response headers
  */
 export function decodeQuasiHttpHeaders(
+        isResponse: boolean,
         buffer: Buffer,
         headersReceiver: Map<string, string[]>) {
     if (!buffer) {
@@ -223,6 +226,11 @@ export function decodeQuasiHttpHeaders(
             QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
     }
     const specialHeader = csv[0];
+    if (specialHeader.length < 4) {
+        throw new QuasiHttpError(
+            `invalid quasi http ${(isResponse ? "status" : "request")} line`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+    }
     for (let i = 1; i < csv.length; i++) {
         const headerRow = csv[i];
         if (headerRow.length < 2) {
@@ -274,13 +282,18 @@ export async function writeQuasiHttpHeaders(
 }
 
 export async function readQuasiHttpHeaders(
+        isResponse: boolean,
         src: Readable,
         headersReceiver: Map<string, string[]>,
         maxHeadersSize?: number,
         abortSignal?: AbortSignal) {
-    await TlvUtils.readExpectedTagOnly(src,
-        TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS,
+    const tag = await TlvUtils.readTagOnly(src,
         abortSignal)
+    if (tag !== TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS) {
+        throw new QuasiHttpError(
+            `unexpected quasi http headers tag: ${tag}`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+    }
     if (!maxHeadersSize || maxHeadersSize < 0) {
         maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
     }
@@ -293,7 +306,7 @@ export async function readQuasiHttpHeaders(
     }
     const encodedHeaders = await IOUtilsInternal.readBytesFully(
         src, headersSize, abortSignal);
-    return decodeQuasiHttpHeaders(encodedHeaders,
+    return decodeQuasiHttpHeaders(isResponse, encodedHeaders,
         headersReceiver);
 }
 
@@ -316,9 +329,9 @@ export async function writeEntityToTransport(
         body = response.body
         contentLength = response.contentLength
         reqOrStatusLine = [
+            response.httpVersion,
             response.statusCode || 0,
             response.httpStatusMessage,
-            response.httpVersion,
             undefined
         ]
     }
@@ -376,15 +389,11 @@ export async function readEntityFromTransport(
     }
     const headersReceiver = new Map<string, string[]>()
     const reqOrStatusLine = await readQuasiHttpHeaders(
+        isResponse,
         readableStream,
         headersReceiver,
         connection.processingOptions?.maxHeadersSize,
         connection.abortSignal)
-    if (reqOrStatusLine.length < 4) {
-        throw new QuasiHttpError(
-            `invalid quasi http ${(isResponse ? "status" : "request")} line`,
-            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
-    }
     let contentLength = 0;
     try {
         contentLength = parseInt48(reqOrStatusLine[3])
@@ -410,9 +419,10 @@ export async function readEntityFromTransport(
     }
     if (isResponse) {
         const response = new DefaultQuasiHttpResponse()
+        response.httpVersion = reqOrStatusLine[0]
         try {
             response.statusCode = parseInt32(
-                reqOrStatusLine[0])
+                reqOrStatusLine[1])
         }
         catch (e) {
             throw new QuasiHttpError(
@@ -420,8 +430,8 @@ export async function readEntityFromTransport(
                 QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
                 { cause: e })
         }
-        response.httpStatusMessage = reqOrStatusLine[1]
-        response.httpVersion = reqOrStatusLine[2]
+        response.httpStatusMessage = reqOrStatusLine[2]
+        response.contentLength = contentLength
         response.headers = headersReceiver
         if (body) {
             const bodySizeLimit = connection.processingOptions?.maxResponseBodySize
@@ -442,6 +452,7 @@ export async function readEntityFromTransport(
         request.httpMethod = reqOrStatusLine[0]
         request.target = reqOrStatusLine[1]
         request.httpVersion = reqOrStatusLine[2]
+        request.contentLength = contentLength
         request.headers = headersReceiver
         request.body = body
         return request
