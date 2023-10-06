@@ -287,8 +287,9 @@ export async function readQuasiHttpHeaders(
         headersReceiver: Map<string, string[]>,
         maxHeadersSize?: number,
         abortSignal?: AbortSignal) {
-    const tag = await TlvUtils.readTagOnly(src,
-        abortSignal)
+    const encodedTag = await IOUtilsInternal.readBytesFully(src,
+        4, abortSignal);
+    const tag = TlvUtils.decodeTag(encodedTag, 0);
     if (tag !== TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS) {
         throw new QuasiHttpError(
             `unexpected quasi http headers tag: ${tag}`,
@@ -297,7 +298,9 @@ export async function readQuasiHttpHeaders(
     if (!maxHeadersSize || maxHeadersSize < 0) {
         maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
     }
-    const headersSize = await TlvUtils.readLengthOnly(src, abortSignal)
+    const encodedLen = await IOUtilsInternal.readBytesFully(src,
+        4, abortSignal);
+    const headersSize = TlvUtils.decodeTag(encodedLen, 0);
     if (headersSize > maxHeadersSize) {
         throw new QuasiHttpError(
             "quasi http headers exceed " +

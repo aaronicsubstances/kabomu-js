@@ -85,36 +85,6 @@ export function decodeLength(data: Buffer, offset: number) {
 }
 
 /**
- * Reads a 4-byte tag.
- * @param inputStream source of read
- * @param abortSignal allows cancelling the read operation
- * if the signal is aborted.
- * @returns a promise whose result is a positive number representing
- * a tag
- */
-export async function readTagOnly(inputStream: Readable,
-        abortSignal?: AbortSignal) {
-    const encodedTag = await IOUtilsInternal.readBytesFully(inputStream,
-        4, abortSignal);
-    return decodeTag(encodedTag, 0);
-}
-
-/**
- * Reads a 4-byte length.
- * @param inputStream source of read
- * @param abortSignal allows cancelling the read operation
- * if the signal is aborted.
- * @returns a promise whose result is a non-negative number representing
- * a length
- */
-export async function readLengthOnly(inputStream: Readable,
-        abortSignal?: AbortSignal) {
-    const encodedLen = await IOUtilsInternal.readBytesFully(
-        inputStream, 4, abortSignal);
-    return decodeLength(encodedLen, 0);
-}
-
-/**
  * Wraps another readable stream to ensure a given amount of bytes are read.
  * @param backingStream the source stream.
  * @param contentLength the expected number of bytes to guarantee or assert.
