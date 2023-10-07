@@ -9,6 +9,7 @@ import {
 
 export {
     parseInt32,
+    parseInt48,
     createBlankChequePromise
 } from "./MiscUtilsInternal";
 
@@ -33,22 +34,6 @@ export const ENV_KEY_TRANSPORT_INSTANCE = "kabomu.transport";
  * request was received.
  */
 export const ENV_KEY_CONNECTION = "kabomu.connection";
-
-/**
- * Environment variable for indicating that a request or response
- * should not be sent at all. Intended
- * for use in responding to fire and forget requests, as well as
- * cases where request or response has been sent already by other
- * means.
- */
-export const ENV_KEY_SKIP_SENDING = "kabomu.skip_sending";
-
-/**
- * Environment variable indicating that the response body 
- * received from transport should be returned to client without
- * any decoding applied.
- */
-export const ENV_KEY_SKIP_RES_BODY_DECODING = "kabomu.skip_res_body_decoding";
 
 export const METHOD_CONNECT = "CONNECT";
 export const METHOD_DELETE = "DELETE";
@@ -153,22 +138,16 @@ export function mergeProcessingOptions(
             preferred?.extraConnectivityParams,
             fallback?.extraConnectivityParams);
 
-    mergedOptions.responseBufferingEnabled =
-        _determineEffectiveBooleanOption(
-            preferred?.responseBufferingEnabled,
-            fallback?.responseBufferingEnabled,
-            true);
-
     mergedOptions.maxHeadersSize =
         _determineEffectivePositiveIntegerOption(
             preferred?.maxHeadersSize,
             fallback?.maxHeadersSize,
             0);
 
-    mergedOptions.responseBodyBufferingSizeLimit =
-        _determineEffectivePositiveIntegerOption(
-            preferred?.responseBodyBufferingSizeLimit,
-            fallback?.responseBodyBufferingSizeLimit,
+    mergedOptions.maxResponseBodySize  =
+        _determineEffectiveNonZeroIntegerOption(
+            preferred?.maxResponseBodySize ,
+            fallback?.maxResponseBodySize ,
             0);
 
     return mergedOptions;

@@ -1,4 +1,4 @@
-import { Readable } from "stream"
+import { Readable, Writable } from "stream"
 
 /**
  * Contains connection and other connection-related information created by
@@ -33,6 +33,13 @@ export interface ICustomDisposable {
     release(): Promise<void>
 }
 
+export interface IQuasiHttpAltTransport {
+    requestSerializer?: (conn: QuasiHttpConnection, req: IQuasiHttpRequest) => Promise<boolean>
+    responseSerializer?: (conn: QuasiHttpConnection, res: IQuasiHttpResponse) => Promise<boolean>
+    requestDeserializer?: (conn: QuasiHttpConnection) => Promise<IQuasiHttpRequest | undefined>
+    responseDeserializer?: (conn: QuasiHttpConnection) => Promise<IQuasiHttpResponse | undefined>
+}
+
 /**
  * Equivalent of TCP client socket factory that provides 
  * instances of StandardQuasiHttpClient class
@@ -54,11 +61,11 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
     /**
      * Releases resources held by a connection of a quasi http transport instance.
      * @param connection the connection to release
-     * @param responseStreamingEnabled whether response body
-     * still needs the connection to some extent
+     * @param response an optional response which may still need the connection
+     * to some extent
      */
     releaseConnection(connection: QuasiHttpConnection,
-        responseStreamingEnabled: boolean): Promise<void>
+        response: IQuasiHttpResponse | undefined): Promise<void>
 }
 
 /**
@@ -134,28 +141,13 @@ export interface QuasiHttpProcessingOptions {
     maxHeadersSize?: number
 
     /**
-     * Indicates whether response buffering is enabled or not.
-     *
-     *  - Falsy values other than null and undefined mean that clients
-     *    are responsible for closing a response if it has a body.
-     *  - Truthy values mean that send request processing must ensure that
-     *    responses are released before returning them to clients,
-     *    by generating equivalent responses with buffered bodies.
-     *  - Null and undefined values mean that it is unspecified whether
-     *    response buffering is enabled or not, and in the absence of
-     *    any overriding options a client-specific default action will be taken.
-     *
-     */
-    responseBufferingEnabled?: boolean
-
-    /**
-     * Imposes a maximum size on response bodies when they are being buffered,
-     * i.e. in situations where response buffering is enabled.
+     * Gets the value that imposes a maximum size on response bodies. To indicate absence
+     * of a limit, use -1 or any negative value.
      * 
-     * Note that falsy and negative values will be interpreted as unspecified, and in the absence of any overriding options
+     * Note that falsy values will be interpreted as unspecified, and in the absence of any overriding options
      * a client-specific default value will be used.
      */
-    responseBodyBufferingSizeLimit?: number
+    maxResponseBodySize?: number
 }
 
 /**
@@ -283,30 +275,8 @@ export interface IQuasiHttpServerTransport  extends IQuasiHttpTransport {
  * at both server and client ends.
  */
 export interface IQuasiHttpTransport {
-
-    /**
-     * Transfers an entire http entity to a quasi web transport
-     * @param connection connection to use for transfer
-     * @param isResponse indicates whether http entity is for
-     * response (with truthy value), or indicates request (with falsy value)
-     * @param encodedHeaders http request or response headers to transfer
-     * @param body http request or response body to transfer
-     * @returns a stream which can be used to read bytes from the connection argument
-     */
-    write(connection: QuasiHttpConnection, isResponse: boolean,
-        encodedHeaders: Buffer, body?: Readable): Promise<void>
-
-    /**
-     * Retrieves an entire http entity from a quasi web transport.
-     * @param connection connection to use for retrieval
-     * @param isResponse indicates whether http entity is for
-     * response (with truthy value), or indicates request (with falsy value)
-     * @param encodedHeaderReceiver list which will be populated with
-     * byte chunks representing request or response headers
-     * @returns a promise whose result will be an http request or response body.
-     */    
-    read(connection: QuasiHttpConnection, isResponse: boolean,
-        encodedHeaderReceiver: Array<Buffer>): Promise<Readable | undefined>
+    getReadableStream(conn: QuasiHttpConnection): Readable | undefined
+    getWritableStream(conn: QuasiHttpConnection): Writable | undefined
 }
 
 /**

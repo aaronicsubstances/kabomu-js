@@ -1,24 +1,27 @@
-import { Readable } from "stream";
-import * as QuasiHttpCodec from "./QuasiHttpCodec";
+import { Readable, Writable } from "stream";
+import { pipeline } from "stream/promises";
+import {
+    bytesToString,
+    parseInt32,
+    parseInt48,
+    stringToBytes
+} from "../MiscUtilsInternal";
 import * as QuasiHttpUtils from "../QuasiHttpUtils";
+import * as IOUtilsInternal from "../IOUtilsInternal"
+import * as CsvUtils from "../CsvUtils"
+import * as TlvUtils from "./TlvUtils";
 import {
-    createBodyChunkEncodingStream,
-    createContentLengthEnforcingStream,
-    createBodyChunkDecodingStream
-} from "./CustomStreamsInternal";
-import {
-    IQuasiHttpTransport,
+    IQuasiHttpRequest,
+    IQuasiHttpResponse,
     QuasiHttpConnection
 } from "../types";
 import {
     ExpectationViolationError,
+    MissingDependencyError,
     QuasiHttpError
 } from "../errors";
-import {
-    DEFAULT_DATA_BUFFER_LIMIT,
-    readAllBytesUpToGivenLimit,
-    readBytesFully
-} from "../IOUtilsInternal";
+import { DefaultQuasiHttpResponse } from "../DefaultQuasiHttpResponse";
+import { DefaultQuasiHttpRequest } from "../DefaultQuasiHttpRequest";
 
 export function getEnvVarAsBoolean(
         environment: Map<string, any> | undefined,
@@ -33,7 +36,7 @@ export function getEnvVarAsBoolean(
 }
 
 export async function wrapTimeoutPromise(
-        timeoutPromise: Promise<boolean>,
+        timeoutPromise: Promise<boolean> | undefined,
         timeoutMsg: string) {
     if (!timeoutPromise) {
         return;
@@ -44,176 +47,417 @@ export async function wrapTimeoutPromise(
     }
 }
 
-export function encodeBodyToTransport(isResponse: boolean,
-        contentLength: number | undefined,
-        body: Readable | undefined) {
-    if (!contentLength) {
-        return undefined;
-    }
-    if (!body) {
-        const errMsg = isResponse ?
-            "no response body" :
-            "no request body";
-        throw new QuasiHttpError(errMsg);
-    }
-    if (contentLength < 0) {
-        return createBodyChunkEncodingStream(body as any);
-    }
-    // don't enforce positive content lengths when writing out
-    // quasi http bodies
-    return body;
-}
-
-export function decodeRequestBodyFromTransport(
-        contentLength: number | undefined,
-        body: Readable | undefined) {
-    if (!contentLength) {
-        return undefined;
-    }
-    if (!body) {
-        throw new QuasiHttpError("no request body");
-    }
-    if (contentLength < 0) {
-        return createBodyChunkDecodingStream(body);
-    }
-    return createContentLengthEnforcingStream(body,
-        contentLength);
-}
-
-export function decodeResponseBodyFromTransport(
-        contentLength: number | undefined,
-        body: Readable | undefined,
-        environment: Map<string, any> | undefined,
-        responseBufferingEnabled: boolean | undefined) {
-    if (!contentLength) {
-        return [undefined, false, false];
-    }
-    let responseStreamingEnabled = false;
-    if (typeof responseBufferingEnabled !== "undefined" &&
-            responseBufferingEnabled !== null) {
-        responseStreamingEnabled = !responseBufferingEnabled
-    }
-    if (getEnvVarAsBoolean(environment, 
-            QuasiHttpUtils.ENV_KEY_SKIP_RES_BODY_DECODING)) {
-        return [body, responseStreamingEnabled, false]
-    }
-    if (!body) {
-        throw new QuasiHttpError("no response body");
-    }
-    if (contentLength < 0) {
-        body = createBodyChunkDecodingStream(body);
-    }
-    if (responseStreamingEnabled) {
-        if (contentLength > 0) {
-            body = createContentLengthEnforcingStream(
-                body, contentLength)
-        }
-        return [body, true, false];
-    }
-    return [body, false, true];
-}
-
-export async function bufferResponseBody(
-        contentLength: number | undefined,
-        body: Readable | undefined,
-        bufferingSizeLimit: number | undefined,
-        abortSignal?: AbortSignal) {
-    if (!bufferingSizeLimit || bufferingSizeLimit < 0) {
-        bufferingSizeLimit = DEFAULT_DATA_BUFFER_LIMIT;
-    }
-    if (!contentLength) {
+export function validateHttpHeaderSection(isResponse: boolean,
+        csv: Array<string[]>) {
+    if (!csv.length) {
         throw new ExpectationViolationError(
-            "expected non-null and non-zero content length");
+            "expected csv to contain at least the special header")
     }
-    if (!body) {
+    const specialHeader = csv[0]
+    if (specialHeader.length !== 4) {
         throw new ExpectationViolationError(
-            "expected non-null response body")
+            "expected special header to have 4 values " +
+            `instead of ${specialHeader.length}`)
     }
-    if (contentLength < 0) {
-        const buffer = await readAllBytesUpToGivenLimit(
-            body, bufferingSizeLimit, abortSignal);
-        if (!buffer) {
+    for (let i = 0; i < specialHeader.length; i++) {
+        const item = specialHeader[i]
+        if (!containsOnlyPrintableAsciiChars(item, isResponse && i === 2)) {
             throw new QuasiHttpError(
-                "response body of indeterminate length exceeds buffering limit of " +
-                `${bufferingSizeLimit} bytes`,
-                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+                `quasi http ${(isResponse ? "status" : "request")} line ` +
+                "field contains spaces, newlines or " +
+                "non-printable ASCII characters: " +
+                item,
+                QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
         }
-        return Readable.from(buffer);
+    }
+    for (let i = 1; i < csv.length; i++) {
+        const row = csv[i]
+        if (row.length < 2) {
+            throw new ExpectationViolationError(
+                "expected row to have at least 2 values " +
+                `instead of ${row.length}`)
+        }
+        const headerName = row[0];
+        if (!containsOnlyHeaderNameChars(headerName)) {
+            throw new QuasiHttpError(
+                "quasi http header name contains characters " +
+                "other than hyphen and English alphabets: " +
+                headerName,
+                QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+        }
+        for (let j = 1; j < row.length; j++) {
+            const headerValue = row[j];
+            if (!containsOnlyPrintableAsciiChars(headerValue,
+                    true)) {
+                throw new QuasiHttpError(
+                    "quasi http header value contains newlines or " +
+                    "non-printable ASCII characters: " + headerValue,
+                    QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+            }
+        }
+    }
+}
+
+export function containsOnlyHeaderNameChars(v: string) {
+    for (let i = 0; i < v.length; i++) {
+        const c = v.charCodeAt(i);
+        if (c >= 48 && c < 58) {
+            // digits.
+        }
+        else if (c >= 65 && c < 91) {
+            // upper case
+        }
+        else if (c >= 97 && c < 123) {
+            // lower case
+        }
+        else if (c === 45) {
+            // hyphen
+        }
+        else {
+            return false;
+        }
+    }
+    return true;
+}
+
+export function containsOnlyPrintableAsciiChars(v: string,
+        allowSpace: boolean) {
+    for (let i = 0; i < v.length; i++) {
+        const c = v.charCodeAt(i);
+        if (c < 32 || c > 126) {
+            return false;
+        }
+        if (!allowSpace && c === 32) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Serializes quasi http request or response headers.
+ * @param reqOrStatusLine request or response status line
+ * @param remainingHeaders headers after request or status line
+ * @returns serialized representation of quasi http headers
+ */
+export function encodeQuasiHttpHeaders(isResponse: boolean,
+        reqOrStatusLine: string[],
+        remainingHeaders?: Map<string, string[]>) {
+    if (!reqOrStatusLine) {
+        throw new Error("reqOrStatusLine argument is null")
+    }
+    const csv = new Array<string[]>();
+    const specialHeader = new Array<string>()
+    for (const v of reqOrStatusLine) {
+        specialHeader.push(stringifyPossibleNull(v))
+    }
+    csv.push(specialHeader)
+    if (remainingHeaders) {
+        for (let [header, values] of remainingHeaders) {
+            header = stringifyPossibleNull(header)
+            if (!header) {
+                throw new QuasiHttpError(
+                    "quasi http header name cannot be empty",
+                    QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
+            }
+            // allow string values not inside an array.
+            if (typeof values === "string") {
+                values = [values]
+            }
+            if (!values || !values.length) {
+                continue;
+            }
+            const headerRow = new Array<string>();
+            headerRow.push(header);
+            for (let v of values) {
+                v = stringifyPossibleNull(v)
+                if (!v) {
+                    throw new QuasiHttpError(
+                        "quasi http header value cannot be empty",
+                        QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
+                }
+                headerRow.push(v);
+            }
+            csv.push(headerRow);
+        }
+    }
+
+    validateHttpHeaderSection(isResponse, csv);
+
+    const serialized = stringToBytes(
+        CsvUtils.serialize(csv));
+    return serialized;
+}
+
+function stringifyPossibleNull(s: any) {
+    return (s === null || typeof s === "undefined") ? "" : `${s}`;
+}
+
+/**
+ * Deserializes a quasi http request or response header section.
+ * @param buffer source of data to deserialize
+ * @param headersReceiver will be extended with remaining headers found
+ * after the request or response line
+ * @returns request or response line, ie first row before headers
+ * @throws QuasiHttpError if buffer argument contains
+ * invalid quasi http request or response headers
+ */
+export function decodeQuasiHttpHeaders(
+        isResponse: boolean,
+        buffer: Buffer,
+        headersReceiver: Map<string, string[]>) {
+    if (!buffer) {
+        throw new Error("buffer argument is null");
+    }
+    let csv: Array<string[]>;
+    try {
+        csv = CsvUtils.deserialize(bytesToString(
+            buffer))
+    }
+    catch (e) {
+        throw new QuasiHttpError(
+            `invalid quasi http headers`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
+            { cause: e });
+    }
+    if (!csv.length) {
+        throw new QuasiHttpError(
+            `invalid quasi http headers`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION);
+    }
+    const specialHeader = csv[0];
+    if (specialHeader.length < 4) {
+        throw new QuasiHttpError(
+            `invalid quasi http ${(isResponse ? "status" : "request")} line`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+    }
+    for (let i = 1; i < csv.length; i++) {
+        const headerRow = csv[i];
+        if (headerRow.length < 2) {
+            continue;
+        }
+        // merge headers with the same normalized name in different rows.
+        const headerName = headerRow[0].toLowerCase()
+        if (!headersReceiver.has(headerName)) {
+            headersReceiver.set(headerName, [])
+        }
+        const headerValue = headerRow.slice(1);
+        headersReceiver.get(headerName)!.push(...headerValue);
+    }
+    return specialHeader;
+}
+
+export async function writeQuasiHttpHeaders(
+        isResponse: boolean,
+        dest: Writable,
+        reqOrStatusLine: string[],
+        remainingHeaders: Map<string, string[]> | undefined,
+        maxHeadersSize?: number,
+        abortSignal?: AbortSignal) {
+    const encodedHeaders = encodeQuasiHttpHeaders(isResponse,
+        reqOrStatusLine,
+        remainingHeaders)
+    if (!maxHeadersSize || maxHeadersSize < 0) {
+        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
+    }
+
+    // finally check that byte count of csv doesn't exceed limit.
+    if (encodedHeaders.length > maxHeadersSize) {
+        throw new QuasiHttpError(
+            "quasi http headers exceed " +
+            `max size (${encodedHeaders.length} > ${maxHeadersSize})`,
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+    }
+
+    const encodedHeadersReadable = Readable.from((function*() {
+        yield TlvUtils.encodeTagAndLengthOnly(
+            TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS,
+            encodedHeaders.length)
+        yield encodedHeaders
+    })());
+    await pipeline(encodedHeadersReadable, dest, {
+        end: false,
+        signal: abortSignal
+    });
+}
+
+export async function readQuasiHttpHeaders(
+        isResponse: boolean,
+        src: Readable,
+        headersReceiver: Map<string, string[]>,
+        maxHeadersSize?: number,
+        abortSignal?: AbortSignal) {
+    const encodedTag = await IOUtilsInternal.readBytesFully(src,
+        4, abortSignal);
+    const tag = TlvUtils.decodeTag(encodedTag, 0);
+    if (tag !== TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS) {
+        throw new QuasiHttpError(
+            `unexpected quasi http headers tag: ${tag}`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION)
+    }
+    if (!maxHeadersSize || maxHeadersSize < 0) {
+        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
+    }
+    const encodedLen = await IOUtilsInternal.readBytesFully(src,
+        4, abortSignal);
+    const headersSize = TlvUtils.decodeTag(encodedLen, 0);
+    if (headersSize > maxHeadersSize) {
+        throw new QuasiHttpError(
+            "quasi http headers exceed " +
+            `max size (${headersSize} > ${maxHeadersSize})`,
+            QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+    }
+    const encodedHeaders = await IOUtilsInternal.readBytesFully(
+        src, headersSize, abortSignal);
+    return decodeQuasiHttpHeaders(isResponse, encodedHeaders,
+        headersReceiver);
+}
+
+export async function writeEntityToTransport(
+        isResponse: boolean,
+        entity: any,
+        writableStream: Writable | undefined,
+        connection: QuasiHttpConnection) {
+    if (!writableStream) {
+        throw new MissingDependencyError(
+            "no writable stream found for transport")
+    }
+    let body: Readable | undefined;
+    let contentLength: number | undefined;
+    let reqOrStatusLine: any
+    let headers: Map<string, string[]> | undefined
+    if (isResponse) {
+        const response = entity as IQuasiHttpResponse
+        headers = response.headers
+        body = response.body
+        contentLength = response.contentLength
+        reqOrStatusLine = [
+            response.httpVersion,
+            response.statusCode || 0,
+            response.httpStatusMessage,
+            undefined
+        ]
     }
     else {
-        if (contentLength > bufferingSizeLimit) {
-            throw new QuasiHttpError(
-                "response body length exceeds buffering limit " +
-                `(${contentLength} > ${bufferingSizeLimit})`,
-                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED)
-        }
-        const buffer = await readBytesFully(body,
-            contentLength, abortSignal)
-        return Readable.from(buffer)
+        const request = entity as IQuasiHttpRequest
+        headers = request.headers
+        body = request.body
+        contentLength = request.contentLength
+        reqOrStatusLine = [
+            request.httpMethod,
+            request.target,
+            request.httpVersion,
+            undefined
+        ]
+    }
+    // treat content lengths totally separate from body
+    // due to how HEAD method works.
+    contentLength = contentLength || 0
+    reqOrStatusLine[3] = contentLength
+    await writeQuasiHttpHeaders(isResponse,
+        writableStream, reqOrStatusLine, headers,
+        connection.processingOptions?.maxHeadersSize,
+        connection.abortSignal)
+    if (!body) {
+        // don't proceed, even if content length is not zero.
+        return;
+    }
+    if (contentLength > 0) {
+        // don't enforce positive content lengths when writing out
+        // quasi http bodies
+        await pipeline(body, writableStream, {
+            end: false,
+            signal: connection.abortSignal
+        })
+    }
+    else {
+        // proceed, even if content length is 0.
+        const encodedBody = TlvUtils.createTlvEncodingReadableStream(
+            body, TlvUtils.TAG_FOR_QUASI_HTTP_BODY_CHUNK)
+        await pipeline(encodedBody, writableStream, {
+            end: false,
+            signal: connection.abortSignal
+        })
     }
 }
 
 export async function readEntityFromTransport(
-        isResponse: boolean, transport: IQuasiHttpTransport,
-        connection: QuasiHttpConnection) {
-    const encodedHeadersReceiver = new Array<Buffer>();
-    const body = await transport.read(connection, isResponse,
-        encodedHeadersReceiver);
-    // either body should be non-null or some byte chunks should be
-    // present in receiver list.
-    if (!encodedHeadersReceiver.length) {
-        if (!body) {
-            const errMsg = isResponse ? "no response" : "no request";
-            throw new QuasiHttpError(errMsg);
+        isResponse: boolean,
+        readableStream: Readable | undefined,
+        connection: QuasiHttpConnection)
+        : Promise<IQuasiHttpRequest | IQuasiHttpResponse> {
+    if (!readableStream) {
+        throw new MissingDependencyError(
+            "no readable stream found for transport");
+    }
+    const headersReceiver = new Map<string, string[]>()
+    const reqOrStatusLine = await readQuasiHttpHeaders(
+        isResponse,
+        readableStream,
+        headersReceiver,
+        connection.processingOptions?.maxHeadersSize,
+        connection.abortSignal)
+    let contentLength = 0;
+    try {
+        contentLength = parseInt48(reqOrStatusLine[3])
+    }
+    catch (e) {
+        throw new QuasiHttpError(
+            `invalid quasi http ${(isResponse ? "response" : "request")} content length`,
+            QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
+            { cause: e })
+    }
+    let body: Readable | undefined
+    if (contentLength) {
+        if (contentLength > 0) {
+            body = TlvUtils.createContentLengthEnforcingStream(
+                readableStream, contentLength)
         }
-        await readEncodedHeaders(body,
-            encodedHeadersReceiver,
-            connection.processingOptions?.maxHeadersSize,
-            connection.abortSignal);
+        else {
+            body = TlvUtils.createTlvDecodingReadableStream(
+                readableStream,
+                TlvUtils.TAG_FOR_QUASI_HTTP_BODY_CHUNK,
+                TlvUtils.TAG_FOR_QUASI_HTTP_BODY_CHUNK_EXT)
+        }
     }
-    const encodedHeaders = Buffer.concat(encodedHeadersReceiver);
-    return {
-        headers: encodedHeaders,
-        body
-    };
-}
-
-export async function readEncodedHeaders(source: Readable,
-        encodedHeadersReceiver: Array<Buffer>,
-        maxHeadersSize?: number,
-        abortSignal?: AbortSignal) {
-    if (!maxHeadersSize || maxHeadersSize < 0) {
-        maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE
-    }
-    let totalBytesRead = 0
-    while (true) {
-        totalBytesRead += QuasiHttpCodec._HEADER_CHUNK_SIZE
-        if (totalBytesRead > maxHeadersSize) {
+    if (isResponse) {
+        const response = new DefaultQuasiHttpResponse()
+        response.httpVersion = reqOrStatusLine[0]
+        try {
+            response.statusCode = parseInt32(
+                reqOrStatusLine[1])
+        }
+        catch (e) {
             throw new QuasiHttpError(
-                "size of quasi http headers to read exceed " +
-                `max size (${totalBytesRead} > ${maxHeadersSize})`,
-                QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
+                "invalid quasi http response status code",
+                QuasiHttpError.REASON_CODE_PROTOCOL_VIOLATION,
+                { cause: e })
         }
-        const chunk = await readBytesFully(source,
-            QuasiHttpCodec._HEADER_CHUNK_SIZE, abortSignal);
-        encodedHeadersReceiver.push(chunk);
-        const carriageReturn = 13;
-        const newline = 10;
-        for (let i = 2; i < chunk.length; i++) {
-            if (chunk[i] !== carriageReturn && chunk[i] !== newline) {
-                continue;
+        response.httpStatusMessage = reqOrStatusLine[2]
+        response.contentLength = contentLength
+        response.headers = headersReceiver
+        if (body) {
+            const bodySizeLimit = connection.processingOptions?.maxResponseBodySize
+            if (!bodySizeLimit || bodySizeLimit > 0) {
+                body = TlvUtils.createMaxLengthEnforcingStream(body,
+                    bodySizeLimit)
             }
-            if (chunk[i - 1] !== carriageReturn &&
-                    chunk[i - 1] !== newline) {
-                continue;
-            }
-            if (chunk[i - 2] === carriageReturn ||
-                    chunk[i - 2] === newline) {
-                // done.
-                // don't just break, as this will only quit
-                // the for loop and leave us in while loop.
-                return;
-            }
+            // can't implement response buffering
+            // due to how HEAD method works.
         }
+        response.body = body
+        return response
+    }
+    else {
+        const request = new DefaultQuasiHttpRequest({
+            environment: connection.environment
+        })
+        request.httpMethod = reqOrStatusLine[0]
+        request.target = reqOrStatusLine[1]
+        request.httpVersion = reqOrStatusLine[2]
+        request.contentLength = contentLength
+        request.headers = headersReceiver
+        request.body = body
+        return request
     }
 }

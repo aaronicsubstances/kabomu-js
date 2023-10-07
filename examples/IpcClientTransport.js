@@ -37,16 +37,16 @@ class IpcClientTransport {
         return connectionAllocationResponse
     }
 
-    async releaseConnection(connection, responseStreamingEnabled) {
-        await connection.release(responseStreamingEnabled)
+    async releaseConnection(connection, response) {
+        await connection.release(response)
     }
 
-    async write(connection, isResponse, encodedHeaders, body) {
-        await connection.write(isResponse, encodedHeaders, body)
+    getReadableStream(connection) {
+        return connection.stream
     }
 
-    async read(connection, isResponse, encodedHeadersReceiver) {
-        return await connection.read(isResponse, encodedHeadersReceiver)
+    getWritableStream(connection) {
+        return connection.stream
     }
 }
 

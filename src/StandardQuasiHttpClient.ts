@@ -4,6 +4,7 @@ import {
 } from "./errors"
 import {
     ConnectionAllocationResponse,
+    IQuasiHttpAltTransport,
     IQuasiHttpClientTransport,
     IQuasiHttpRequest,
     IQuasiHttpResponse,
@@ -11,9 +12,6 @@ import {
     QuasiHttpProcessingOptions,
 } from "./types"
 import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
-import * as QuasiHttpCodec from "./protocol-impl/QuasiHttpCodec"
-import * as QuasiHttpUtils from "./QuasiHttpUtils"
-import { DefaultQuasiHttpResponse } from "./DefaultQuasiHttpResponse"
 
 /**
  * The standard implementation of the client side of the quasi http protocol
@@ -152,63 +150,50 @@ async function processSend(
 
     // send entire request first before
     // receiving of response.
-    if (ProtocolUtilsInternal.getEnvVarAsBoolean(
-            request.environment, QuasiHttpUtils.ENV_KEY_SKIP_SENDING)
-            !== true) {
-        const encodedRequestHeaders = QuasiHttpCodec.encodeRequestHeaders(request,
-            connection.processingOptions?.maxHeadersSize);
-        const encodedRequestBody = ProtocolUtilsInternal.encodeBodyToTransport(false,
-            request.contentLength, request.body);
-        await transport.write(connection, false, encodedRequestHeaders,
-            encodedRequestBody);
+    const altTransport = transport as IQuasiHttpAltTransport
+    const requestSerializer = altTransport.requestSerializer;
+    let requestSerialized = false;
+    if (requestSerializer) {
+        requestSerialized = await requestSerializer(connection, request)
+    }
+    if (!requestSerialized) {
+        await ProtocolUtilsInternal.writeEntityToTransport(
+            false, request, transport.getWritableStream(connection),
+            connection);
     }
 
-    const encodedResponse = 
-        await ProtocolUtilsInternal.readEntityFromTransport(
-            true, transport, connection);
-
-    const response = new DefaultQuasiHttpResponse({
-        body: encodedResponse.body
-    })
-    QuasiHttpCodec.decodeResponseHeaders(encodedResponse.headers,
-        response)
-    const responseBodyDecodingResult =
-        ProtocolUtilsInternal.decodeResponseBodyFromTransport(
-            response.contentLength,
-            response.body,
-            connection.environment, 
-            connection.processingOptions?.responseBufferingEnabled);
-    response.body = responseBodyDecodingResult[0] as any
-    const responseStreamingEnabled = !!responseBodyDecodingResult[1];
-    const applyResponseBuffering = !!responseBodyDecodingResult[2];
-    if (applyResponseBuffering) {
-        response.body = await ProtocolUtilsInternal.bufferResponseBody(
-            response.contentLength,
-            response.body,
-            connection.processingOptions?.responseBodyBufferingSizeLimit,
-            connection.abortSignal)
+    let response: IQuasiHttpResponse | undefined;
+    const responseDeserializer = altTransport?.responseDeserializer 
+    if (responseDeserializer) {
+        response = await responseDeserializer(connection)
     }
-    if (responseStreamingEnabled) {
-        response.release = async () => {
-            await transport.releaseConnection(connection, true);
+    if (!response) {
+        response = await ProtocolUtilsInternal.readEntityFromTransport(
+            true, transport.getReadableStream(connection),
+            connection)
+        if (!response.body) {
+            response.release = async () => {
+                await transport.releaseConnection(connection, undefined);
+            }
         }
     }
-    await abort(transport, connection, false, responseStreamingEnabled);
+    await abort(transport, connection, false, response);
     return response;
 }
 
 async function abort(transport: IQuasiHttpClientTransport,
         connection: QuasiHttpConnection,
-        errorOccured: boolean, responseStreamingEnabled = false) {
+        errorOccured: boolean,
+        response?: IQuasiHttpResponse) {
     if (errorOccured) {
         try {
             // don't wait.
-            transport.releaseConnection(connection, false);
+            transport.releaseConnection(connection, undefined);
         }
         catch { } // ignore
     }
     else {
         await transport.releaseConnection(connection,
-            responseStreamingEnabled);
+            response);
     }
 }

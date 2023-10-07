@@ -5,12 +5,11 @@ import {
 import {
     QuasiHttpConnection,
     QuasiHttpApplication,
-    IQuasiHttpServerTransport
+    IQuasiHttpServerTransport,
+    IQuasiHttpRequest,
+    IQuasiHttpAltTransport
 } from "./types";
 import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
-import * as QuasiHttpCodec from "./protocol-impl/QuasiHttpCodec"
-import * as QuasiHttpUtils from "./QuasiHttpUtils"
-import { DefaultQuasiHttpRequest } from "./DefaultQuasiHttpRequest";
 
 /**
  * The standard implementation of the server side of the quasi http protocol
@@ -104,16 +103,17 @@ async function processAccept(
         application: QuasiHttpApplication,
         transport: IQuasiHttpServerTransport,
         connection: QuasiHttpConnection) {
-    const encodedRequest= await
-        ProtocolUtilsInternal.readEntityFromTransport(
-            false, transport, connection);
-
-    const request = new DefaultQuasiHttpRequest({
-        environment: connection.environment
-    });
-    QuasiHttpCodec.decodeRequestHeaders(encodedRequest.headers, request);
-    request.body = ProtocolUtilsInternal.decodeRequestBodyFromTransport(
-        request.contentLength, encodedRequest.body);
+    let request: IQuasiHttpRequest | undefined
+    const altTransport = transport as IQuasiHttpAltTransport
+    const requestDeserializer = altTransport.requestDeserializer
+    if (requestDeserializer) {
+        request = await requestDeserializer(connection)
+    }
+    if (!request) {
+        request = await ProtocolUtilsInternal.readEntityFromTransport(
+            false, transport.getReadableStream(connection),
+            connection)
+    }
 
     const response = await application(request);
     if (!response) {
@@ -121,14 +121,15 @@ async function processAccept(
     }
 
     try {
-        if (ProtocolUtilsInternal.getEnvVarAsBoolean(response.environment,
-                QuasiHttpUtils.ENV_KEY_SKIP_SENDING) !== true) {
-            const encodedResponseHeaders = QuasiHttpCodec.encodeResponseHeaders(response,
-                connection.processingOptions?.maxHeadersSize);
-            const encodedResponseBody = ProtocolUtilsInternal.encodeBodyToTransport(true,
-                response.contentLength, response.body);
-            await transport.write(connection, true, encodedResponseHeaders,
-                encodedResponseBody);
+        let responseSerialized = false
+        const responseSerializer = altTransport.responseSerializer
+        if (responseSerializer) {
+            responseSerialized = await responseSerializer(connection, response)
+        }
+        if (!responseSerialized) {
+            await ProtocolUtilsInternal.writeEntityToTransport(
+                true, response, transport.getWritableStream(connection),
+                connection)
         }
     }
     finally {
@@ -144,6 +145,7 @@ async function abort(transport: IQuasiHttpServerTransport,
         connection: QuasiHttpConnection, errorOccured: boolean) {
     if (errorOccured) {
         try {
+            // don't wait
             transport.releaseConnection(connection);
         }
         catch { } // ignore

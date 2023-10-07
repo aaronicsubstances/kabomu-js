@@ -1,4 +1,3 @@
-import nativeAssert from "assert/strict"
 import { assert } from "chai"
 import * as QuasiHttpUtils from "../src/QuasiHttpUtils"
 import { QuasiHttpProcessingOptions } from "../src/types"
@@ -45,8 +44,7 @@ describe("QuasiHttpUtils", function() {
                     ["scheme", "tht"]
                 ]),
                 maxHeadersSize: 10,
-                responseBufferingEnabled: false,
-                responseBodyBufferingSizeLimit: -1,
+                maxResponseBodySize: -1,
                 timeoutMillis: 0
             };
             const fallback: QuasiHttpProcessingOptions = {
@@ -55,8 +53,7 @@ describe("QuasiHttpUtils", function() {
                     ["two", 2]
                 ]),
                 maxHeadersSize: 30,
-                responseBufferingEnabled: true,
-                responseBodyBufferingSizeLimit: 40,
+                maxResponseBodySize: 40,
                 timeoutMillis: -1
             };
             const actual = QuasiHttpUtils.mergeProcessingOptions(
@@ -67,8 +64,7 @@ describe("QuasiHttpUtils", function() {
                     ["two", 2]
                 ]),
                 maxHeadersSize: 10,
-                responseBufferingEnabled: false,
-                responseBodyBufferingSizeLimit: 40,
+                maxResponseBodySize: -1,
                 timeoutMillis: -1
             };
             assert.deepEqual(actual, expected);

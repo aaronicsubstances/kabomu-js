@@ -39,25 +39,29 @@ async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
 async function transferFile(instance, serverEndpoint, f) {
     const request = new DefaultQuasiHttpRequest()
     request.headers = new Map([
-        ["f", f.fullpath()]
+        ["f", Buffer.from(f.name).toString("base64")]
     ])
     const echoBodyOn = Math.random() < 0.5;
     if (echoBodyOn) {
-        request.headers.set("echo-body", [ f.fullpath() ]);
+        request.headers.set("echo-body", [
+            Buffer.from(f.fullpath()).toString("base64")
+        ]);
     }
 
     // add body
     const fd = await fs.open(f.fullpath())
     const fileStream = fd.createReadStream()
-    request.contentLength = Math.random() < 0.5 ? -1 : f.size
-    //request.contentLength = f.size
     request.body = fileStream
+    request.contentLength = -1
+    if (Math.random() < 0.5) {
+        request.contentLength = f.size
+    }
 
     // determine options
     let sendOptions
     if (Math.random() < 0.5) {
         sendOptions = {
-            responseBufferingEnabled: false
+            maxResponseBodySize : -1
         }
     }
     let res
@@ -72,7 +76,8 @@ async function transferFile(instance, serverEndpoint, f) {
         }
         if (res.statusCode === QuasiHttpUtils.STATUS_CODE_OK) {
             if (echoBodyOn) {
-                const actualResBody = await readableToString(res.body)
+                let actualResBody = await readableToString(res.body)
+                actualResBody = Buffer.from(actualResBody, "base64").toString()
                 if (actualResBody != f.fullpath()) {
                     throw new Error("expected echo body to be " +
                         `${f.fullpath()} but got ${actualResBody}`);

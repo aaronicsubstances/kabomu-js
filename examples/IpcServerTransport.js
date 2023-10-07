@@ -73,15 +73,15 @@ class IpcServerTransport {
     }
 
     async releaseConnection(connection) {
-        await connection.release(false)
+        await connection.release(undefined)
     }
 
-    async write(connection, isResponse, encodedHeaders, body) {
-        await connection.write(isResponse, encodedHeaders, body)
+    getReadableStream(connection) {
+        return connection.stream
     }
 
-    async read(connection, isResponse, encodedHeadersReceiver) {
-        return await connection.read(isResponse, encodedHeadersReceiver)
+    getWritableStream(connection) {
+        return connection.stream
     }
 }
 

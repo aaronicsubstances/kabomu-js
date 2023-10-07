@@ -15,7 +15,9 @@ exports.create = function(remoteEndpoint, downloadDirPath) {
 };
 
 async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
-    const fileName = path.basename(request.headers.get("f")[0])
+    let fileName = request.headers.get("f")[0]
+    fileName = Buffer.from(fileName, "base64").toString()
+    fileName = path.basename(fileName)
 
     let transferError
     try {
@@ -59,9 +61,9 @@ async function receiveFileTransfer(request, remoteEndpoint, downloadDirPath) {
     if (responseBody) {
         const responseBytes = Buffer.from(responseBody)
         response.body = Readable.from(responseBytes);
-        response.contentLength = responseBytes.length
+        response.contentLength = -1;
         if (Math.random() < 0.5) {
-            response.contentLength = -1;
+            response.contentLength = responseBytes.length;
         }
     }
 
