@@ -20,7 +20,7 @@ export async function compareRequests(
     assert.equal(actual.target, expected.target);
     compareHeaders(actual.headers, expected.headers);
     //assert.equal(actual.environment, expected.environment);
-    await compareBodies(actual.body, expected.body, expectedReqBodyBytes);
+    await compareBodies(actual.body, expectedReqBodyBytes);
 }
 
 export async function compareResponses(
@@ -37,25 +37,25 @@ export async function compareResponses(
     assert.equal(actual.contentLength, expected.contentLength);
     compareHeaders(actual.headers, expected.headers);
     //assert.equal(actual.environment, expected.environment);
-    await compareBodies(actual.body, expected.body, expectedResBodyBytes);
+    await compareBodies(actual.body, expectedResBodyBytes);
 }
 
 export async function compareBodies(
         actual: Readable | undefined,
-        expected: Readable | undefined,
         expectedBodyBytes: Buffer | undefined) {
-    if (!actual || !expected || !expectedBodyBytes) {
-        assert.equal(actual, expected)
+    if (!expectedBodyBytes) {
+        assert.isNotOk(actual)
         return;
     }
-    const actualBodyBytes = await readAllBytes(actual)
+    assert.isOk(actual)
+    const actualBodyBytes = await readAllBytes(actual!)
     assert.equalBytes(actualBodyBytes, expectedBodyBytes)
 }
 
 function compareHeaders(
         actual: Map<string, Array<string>> | undefined,
         expected: Map<string, Array<string>> | undefined) {
-    const actualExtraction = new Map<string, string[]>();
+    const actualExtraction = new Array<string[]>();
     if (actual) {
         for (const key of actual.keys()) {
             let value = actual[key];
@@ -63,11 +63,11 @@ function compareHeaders(
                 value = [value]
             }
             if (value && value.length > 0) {
-                actualExtraction.set(key, value);
+                actualExtraction.push([key, ...value]);
             }
         }
     }
-    const expectedExtraction = new Map<string, string[]>();
+    const expectedExtraction = new Array<string[]>();
     if (expected) {
         for (const key of expected.keys()) {
             let value = expected[key];
@@ -75,7 +75,7 @@ function compareHeaders(
                 value = [value]
             }
             if (value && value.length > 0) {
-                expectedExtraction.set(key, value);
+                expectedExtraction.push([key, ...value]);
             }
         }
     }
