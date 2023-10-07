@@ -1,7 +1,7 @@
 const readline = require('readline/promises')
 const {
     StandardQuasiHttpServer
-} =  require("kabomu-js")
+} =  require("kabomu")
 const FileReceiver = require("./FileReceiver")
 const {
     LocalhostTcpServerTransport

@@ -1,6 +1,6 @@
 const {
     StandardQuasiHttpClient
-} =  require("kabomu-js")
+} =  require("kabomu")
 const { startTransferringFiles } = require("./FileSender")
 const {
     IpcClientTransport

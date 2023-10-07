@@ -1,6 +1,6 @@
 const {
     QuasiHttpUtils
-} = require("kabomu-js")
+} = require("kabomu")
 
 class SocketConnection {
     _socket = undefined

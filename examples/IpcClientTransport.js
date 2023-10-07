@@ -1,7 +1,7 @@
 const net = require("node:net")
 const {
     QuasiHttpUtils
-} = require("kabomu-js")
+} = require("kabomu")
 const { SocketConnection } = require("./SocketConnection")
 
 class IpcClientTransport {

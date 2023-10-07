@@ -5,7 +5,7 @@ const { pipeline } = require('node:stream/promises')
 const {
     DefaultQuasiHttpResponse,
     QuasiHttpUtils
-} = require("kabomu-js")
+} = require("kabomu")
 const { logDebug, logInfo, logError } = require('./AppLogger')
 
 exports.create = function(remoteEndpoint, downloadDirPath) {

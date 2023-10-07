@@ -6,7 +6,7 @@ const { globIterate } = require('glob')
 const {
     DefaultQuasiHttpRequest,
     QuasiHttpUtils
-} = require("kabomu-js")
+} = require("kabomu")
 const { logDebug, logInfo, logWarn } = require('./AppLogger')
 
 async function startTransferringFiles(instance, serverEndpoint, uploadDirPath) {
