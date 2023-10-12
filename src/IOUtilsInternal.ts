@@ -107,7 +107,7 @@ export async function readBytesFully(
     const data = await tryReadBytesFully(stream,
         count, abortSignal)
     if (data.length !== count) {
-        throw KabomuIOError._createEndOfReadError();
+        throw KabomuIOError.createEndOfReadError();
     }
     return data;
 }

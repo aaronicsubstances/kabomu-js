@@ -3,7 +3,6 @@ import {
     QuasiHttpError
 } from "./errors"
 import {
-    ConnectionAllocationResponse,
     IQuasiHttpAltTransport,
     IQuasiHttpClientTransport,
     IQuasiHttpRequest,
@@ -100,16 +99,15 @@ export class StandardQuasiHttpClient {
             throw new MissingDependencyError("client transport");
         }
 
-        const connectionAllocationResponse = await transport.allocateConnection(
+        const connection = await transport.allocateConnection(
             remoteEndpoint, sendOptions);
-        const connection = connectionAllocationResponse?.connection
         if (!connection) {
             throw new QuasiHttpError("no connection")
         }
         try {
             const responsePromise = processSend(
                 request, requestFunc,
-                transport, connection, connectionAllocationResponse)
+                transport, connection)
             if (connection.timeoutPromise) {
                 const timeoutPromise = ProtocolUtilsInternal.wrapTimeoutPromise(
                     connection.timeoutPromise, "send timeout")
@@ -136,10 +134,9 @@ async function processSend(
         request: IQuasiHttpRequest | undefined,
         requestFunc: any,
         transport: IQuasiHttpClientTransport,
-        connection: QuasiHttpConnection,
-        connectionAllocationResponse: ConnectionAllocationResponse) {
+        connection: QuasiHttpConnection) {
     // wait for connection to be completely established.
-    await connectionAllocationResponse.connectPromise;
+    await transport.establishConnection(connection);
 
     if (!request) {
         request = await requestFunc(connection.environment)
@@ -188,7 +185,8 @@ async function abort(transport: IQuasiHttpClientTransport,
     if (errorOccured) {
         try {
             // don't wait.
-            transport.releaseConnection(connection, undefined);
+            Promise.resolve(transport.releaseConnection(connection, undefined))
+                .catch(() => {}); // swallow errors
         }
         catch { } // ignore
     }

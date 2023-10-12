@@ -56,7 +56,7 @@ class LocalhostTcpServerTransport {
         })
         try {
             const connection = new SocketConnection(socket,
-                false, this.defaultProcessingOptions)
+                undefined, this.defaultProcessingOptions)
             await this.server.acceptConnection(connection)
         }
         catch (e) {

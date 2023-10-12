@@ -134,12 +134,6 @@ export function containsOnlyPrintableAsciiChars(v: string,
     return true;
 }
 
-/**
- * Serializes quasi http request or response headers.
- * @param reqOrStatusLine request or response status line
- * @param remainingHeaders headers after request or status line
- * @returns serialized representation of quasi http headers
- */
 export function encodeQuasiHttpHeaders(isResponse: boolean,
         reqOrStatusLine: string[],
         remainingHeaders?: Map<string, string[]>) {
@@ -193,22 +187,10 @@ function stringifyPossibleNull(s: any) {
     return (s === null || typeof s === "undefined") ? "" : `${s}`;
 }
 
-/**
- * Deserializes a quasi http request or response header section.
- * @param buffer source of data to deserialize
- * @param headersReceiver will be extended with remaining headers found
- * after the request or response line
- * @returns request or response line, ie first row before headers
- * @throws QuasiHttpError if buffer argument contains
- * invalid quasi http request or response headers
- */
 export function decodeQuasiHttpHeaders(
         isResponse: boolean,
         buffer: Buffer,
         headersReceiver: Map<string, string[]>) {
-    if (!buffer) {
-        throw new Error("buffer argument is null");
-    }
     let csv: Array<string[]>;
     try {
         csv = CsvUtils.deserialize(bytesToString(
@@ -252,8 +234,7 @@ export async function writeQuasiHttpHeaders(
         dest: Writable,
         reqOrStatusLine: string[],
         remainingHeaders: Map<string, string[]> | undefined,
-        maxHeadersSize?: number,
-        abortSignal?: AbortSignal) {
+        maxHeadersSize?: number) {
     const encodedHeaders = encodeQuasiHttpHeaders(isResponse,
         reqOrStatusLine,
         remainingHeaders)
@@ -276,8 +257,7 @@ export async function writeQuasiHttpHeaders(
         yield encodedHeaders
     })());
     await pipeline(encodedHeadersReadable, dest, {
-        end: false,
-        signal: abortSignal
+        end: false
     });
 }
 
@@ -285,10 +265,9 @@ export async function readQuasiHttpHeaders(
         isResponse: boolean,
         src: Readable,
         headersReceiver: Map<string, string[]>,
-        maxHeadersSize?: number,
-        abortSignal?: AbortSignal) {
+        maxHeadersSize?: number) {
     const encodedTag = await IOUtilsInternal.readBytesFully(src,
-        4, abortSignal);
+        4);
     const tag = TlvUtils.decodeTag(encodedTag, 0);
     if (tag !== TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS) {
         throw new QuasiHttpError(
@@ -299,7 +278,7 @@ export async function readQuasiHttpHeaders(
         maxHeadersSize = QuasiHttpUtils.DEFAULT_MAX_HEADERS_SIZE;
     }
     const encodedLen = await IOUtilsInternal.readBytesFully(src,
-        4, abortSignal);
+        4);
     const headersSize = TlvUtils.decodeTag(encodedLen, 0);
     if (headersSize > maxHeadersSize) {
         throw new QuasiHttpError(
@@ -308,7 +287,7 @@ export async function readQuasiHttpHeaders(
             QuasiHttpError.REASON_CODE_MESSAGE_LENGTH_LIMIT_EXCEEDED);
     }
     const encodedHeaders = await IOUtilsInternal.readBytesFully(
-        src, headersSize, abortSignal);
+        src, headersSize);
     return decodeQuasiHttpHeaders(isResponse, encodedHeaders,
         headersReceiver);
 }
@@ -323,41 +302,38 @@ export async function writeEntityToTransport(
             "no writable stream found for transport")
     }
     let body: Readable | undefined;
-    let contentLength: number | undefined;
+    let contentLength = 0;
     let reqOrStatusLine: any
     let headers: Map<string, string[]> | undefined
     if (isResponse) {
         const response = entity as IQuasiHttpResponse
         headers = response.headers
         body = response.body
-        contentLength = response.contentLength
+        contentLength = response.contentLength || 0
         reqOrStatusLine = [
             response.httpVersion,
             response.statusCode || 0,
             response.httpStatusMessage,
-            undefined
+            contentLength
         ]
     }
     else {
         const request = entity as IQuasiHttpRequest
         headers = request.headers
         body = request.body
-        contentLength = request.contentLength
+        contentLength = request.contentLength || 0
         reqOrStatusLine = [
             request.httpMethod,
             request.target,
             request.httpVersion,
-            undefined
+            contentLength
         ]
     }
     // treat content lengths totally separate from body
     // due to how HEAD method works.
-    contentLength = contentLength || 0
-    reqOrStatusLine[3] = contentLength
     await writeQuasiHttpHeaders(isResponse,
         writableStream, reqOrStatusLine, headers,
-        connection.processingOptions?.maxHeadersSize,
-        connection.abortSignal)
+        connection.processingOptions?.maxHeadersSize)
     if (!body) {
         // don't proceed, even if content length is not zero.
         return;
@@ -366,8 +342,7 @@ export async function writeEntityToTransport(
         // don't enforce positive content lengths when writing out
         // quasi http bodies
         await pipeline(body, writableStream, {
-            end: false,
-            signal: connection.abortSignal
+            end: false
         })
     }
     else {
@@ -375,8 +350,7 @@ export async function writeEntityToTransport(
         const encodedBody = TlvUtils.createTlvEncodingReadableStream(
             body, TlvUtils.TAG_FOR_QUASI_HTTP_BODY_CHUNK)
         await pipeline(encodedBody, writableStream, {
-            end: false,
-            signal: connection.abortSignal
+            end: false
         })
     }
 }
@@ -395,8 +369,7 @@ export async function readEntityFromTransport(
         isResponse,
         readableStream,
         headersReceiver,
-        connection.processingOptions?.maxHeadersSize,
-        connection.abortSignal)
+        connection.processingOptions?.maxHeadersSize)
     let contentLength = 0;
     try {
         contentLength = parseInt48(reqOrStatusLine[3])

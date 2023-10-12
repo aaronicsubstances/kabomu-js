@@ -130,7 +130,7 @@ export function createContentLengthEnforcingStream(
     };
     const onEnd = (instance: Readable) => {
         if (bytesLeft) {
-            instance.destroy(KabomuIOError._createEndOfReadError());
+            instance.destroy(KabomuIOError.createEndOfReadError());
         }
         else {
             if (contentLength) {
@@ -365,7 +365,7 @@ export function createTlvDecodingReadableStream(
         }
     };
     const onEnd = (instance: Readable) => {
-        instance.destroy(KabomuIOError._createEndOfReadError());
+        instance.destroy(KabomuIOError.createEndOfReadError());
     };
     return createReadableStreamDecorator(backingStream,
         onData, onEnd);

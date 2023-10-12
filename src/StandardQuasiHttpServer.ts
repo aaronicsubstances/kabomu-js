@@ -146,7 +146,8 @@ async function abort(transport: IQuasiHttpServerTransport,
     if (errorOccured) {
         try {
             // don't wait
-            transport.releaseConnection(connection);
+            Promise.resolve(transport.releaseConnection(connection))
+                .catch(() => {}); // swallow errors
         }
         catch { } // ignore
     }

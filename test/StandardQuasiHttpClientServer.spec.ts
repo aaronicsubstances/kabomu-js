@@ -6,11 +6,18 @@ import { DefaultQuasiHttpResponse } from "../src/DefaultQuasiHttpResponse"
 import  {
     stringToBytes
 } from "../src/MiscUtilsInternal"
-import { IQuasiHttpRequest, QuasiHttpConnection, QuasiHttpProcessingOptions } from "../src/types"
+import {
+    IQuasiHttpRequest,
+    QuasiHttpProcessingOptions
+} from "../src/types"
 import { StandardQuasiHttpClient } from "../src/StandardQuasiHttpClient"
 import { StandardQuasiHttpServer } from "../src/StandardQuasiHttpServer"
 import { createRandomizedReadSizeBufferReader } from "./shared/RandomizedReadSizeBufferReader"
-import { compareRequests, compareResponses, readAllBytes } from "./shared/ComparisonUtils"
+import {
+    compareRequests,
+    compareResponses,
+    readAllBytes
+} from "./shared/ComparisonUtils"
 
 describe("StandardQuasiHttpClientServerTest", function() {
     describe("TestRequestSerialization", function() {
@@ -128,9 +135,10 @@ describe("StandardQuasiHttpClientServerTest", function() {
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
-                    return {
-                        connection: clientConnection
-                    }
+                    return clientConnection
+                }
+                clientTransport.establishConnection = async (conn) => {
+                    assert.strictEqual(conn, clientConnection)
                 }
                 clientTransport.responseDeserializer = async (conn) => {
                     assert.strictEqual(conn, clientConnection)
@@ -312,9 +320,10 @@ describe("StandardQuasiHttpClientServerTest", function() {
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
-                    return {
-                        connection: clientConnection
-                    }
+                    return clientConnection
+                }
+                clientTransport.establishConnection = async (conn) => {
+                    assert.strictEqual(conn, clientConnection)
                 }
                 clientTransport.responseDeserializer = async (conn) => {
                     assert.strictEqual(conn, clientConnection)
@@ -480,9 +489,10 @@ describe("StandardQuasiHttpClientServerTest", function() {
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
-                    return {
-                        connection: clientConnection
-                    }
+                    return clientConnection
+                }
+                clientTransport.establishConnection = async (conn) => {
+                    assert.strictEqual(conn, clientConnection)
                 }
                 clientTransport.requestSerializer = async (conn, req) => {
                     assert.strictEqual(conn, clientConnection)
@@ -702,9 +712,10 @@ describe("StandardQuasiHttpClientServerTest", function() {
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
-                    return {
-                        connection: clientConnection
-                    }
+                    return clientConnection
+                }
+                clientTransport.establishConnection = async (conn) => {
+                    assert.strictEqual(conn, clientConnection)
                 }
                 clientTransport.requestSerializer = async (conn, req) => {
                     assert.strictEqual(conn, clientConnection)

@@ -1,26 +1,6 @@
 import { Readable, Writable } from "stream"
 
 /**
- * Contains connection and other connection-related information created by
- * IQuasiHttpClientTransport instances
- * in response to a connection allocation request.
- */
-export interface ConnectionAllocationResponse {
-
-    /**
-     * An object that a quasi http transport instance can
-     * use to read or write data.
-     */
-    connection: QuasiHttpConnection
-
-    /**
-     * An optional promise that would have to be completed before
-     * connection property will be fully ready to use.
-     */
-    connectPromise?: Promise<void>
-}
-
-/**
  * Common interface of instances in Kabomu library which perform
  * resource clean-up operations.
  */
@@ -53,10 +33,17 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
      * allocation request
      * @param sendOptions any options given to one of the send*() methods of
      * the StandardQuasiHttpClient class
-     * @returns a promise whose result contains connection to remote endpoint
+     * @returns a promise whose result is a connection to remote endpoint
      */
     allocateConnection(remoteEndpoint: any, sendOptions?: QuasiHttpProcessingOptions ):
-        Promise<ConnectionAllocationResponse | undefined>
+        Promise<QuasiHttpConnection | undefined>
+
+    /**
+     * Activates or establishes a connection created with
+     * allocateConnection() method.
+     * @param connection connection to establish before use
+     */
+    establishConnection(connection: QuasiHttpConnection): Promise<void>
 
     /**
      * Releases resources held by a connection of a quasi http transport instance.
@@ -73,14 +60,6 @@ export interface IQuasiHttpClientTransport extends IQuasiHttpTransport  {
  * for reading or writing data.
  */
 export interface QuasiHttpConnection {
-
-    /**
-     * Optional instance of AbortSignal
-     * that will be used to cancel ongoing response buffering, and any other
-     * time consuming operations by StandardQuasiHttpClient
-     * StandardQuasiHttpServer instances.
-     */
-    abortSignal?: AbortSignal
 
     /**
      * Gets the effective processing options that will be used to

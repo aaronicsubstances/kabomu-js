@@ -15,7 +15,13 @@ class LocalhostTcpClientTransport {
         const port = QuasiHttpUtils.parseInt32(remoteEndpoint)
         const socket = new net.Socket()
         const connection = new SocketConnection(socket,
-            true, sendOptions, this.defaultSendOptions)
+            port, sendOptions, this.defaultSendOptions)
+        return connection
+    }
+
+    async establishConnection(connection) {
+        const socket = connection.socket;
+        const port = connection.clientPortOrPath;
         const blankCheque = QuasiHttpUtils.createBlankChequePromise()
         const errorListener = e => {
             blankCheque.reject(e)
@@ -28,13 +34,8 @@ class LocalhostTcpClientTransport {
         socket.connect(connectOpts, "::1", () => {
             blankCheque.resolve()
         })
-        const connectionAllocationResponse = {
-            connection,
-            connectPromise: blankCheque.promise.then(() => {
-                socket.removeListener("error", errorListener)
-            })
-        }
-        return connectionAllocationResponse
+        await blankCheque.promise;
+        socket.removeListener("error", errorListener)
     }
 
     async releaseConnection(connection, response) {

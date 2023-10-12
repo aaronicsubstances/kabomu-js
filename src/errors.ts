@@ -16,7 +16,7 @@ export class KabomuIOError extends KabomuError {
      * Creates error indicating that reading from a stream has
      * unexpectedly ended.
      */
-    static _createEndOfReadError()
+    static createEndOfReadError()
     {
         return new KabomuIOError("unexpected end of read");
     }

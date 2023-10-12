@@ -3,19 +3,19 @@ const {
 } = require("kabomu")
 
 class SocketConnection {
-    _socket = undefined
-    _abortController = undefined
+    socket = undefined
+    clientPortOrPath = undefined
     _timeoutId = undefined
     processingOptions = undefined
     environment = undefined
 
-    constructor(socket, isClient, processingOptions,
+    constructor(socket, clientPortOrPath, processingOptions,
             fallbackProcessingOptions) {
-        this._socket = socket
+        this.socket = socket
+        this.clientPortOrPath = clientPortOrPath
         this.processingOptions = QuasiHttpUtils.mergeProcessingOptions(
             processingOptions, fallbackProcessingOptions) ||
             {}
-        this._abortController = new AbortController()
         this._timeoutId = QuasiHttpUtils.createCancellableTimeoutPromise(
             this.processingOptions.timeoutMillis);
     }
@@ -23,13 +23,9 @@ class SocketConnection {
     get timeoutPromise() {
         return this._timeoutId?.promise
     }
-
-    get abortSignal() {
-        return this._abortController.signal
-    }
     
     get stream() {
-        return this._socket
+        return this.socket
     }
 
     async release(response) {
@@ -37,9 +33,8 @@ class SocketConnection {
         if (response?.body) {
             return;
         }
-        this._abortController.abort()
-        this._socket.end(() => {
-            this._socket.destroy()
+        this.socket.end(() => {
+            this.socket.destroy()
         })
     }
 }
