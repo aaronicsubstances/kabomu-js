@@ -84,6 +84,7 @@ export class StandardQuasiHttpServer {
                     acceptPromise, timeoutPromise]);
             }
             await acceptPromise;
+            await abort(transport, connection, false)
         }
         catch (e) {
             await abort(transport, connection, true)
@@ -138,7 +139,6 @@ async function processAccept(
             await releaseFunc.call(response);
         }
     }
-    await abort(transport, connection, false)
 }
 
 async function abort(transport: IQuasiHttpServerTransport,

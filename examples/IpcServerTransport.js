@@ -8,12 +8,12 @@ const { unlink } = require("node:fs/promises")
 
 class IpcServerTransport {
     defaultProcessingOptions = undefined
-    server = undefined
+    quasiHttpServer = undefined
     ipcPath = ''
 
     constructor(options) {
         this.defaultProcessingOptions = options?.defaultProcessingOptions
-        this.server = options?.server
+        this.quasiHttpServer = options?.quasiHttpServer
         this.ipcPath = options?.ipcPath
         this.serverSocket = net.createServer({
             noDelay: true
@@ -65,7 +65,7 @@ class IpcServerTransport {
         try {
             const connection = new SocketConnection(socket,
                 undefined, this.defaultProcessingOptions)
-            await this.server.acceptConnection(connection)
+            await this.quasiHttpServer.acceptConnection(connection)
         }
         catch (e) {
             logWarn("connection processing error", e)

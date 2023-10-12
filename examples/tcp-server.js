@@ -18,7 +18,7 @@ async function main() {
     });
     const transport = new LocalhostTcpServerTransport({
         port,
-        server: instance,
+        quasiHttpServer: instance,
         defaultProcessingOptions : {
             timeoutMillis: 5_000
         }

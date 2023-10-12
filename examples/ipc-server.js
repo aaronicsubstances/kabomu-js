@@ -18,7 +18,7 @@ async function main() {
     });
     const transport = new IpcServerTransport({
         ipcPath,
-        server: instance,
+        quasiHttpServer: instance,
         defaultProcessingOptions : {
             timeoutMillis: 5_000
         }

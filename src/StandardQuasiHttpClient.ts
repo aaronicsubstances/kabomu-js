@@ -114,7 +114,9 @@ export class StandardQuasiHttpClient {
                 await Promise.race([
                     responsePromise, timeoutPromise]);
             }
-            return await responsePromise;
+            const response = await responsePromise;
+            await abort(transport, connection, false, response);
+            return response;
         }
         catch (e) {
             await abort(transport, connection, true)
@@ -174,7 +176,6 @@ async function processSend(
             }
         }
     }
-    await abort(transport, connection, false, response);
     return response;
 }
 

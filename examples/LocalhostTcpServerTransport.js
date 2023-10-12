@@ -7,12 +7,12 @@ const { logWarn } = require("./AppLogger")
 
 class LocalhostTcpServerTransport {
     defaultProcessingOptions = undefined
-    server = undefined
+    quasiHttpServer = undefined
     port = 0
 
     constructor(options) {
         this.defaultProcessingOptions = options?.defaultProcessingOptions
-        this.server = options?.server
+        this.quasiHttpServer = options?.quasiHttpServer
         this.port = options?.port
         this.serverSocket = net.createServer({
             noDelay: true
@@ -57,7 +57,7 @@ class LocalhostTcpServerTransport {
         try {
             const connection = new SocketConnection(socket,
                 undefined, this.defaultProcessingOptions)
-            await this.server.acceptConnection(connection)
+            await this.quasiHttpServer.acceptConnection(connection)
         }
         catch (e) {
             logWarn("connection processing error", e)
