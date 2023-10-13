@@ -108,11 +108,11 @@ export class StandardQuasiHttpClient {
             const responsePromise = processSend(
                 request, requestFunc,
                 transport, connection)
-            if (connection.timeoutPromise) {
-                const timeoutPromise = ProtocolUtilsInternal.wrapTimeoutPromise(
-                    connection.timeoutPromise, "send timeout")
+            const timeoutPromise = connection.timeoutPromise;
+            if (timeoutPromise) {
                 await Promise.race([
-                    responsePromise, timeoutPromise]);
+                    responsePromise, ProtocolUtilsInternal.wrapTimeoutPromise(
+                        timeoutPromise, true)]);
             }
             const response = await responsePromise;
             await abort(transport, connection, false, response);

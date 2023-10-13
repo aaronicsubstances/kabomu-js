@@ -86,20 +86,21 @@ describe("ProtocolUtilsInternal", function() {
 
     describe("#wrapTimeoutPromise", function() {
         it("should pass (1)", async function() {
+            const promise = Promise.resolve(false);
             await ProtocolUtilsInternal.wrapTimeoutPromise(
-                undefined, "")
+                promise, true);
         })
         it("should pass (2)", async function() {
             await ProtocolUtilsInternal.wrapTimeoutPromise(
-                Promise.resolve(false), "")
+                Promise.resolve() as any, false)
         })
         it("should pass (3)", async function() {
             await nativeAssert.rejects(async () => {
                 await ProtocolUtilsInternal.wrapTimeoutPromise(
-                    Promise.resolve(true), "te")
+                    Promise.resolve(true), true)
             }, (e: any) => {
                 assert.instanceOf(e, QuasiHttpError)
-                assert.equal(e.message, "te")
+                assert.equal(e.message, "send timeout")
                 assert.equal(e.reasonCode, QuasiHttpError.REASON_CODE_TIMEOUT)
                 return true;
             })
@@ -107,10 +108,10 @@ describe("ProtocolUtilsInternal", function() {
         it("should pass (4)", async function() {
             await nativeAssert.rejects(async () => {
                 await ProtocolUtilsInternal.wrapTimeoutPromise(
-                    Promise.resolve({} as any), "recv")
+                    Promise.resolve({} as any), false)
             }, (e: any) => {
                 assert.instanceOf(e, QuasiHttpError)
-                assert.equal(e.message, "recv")
+                assert.equal(e.message, "receive timeout")
                 assert.equal(e.reasonCode, QuasiHttpError.REASON_CODE_TIMEOUT)
                 return true;
             })
@@ -118,7 +119,7 @@ describe("ProtocolUtilsInternal", function() {
         it("should pass (5)", async function() {
             await nativeAssert.rejects(async () => {
                 await ProtocolUtilsInternal.wrapTimeoutPromise(
-                    Promise.reject(new Error("th")), "te")
+                    Promise.reject(new Error("th")), true)
             }, (e: any) => {
                 assert.instanceOf(e, Error)
                 assert.equal(e.message, "th")
@@ -128,7 +129,7 @@ describe("ProtocolUtilsInternal", function() {
         it("should pass (6)", async function() {
             await nativeAssert.rejects(async () => {
                 await ProtocolUtilsInternal.wrapTimeoutPromise(
-                    Promise.reject(new KabomuIOError("2gh")), "te")
+                    Promise.reject(new KabomuIOError("2gh")), false)
             }, (e: any) => {
                 assert.instanceOf(e, KabomuIOError)
                 assert.equal(e.message, "2gh")

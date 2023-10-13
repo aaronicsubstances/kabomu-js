@@ -36,11 +36,9 @@ export function getEnvVarAsBoolean(
 }
 
 export async function wrapTimeoutPromise(
-        timeoutPromise: Promise<boolean> | undefined,
-        timeoutMsg: string) {
-    if (!timeoutPromise) {
-        return;
-    }
+        timeoutPromise: Promise<boolean>,
+        forClient: boolean) {
+    const timeoutMsg = forClient ? "send timeout" : "receive timeout";
     if (await timeoutPromise) {
         throw new QuasiHttpError(timeoutMsg,
             QuasiHttpError.REASON_CODE_TIMEOUT);

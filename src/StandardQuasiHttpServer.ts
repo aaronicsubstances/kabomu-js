@@ -77,11 +77,11 @@ export class StandardQuasiHttpServer {
         try {
             const acceptPromise = processAccept(application,
                 transport, connection);
-            if (connection.timeoutPromise) {
-                const timeoutPromise = ProtocolUtilsInternal.wrapTimeoutPromise(
-                    connection.timeoutPromise, "receive timeout")
+            const timeoutPromise = connection.timeoutPromise;
+            if (timeoutPromise) {
                 await Promise.race([
-                    acceptPromise, timeoutPromise]);
+                    acceptPromise, ProtocolUtilsInternal.wrapTimeoutPromise(
+                        timeoutPromise, false)]);
             }
             await acceptPromise;
             await abort(transport, connection, false)
