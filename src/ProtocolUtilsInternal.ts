@@ -5,35 +5,23 @@ import {
     parseInt32,
     parseInt48,
     stringToBytes
-} from "../MiscUtilsInternal";
-import * as QuasiHttpUtils from "../QuasiHttpUtils";
-import * as IOUtilsInternal from "../IOUtilsInternal"
-import * as CsvUtils from "../CsvUtils"
-import * as TlvUtils from "./TlvUtils";
+} from "./MiscUtilsInternal";
+import * as QuasiHttpUtils from "./QuasiHttpUtils";
+import * as IOUtilsInternal from "./IOUtilsInternal"
+import * as CsvUtils from "./CsvUtils"
+import * as TlvUtils from "./tlv/TlvUtils";
 import {
     IQuasiHttpRequest,
     IQuasiHttpResponse,
     QuasiHttpConnection
-} from "../types";
+} from "./types";
 import {
     ExpectationViolationError,
     MissingDependencyError,
     QuasiHttpError
-} from "../errors";
-import { DefaultQuasiHttpResponse } from "../DefaultQuasiHttpResponse";
-import { DefaultQuasiHttpRequest } from "../DefaultQuasiHttpRequest";
-
-export function getEnvVarAsBoolean(
-        environment: Map<string, any> | undefined,
-        key: string) {
-    if (environment && environment.has(key)) {
-        const value = environment.get(key);
-        if (value !== null && typeof value !== "undefined") {
-            return !!value;
-        }
-    }
-    return undefined;
-}
+} from "./errors";
+import { DefaultQuasiHttpResponse } from "./DefaultQuasiHttpResponse";
+import { DefaultQuasiHttpRequest } from "./DefaultQuasiHttpRequest";
 
 export async function wrapTimeoutPromise(
         timeoutPromise: Promise<boolean>,

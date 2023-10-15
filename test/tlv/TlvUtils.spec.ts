@@ -9,7 +9,7 @@ import {
     encodeTagAndLengthOnly,
     decodeTag,
     decodeLength,
-} from "../../src/protocol-impl/TlvUtils"
+} from "../../src/tlv/TlvUtils"
 import { createRandomizedReadSizeBufferReader } from "../shared/RandomizedReadSizeBufferReader"
 import { Readable } from "stream"
 import { readAllBytes } from "../shared/ComparisonUtils"

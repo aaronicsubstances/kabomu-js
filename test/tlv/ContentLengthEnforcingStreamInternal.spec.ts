@@ -5,7 +5,7 @@ import * as MiscUtilsInternal from "../../src/MiscUtilsInternal"
 import * as IOUtilsInternal from "../../src/IOUtilsInternal"
 import {
     createContentLengthEnforcingStream
-} from "../../src/protocol-impl/TlvUtils"
+} from "../../src/tlv/TlvUtils"
 import { createRandomizedReadSizeBufferReader } from "../shared/RandomizedReadSizeBufferReader"
 import { Readable } from "stream"
 import { readAllBytes } from "../shared/ComparisonUtils"

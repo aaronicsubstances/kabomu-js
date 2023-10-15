@@ -9,7 +9,7 @@ import {
     IQuasiHttpRequest,
     IQuasiHttpAltTransport
 } from "./types";
-import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
+import * as ProtocolUtilsInternal from "./ProtocolUtilsInternal"
 
 /**
  * The standard implementation of the server side of the quasi http protocol

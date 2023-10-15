@@ -41,8 +41,7 @@ function locateNextToken(csv: string, start: number,
             tokenInfo[1] = i;
             return true;
         }
-        if (insideQuotedValue && c === '"')
-        {
+        if (insideQuotedValue && c === '"') {
             if (i + 1 < csv.length && csv[i + 1] === '"') {
                 // skip quote pair.
                 i++;
@@ -87,8 +86,7 @@ export function deserialize(csv: string) {
             tokenType = TOKEN_QUOTE;
             // locate ending quote, while skipping over
             // double occurences of quotes.
-            if (!locateNextToken(csv, nextValueStartIdx + 1, true, tokenInfo))
-            {
+            if (!locateNextToken(csv, nextValueStartIdx + 1, true, tokenInfo)) {
                 throw createCsvParseError(parsedCsv.length, currentRow.length,
                     "ending double quote not found");
             }
@@ -202,8 +200,8 @@ export function deserialize(csv: string) {
     return parsedCsv;
 }
 
-function createCsvParseError(row: number, column: number, errorMessage: string) {
-    throw new Error(`CSV parse error at row ${row + 1} column ${column + 1}: ` +
+function createCsvParseError(row: number, column: number, errorMessage?: string) {
+    return new Error(`CSV parse error at row ${row + 1} column ${column + 1}: ` +
         (errorMessage ?? ""));
 }
 

@@ -10,7 +10,7 @@ import {
     QuasiHttpConnection,
     QuasiHttpProcessingOptions,
 } from "./types"
-import * as ProtocolUtilsInternal from "./protocol-impl/ProtocolUtilsInternal"
+import * as ProtocolUtilsInternal from "./ProtocolUtilsInternal"
 
 /**
  * The standard implementation of the client side of the quasi http protocol
