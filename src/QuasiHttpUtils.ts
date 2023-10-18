@@ -206,19 +206,6 @@ export function _determineEffectiveOptions(
     return dest;
 }
 
-export function _determineEffectiveBooleanOption(
-        preferred: boolean | undefined,
-        fallback1: boolean | undefined, 
-        defaultValue: boolean) {
-    if (preferred !== null && typeof preferred !== "undefined") {
-        return !!preferred;
-    }
-    if (fallback1 !== null && typeof fallback1 !== "undefined") {
-        return !!fallback1;
-    }
-    return !!defaultValue;
-}
-
 /**
  * Creates an object representing both a pending timeout and the
  * function to cancel the timeout.

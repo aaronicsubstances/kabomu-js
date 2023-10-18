@@ -4,7 +4,7 @@ const { assert } = require("chai").use(require("chai-bytes"))
 import * as ProtocolUtilsInternal from "../src/ProtocolUtilsInternal"
 import { KabomuIOError, QuasiHttpError } from "../src/errors"
 import { expect } from "chai"
-import { stringToBytes } from "../src/MiscUtilsInternal"
+import { bytesToString, stringToBytes } from "../src/MiscUtilsInternal"
 
 describe("ProtocolUtilsInternal", function() {
     describe("#wrapTimeoutPromise", function() {
@@ -287,8 +287,7 @@ describe("ProtocolUtilsInternal", function() {
             it(`should pass with input ${i}`, function() {
                 const actual = ProtocolUtilsInternal.encodeQuasiHttpHeaders(isResponse,
                     reqOrStatusLine as any, remainingHeaders)
-                assert.equalBytes(actual, stringToBytes(expected))
-                //assert.equal(bytesToString(actual), expected)
+                assert.equal(bytesToString(actual), expected)
             })
         })
 

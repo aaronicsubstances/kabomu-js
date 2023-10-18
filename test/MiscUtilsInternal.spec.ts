@@ -302,21 +302,22 @@ describe("MiscUtilsInternal", function() {
             let actual = MiscUtilsInternal.stringToBytes("");
             assert.equalBytes(actual, expected);
 
+            expected = Buffer.from([97, 98, 99])
             actual = MiscUtilsInternal.stringToBytes("abc")
-            assert.equalBytes(actual,
-                Buffer.from("abc"));
+            assert.equalBytes(actual, expected);
 
             // NB: text between bar and baz is
             // supplementary character 0001d306
             actual = MiscUtilsInternal.stringToBytes(
                 "Foo \u00a9 bar \ud834\udf06 baz \u2603 qux")
-            assert.equalBytes(actual, Buffer.from([
+            expected = Buffer.from([
                 0x46, 0x6f, 0x6f, 0x20, 0xc2, 0xa9, 0x20,
                 0x62, 0x61, 0x72, 0x20,
                 0xf0, 0x9d, 0x8c, 0x86, 0x20, 0x62, 0x61,
                 0x7a, 0x20, 0xe2, 0x98, 0x83,
                 0x20, 0x71, 0x75, 0x78
-            ]))
+            ])
+            assert.equalBytes(actual, expected)
         })
 
         describe("#bytesToString", function() {
@@ -328,7 +329,7 @@ describe("MiscUtilsInternal", function() {
     
                 expected = "abc"
                 actual = MiscUtilsInternal.bytesToString(
-                    Buffer.from("abc"))
+                    Buffer.from([97, 98, 99]))
                 assert.equal(actual, expected);
     
                 // NB: text between bar and baz is

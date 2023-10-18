@@ -155,7 +155,7 @@ describe("IOUtilsInternal", function() {
 
         it("should fail (1)", async function() {
             // arrange
-            const reader = createRandomizedReadSizeBufferReader(
+            const reader = Readable.from(
                 Buffer.from([0, 1, 2, 3, 4, 5, 6, 7])
             )
 

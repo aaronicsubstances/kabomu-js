@@ -1,7 +1,8 @@
 import { Readable, finished } from "stream";
 import {
     ExpectationViolationError,
-    KabomuIOError
+    KabomuIOError,
+    IllegalArgumentError
 } from "../errors";
 import * as IOUtilsInternal from "../IOUtilsInternal";
 import * as MiscUtilsInternal from "../MiscUtilsInternal";
@@ -29,13 +30,13 @@ const DEFAULT_MAX_LENGTH  = 134_217_728; // 128 MB
  * @param length non negative number
  * @returns buffer with tag and length serialized
  */
-export function encodeTagAndLengthOnly(tag: number,
+export function encodeTagAndLength(tag: number,
         length: number) {
     if (!tag || tag < 0) {
-        throw new Error(`invalid tag: ${tag}`)
+        throw new IllegalArgumentError(`invalid tag: ${tag}`)
     }
     if (length < 0) {
-        throw new Error(`invalid tag value length: ${length}`)
+        throw new IllegalArgumentError(`invalid tag value length: ${length}`)
     }
     const tagAndLen = Buffer.allocUnsafeSlow(8);
     MiscUtilsInternal.serializeInt32BE(tag, tagAndLen, 0);
@@ -49,7 +50,7 @@ export function encodeTagAndLengthOnly(tag: number,
  * @returns buffer with tag and zero length serialized
  */
 export function generateEndOfTlvStream(tag: number) {
-    return encodeTagAndLengthOnly(tag, 0)
+    return encodeTagAndLength(tag, 0)
 }
 
 /**
@@ -63,7 +64,7 @@ export function decodeTag(data: Buffer, offset: number) {
     const tag = MiscUtilsInternal.deserializeInt32BE(
         data, offset);
     if (tag <= 0) {
-        throw new KabomuIOError(`invalid tag: ${tag}`)
+        throw new IllegalArgumentError(`invalid tag: ${tag}`)
     }
     return tag;
 }
@@ -78,7 +79,7 @@ export function decodeLength(data: Buffer, offset: number) {
     const decodedLength = MiscUtilsInternal.deserializeInt32BE(
         data, offset);
     if (decodedLength < 0) {
-        throw new KabomuIOError("invalid tag value length: " +
+        throw new IllegalArgumentError("invalid tag value length: " +
             decodedLength)
     }
     return decodedLength;
@@ -209,7 +210,7 @@ export function createTlvEncodingReadableStream(
             return;
         }
         let canReceiveMore = instance.push(
-            encodeTagAndLengthOnly(tagToUse, chunk.length))
+            encodeTagAndLength(tagToUse, chunk.length))
         canReceiveMore &&= instance.push(chunk);
         if (!canReceiveMore) {
             return {
@@ -381,8 +382,18 @@ function tryDecodeTagAndLength(
         return undefined;
     }
     const decodingBuffer = Buffer.concat(chunks);
-    result[0] = decodeTag(decodingBuffer, 0);
-    result[1] = decodeLength(decodingBuffer, 4);
+    const tag = MiscUtilsInternal.deserializeInt32BE(
+        decodingBuffer, 0);
+    if (tag <= 0) {
+        throw new KabomuIOError(`invalid tag: ${tag}`)
+    }
+    const length = MiscUtilsInternal.deserializeInt32BE(
+        decodingBuffer, 4);
+    if (length < 0) {
+        throw new KabomuIOError(`invalid tag value length: ${length}`)
+    }
+    result[0] = tag;
+    result[1] = length;
     return decodingBuffer;
 }
 

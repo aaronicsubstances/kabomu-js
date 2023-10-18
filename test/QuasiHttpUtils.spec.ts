@@ -39,6 +39,33 @@ describe("QuasiHttpUtils", function() {
             assert.isNotOk(actual);
         });
         it("should pass (2)", function() {
+            const preferred = {};
+            const fallback = undefined;
+            const actual = QuasiHttpUtils.mergeProcessingOptions(
+                preferred, fallback);
+            assert.strictEqual(actual, preferred);
+        });
+        it("should pass (3)", function() {
+            const preferred = undefined;
+            const fallback = {};
+            const actual = QuasiHttpUtils.mergeProcessingOptions(
+                preferred, fallback);
+            assert.strictEqual(actual, fallback);
+        });
+        it("should pass (4)", function() {
+            const preferred = {};
+            const fallback = {};
+            const actual = QuasiHttpUtils.mergeProcessingOptions(
+                preferred, fallback);
+            const expected: QuasiHttpProcessingOptions = {
+                extraConnectivityParams: new Map(),
+                maxHeadersSize: 0,
+                maxResponseBodySize: 0,
+                timeoutMillis: 0
+            }
+            assert.deepEqual(actual, expected);
+        });
+        it("should pass (5)", function() {
             const preferred: QuasiHttpProcessingOptions = {
                 extraConnectivityParams: new Map([
                     ["scheme", "tht"]
@@ -326,78 +353,6 @@ describe("QuasiHttpUtils", function() {
                 const actual = QuasiHttpUtils._determineEffectiveOptions(preferred,
                     fallback)
                 assert.deepEqual(actual, expected)
-            })
-        })
-    })
-
-    describe("#_determineEffectiveBooleanOption", function() {
-        const testData = [
-            {
-                preferred: 1,
-                fallback1: null,
-                defaultValue: true,
-                expected: true
-            },
-            {
-                preferred: 0,
-                fallback1: true,
-                defaultValue: true,
-                expected: false
-            },
-            {
-                preferred: null,
-                fallback1: false,
-                defaultValue: true,
-                expected: false
-            },
-            {
-                preferred: null,
-                fallback1: true,
-                defaultValue: false,
-                expected: true
-            },
-            {
-                preferred: null,
-                fallback1: true,
-                defaultValue: true,
-                expected: true
-            },
-            {
-                preferred: null,
-                fallback1: undefined,
-                defaultValue: true,
-                expected: true
-            },
-            {
-                preferred: undefined,
-                fallback1: null,
-                defaultValue: undefined,
-                expected: false
-            },
-            {
-                preferred: true,
-                fallback1: true,
-                defaultValue: false,
-                expected: true
-            },
-            {
-                preferred: true,
-                fallback1: true,
-                defaultValue: true,
-                expected: true
-            },
-            {
-                preferred: false,
-                fallback1: false,
-                defaultValue: false,
-                expected: false
-            }
-        ]
-        testData.forEach(({preferred, fallback1, defaultValue, expected}, i) => {
-            it(`should pass with input ${i}`, function() {
-                const actual = QuasiHttpUtils._determineEffectiveBooleanOption(
-                    preferred as any, fallback1 as any, defaultValue as any)
-                assert.equal(actual, expected)
             })
         })
     })

@@ -58,8 +58,8 @@ export function bytesToString(data: Buffer) {
     return data.toString();
 }
 
-export function stringToBytes(str: string) {
-    return Buffer.from(str);
+export function stringToBytes(s: string) {
+    return Buffer.from(s);
 }
 
 export function createBlankChequePromise<T>() {

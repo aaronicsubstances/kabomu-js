@@ -237,7 +237,7 @@ export async function writeQuasiHttpHeaders(
     }
 
     const encodedHeadersReadable = Readable.from((function*() {
-        yield TlvUtils.encodeTagAndLengthOnly(
+        yield TlvUtils.encodeTagAndLength(
             TlvUtils.TAG_FOR_QUASI_HTTP_HEADERS,
             encodedHeaders.length)
         yield encodedHeaders
@@ -265,7 +265,7 @@ export async function readQuasiHttpHeaders(
     }
     const encodedLen = await IOUtilsInternal.readBytesFully(src,
         4);
-    const headersSize = TlvUtils.decodeTag(encodedLen, 0);
+    const headersSize = TlvUtils.decodeLength(encodedLen, 0);
     if (headersSize > maxHeadersSize) {
         throw new QuasiHttpError(
             "quasi http headers exceed " +

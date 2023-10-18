@@ -99,12 +99,13 @@ export class StandardQuasiHttpClient {
             throw new MissingDependencyError("client transport");
         }
 
-        const connection = await transport.allocateConnection(
-            remoteEndpoint, sendOptions);
-        if (!connection) {
-            throw new QuasiHttpError("no connection")
-        }
+        let connection: QuasiHttpConnection | undefined;
         try {
+            connection = await transport.allocateConnection(
+                remoteEndpoint, sendOptions);
+            if (!connection) {
+                throw new QuasiHttpError("no connection")
+            }
             const responsePromise = processSend(
                 request, requestFunc,
                 transport, connection)
@@ -119,7 +120,9 @@ export class StandardQuasiHttpClient {
             return response;
         }
         catch (e) {
-            await abort(transport, connection, true)
+            if (connection) {
+                await abort(transport, connection, true)
+            }
             if (e instanceof QuasiHttpError) {
                 throw e;
             }
@@ -170,10 +173,8 @@ async function processSend(
         response = await ProtocolUtilsInternal.readEntityFromTransport(
             true, transport.getReadableStream(connection),
             connection)
-        if (!response.body) {
-            response.release = async () => {
-                await transport.releaseConnection(connection, undefined);
-            }
+        response.release = async () => {
+            await transport.releaseConnection(connection, undefined);
         }
     }
     return response;

@@ -6,7 +6,7 @@ import * as IOUtilsInternal from "../../src/IOUtilsInternal"
 import {
     createTlvEncodingReadableStream,
     createTlvDecodingReadableStream,
-    encodeTagAndLengthOnly,
+    encodeTagAndLength,
     decodeTag,
     decodeLength,
 } from "../../src/tlv/TlvUtils"
@@ -16,7 +16,7 @@ import { readAllBytes } from "../shared/ComparisonUtils"
 import { KabomuIOError } from "../../src/errors"
 
 describe("TlvUtils", function() {
-    describe("#encodeTagAndLengthOnly", function() {
+    describe("#encodeTagAndLength", function() {
         const testData = [
             {
                 tag: 0x15c0,
@@ -39,7 +39,7 @@ describe("TlvUtils", function() {
         ]
         testData.forEach(({ tag, length, expected }, i) => {
             it(`should pass with input ${i}`, async () => {
-                const actual = encodeTagAndLengthOnly(tag, length);
+                const actual = encodeTagAndLength(tag, length);
                 assert.deepEqual(actual, expected);
             })
         })
@@ -61,7 +61,7 @@ describe("TlvUtils", function() {
         testErrorData.forEach(({ tag, length }, i) => {
             it(`should fail with input ${i}`, async () => {
                 assert.throws(() => {
-                    encodeTagAndLengthOnly(tag, length)
+                    encodeTagAndLength(tag, length)
                 })
             })
         })
@@ -94,7 +94,7 @@ describe("TlvUtils", function() {
 
         const testErrorData = [
             {
-                data: Buffer.alloc(3),
+                data: Buffer.from([1, 1, 1]),
                 offset: 0
             },
             {
@@ -145,7 +145,7 @@ describe("TlvUtils", function() {
 
         const testErrorData = [
             {
-                data: Buffer.alloc(3),
+                data: Buffer.from([1, 1, 1]),
                 offset: 0
             },
             {
@@ -161,20 +161,21 @@ describe("TlvUtils", function() {
     })
 
     describe("#createTlvEncodingReadableStream", function() {
-        // NB: Test method only tests with one and zero,
-        /// so as to guarantee that data will not be split,
-        /// even when test is ported to other languages.
+        // NB: Test method only tests with one and zero bytes,
+        // so as to guarantee that data will not be split,
+        // even when test is ported to other languages.
         it("should pass", async function() {
+            const srcByte = 45;
             const tagToUse = 16
-            const destStream = Readable.from(Buffer.from([ 45 ]))
+            const backingStream = Readable.from(Buffer.from([ srcByte ]))
             const expected = Buffer.from([
                 0, 0, 0, 16,
                 0, 0, 0, 1,
-                45,
+                srcByte,
                 0, 0, 0, 16,
                 0, 0, 0, 0
             ])
-            const instance = createTlvEncodingReadableStream(destStream,
+            const instance = createTlvEncodingReadableStream(backingStream,
                 tagToUse)
             const actual = await readAllBytes(instance)
             assert.equalBytes(actual, expected)

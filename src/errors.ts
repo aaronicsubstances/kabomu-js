@@ -35,6 +35,8 @@ export class ExpectationViolationError extends KabomuError { }
  */
 export class MissingDependencyError extends KabomuError { }
 
+export class IllegalArgumentError extends KabomuError { }
+
 // the following codes are reserved for future use.
 const reasonCodeReserved5 = 5;
 const reasonCodeReserved6 = 6;
