@@ -10,8 +10,8 @@ export async function compareRequests(
         actual: IQuasiHttpRequest | undefined,
         expected: IQuasiHttpRequest | undefined,
         expectedReqBodyBytes: Buffer | undefined) {
-    if (!expected || !actual) {
-        assert.equal(actual, expected);
+    if (!actual || !expected) {
+        assert.strictEqual(actual, expected);
         return;
     }
     assert.equal(actual.httpMethod, expected.httpMethod);
@@ -27,8 +27,8 @@ export async function compareResponses(
         actual: IQuasiHttpResponse | undefined,
         expected: IQuasiHttpResponse | undefined,
         expectedResBodyBytes: Buffer | undefined) {
-    if (!expected || !actual) {
-        assert.equal(actual, expected);
+    if (!actual || !expected) {
+        assert.strictEqual(actual, expected);
         return;
     }
     assert.equal(actual.statusCode, expected.statusCode);
@@ -55,29 +55,17 @@ export async function compareBodies(
 function compareHeaders(
         actual: Map<string, Array<string>> | undefined,
         expected: Map<string, Array<string>> | undefined) {
+    if (!actual || !expected) {
+        assert.strictEqual(actual, expected)
+        return;
+    }
     const actualExtraction = new Array<string[]>();
-    if (actual) {
-        for (const key of actual.keys()) {
-            let value = actual[key];
-            if (typeof value === "string") {
-                value = [value]
-            }
-            if (value && value.length > 0) {
-                actualExtraction.push([key, ...value]);
-            }
-        }
+    for (const entry of actual) {
+        actualExtraction.push([entry[0], ...entry[1]]);
     }
     const expectedExtraction = new Array<string[]>();
-    if (expected) {
-        for (const key of expected.keys()) {
-            let value = expected[key];
-            if (typeof value === "string") {
-                value = [value]
-            }
-            if (value && value.length > 0) {
-                expectedExtraction.push([key, ...value]);
-            }
-        }
+    for (const entry of expected) {
+        expectedExtraction.push([entry[0], ...entry[1]]);
     }
     assert.deepEqual(actualExtraction, expectedExtraction)
 }

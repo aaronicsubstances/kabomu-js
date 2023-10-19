@@ -40,7 +40,7 @@ describe("StandardQuasiHttpClientServerTest", function() {
                 contentLength: expectedReqBodyBytes.length,
                 headers: new Map([
                     ["accept", ["text/plain", "text/csv"]],
-                    ["content-type", "application/json,charset=UTF-8" as any]
+                    ["content-type", ["application/json,charset=UTF-8"]]
                 ])
             })
             let expectedSerializedReq: Buffer | undefined = Buffer.concat([
@@ -131,7 +131,7 @@ describe("StandardQuasiHttpClientServerTest", function() {
                     processingOptions: sendOptions,
                     writableStream: destStream
                 }
-                const clientTransport = createClientTransport(false)
+                const clientTransport = createClientTransportImpl(false)
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
@@ -180,8 +180,8 @@ describe("StandardQuasiHttpClientServerTest", function() {
                 // assert
                 await compareRequests(actualRequest, expectedRequest,
                     expectedReqBodyBytes);
-                assert.strictEqual(serverConnection.environment,
-                    actualRequest?.environment)
+                assert.strictEqual(actualRequest?.environment,
+                    serverConnection.environment)
             })
         }
     })
@@ -316,7 +316,7 @@ describe("StandardQuasiHttpClientServerTest", function() {
                     processingOptions: sendOptions,
                     writableStream: destStream
                 }
-                const clientTransport = createClientTransport(false)
+                const clientTransport = createClientTransportImpl(false)
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
@@ -332,6 +332,7 @@ describe("StandardQuasiHttpClientServerTest", function() {
                 const client = new StandardQuasiHttpClient({
                     transport: clientTransport
                 })
+
                 if (!expectedErrorMsg) {
                     const actualRes = await client.send(remoteEndpoint,
                         request, sendOptions)
@@ -457,11 +458,11 @@ describe("StandardQuasiHttpClientServerTest", function() {
                     writableStream: destStream
                 }
                 const serverTransport = createServerTransportImpl(true)
+                const dummyReq = new DefaultQuasiHttpRequest()
                 serverTransport.requestDeserializer = async (conn) => {
                     assert.strictEqual(conn, serverConnection)
                     return dummyReq
                 }
-                const dummyReq = new DefaultQuasiHttpRequest()
                 const server = new StandardQuasiHttpServer({
                     transport: serverTransport,
                     application: async (req) => {
@@ -485,7 +486,7 @@ describe("StandardQuasiHttpClientServerTest", function() {
                     processingOptions: sendOptions,
                     readableStream: memStream
                 }
-                const clientTransport = createClientTransport(true)
+                const clientTransport = createClientTransportImpl(true)
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
@@ -708,7 +709,7 @@ describe("StandardQuasiHttpClientServerTest", function() {
                     readableStream: memStream,
                     environment: new Map()
                 }
-                const clientTransport = createClientTransport(true)
+                const clientTransport = createClientTransportImpl(true)
                 clientTransport.allocateConnection = async (endPt, opts) => {
                     assert.strictEqual(endPt, remoteEndpoint)
                     assert.strictEqual(opts, sendOptions)
@@ -755,7 +756,7 @@ describe("StandardQuasiHttpClientServerTest", function() {
     })
 })
 
-function createClientTransport(
+function createClientTransportImpl(
         initializeSerializerFunctions: boolean): any {
     const transport: any = {
         getReadableStream(connection: any) {
