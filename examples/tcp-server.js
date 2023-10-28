@@ -12,9 +12,9 @@ dotenv.config()
 
 async function main() {
     port = process.env.PORT || 5001
-    uploadDirPath = process.env.SAVE_DIR || "logs/server"
+    downloadDirPath = process.env.SAVE_DIR || "logs/server"
     const instance = new StandardQuasiHttpServer({
-        application: FileReceiver.create(port, uploadDirPath)
+        application: FileReceiver.create(port, downloadDirPath)
     });
     const transport = new LocalhostTcpServerTransport({
         port,
@@ -42,7 +42,7 @@ async function main() {
     finally {
         rL.close();
 
-        logDebug("Stopping Tcp.FileServer...");
+        logInfo("Stopping Tcp.FileServer...");
         await transport.stop();
 
          // don't wait for remainder of ongoing

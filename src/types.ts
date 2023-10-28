@@ -13,10 +13,38 @@ export interface ICustomDisposable {
     release(): Promise<void>
 }
 
+/**
+ * Represents additional interface that transport property of 
+ * StandardQuasiHttpClient and StandardQuasiHttpServer classes can
+ * implement, in order to override parts of
+ * IQuasiHttpTransport functionality.
+ */
 export interface IQuasiHttpAltTransport {
+
+    /**
+     * Gets a function which can return true to
+     * prevent the need to write request headers
+     * and body to a connection.
+     */
     requestSerializer?: (conn: QuasiHttpConnection, req: IQuasiHttpRequest) => Promise<boolean>
+    
+    /**
+     * Gets a function which can return true to prevent the
+     * need to write response headers and body to a connection.
+     */
     responseSerializer?: (conn: QuasiHttpConnection, res: IQuasiHttpResponse) => Promise<boolean>
+    
+    /**
+     * Gets a function which can return a non-null request object to
+     * prevent the need to read request headers from a connection.
+     */
     requestDeserializer?: (conn: QuasiHttpConnection) => Promise<IQuasiHttpRequest | undefined>
+    
+    /**
+     * Gets a function which can return a non-null response object
+     * to prevent the need to read response headers from  a
+     * connection.
+     */
     responseDeserializer?: (conn: QuasiHttpConnection) => Promise<IQuasiHttpResponse | undefined>
 }
 
@@ -63,8 +91,8 @@ export interface QuasiHttpConnection {
 
     /**
      * Gets the effective processing options that will be used to
-     * configure and perform response buffering, and any other
-     * operations by StandardQuasiHttpClient
+     * limit sizes of headers and response bodies, and configure any
+     * other operations by StandardQuasiHttpClient
      * and StandardQuasiHttpServer instances.
      */
     processingOptions?: QuasiHttpProcessingOptions
@@ -254,7 +282,21 @@ export interface IQuasiHttpServerTransport  extends IQuasiHttpTransport {
  * at both server and client ends.
  */
 export interface IQuasiHttpTransport {
+
+    /**
+     * Gets the readable stream associated with a connection
+     * for reading a request or response from the connection.
+     * @param connection connection with readable stream
+     * @returns readable stream
+     */
     getReadableStream(conn: QuasiHttpConnection): Readable | undefined
+    
+    /**
+     * Gets the writable stream associated with a connection
+     * for writing a request or response to the connection.
+     * @param connection connection with writable stream
+     * @returns writable stream
+     */
     getWritableStream(conn: QuasiHttpConnection): Writable | undefined
 }
 
