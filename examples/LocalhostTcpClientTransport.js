@@ -29,9 +29,10 @@ class LocalhostTcpClientTransport {
         socket.once("error", errorListener)
         const connectOpts = {
             port,
-            noDelay: true
+            noDelay: true,
+            host: "::1"
         }
-        socket.connect(connectOpts, "::1", () => {
+        socket.connect(connectOpts, () => {
             blankCheque.resolve()
         })
         await blankCheque.promise;
