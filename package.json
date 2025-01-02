@@ -23,7 +23,7 @@
     "http",
     "ipc"
   ],
-  "author": "Aaron Baffour-Awuah <aaronbaffourawuah@gmail.com> (https://github.com/aaronicsubstances)",
+  "author": "aaronicsubstances",
   "license": "MPL-2.0",
   "bugs": {
     "url": "https://github.com/aaronicsubstances/kabomu-js/issues"
